@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- files-path стабильнее работает с PackageInstaller на Android 11+ -->
+<!--    <files-path name="apk_updates" path="." />-->
+    <cache-path name="apk_updates" path="." />
+</paths>
