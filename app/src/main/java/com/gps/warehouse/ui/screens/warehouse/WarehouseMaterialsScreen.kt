@@ -22,7 +22,7 @@ import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SearchAndFilterBar // Импортируем новый компонент
 import com.gps.warehouse.utils.BarcodeParser
-import com.gps.warehouse.utils.HoneywellAidcHelper
+import com.gps.warehouse.utils.ScannerManager
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -51,7 +51,7 @@ fun WarehouseMaterialsScreen(
     var isFiltersExpanded by remember { mutableStateOf(false) }
 
     // Инициализация сканера
-    val honeywellHelper = remember { HoneywellAidcHelper(context) }
+    val honeywellHelper = remember { ScannerManager(context) }
 
     LaunchedEffect(startDate, endDate) {
         val startApi = "$startDate'T'00:00:00.000'Z'"
@@ -60,8 +60,8 @@ fun WarehouseMaterialsScreen(
 
         // Инициализация сканера при открытии экрана
         honeywellHelper.init(
-            onInitialized = { honeywellHelper.enableScanner(true) },
-            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
+//            onInitialized = { honeywellHelper.enableScanner(true) },
+//            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
         )
     }
 
@@ -84,7 +84,7 @@ fun WarehouseMaterialsScreen(
     // Освобождение ресурсов сканера при уходе с экрана
     DisposableEffect(Unit) {
         onDispose {
-            honeywellHelper.enableScanner(false)
+//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
         }
     }

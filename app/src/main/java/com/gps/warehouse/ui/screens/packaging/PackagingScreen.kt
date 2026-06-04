@@ -29,7 +29,7 @@ import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.BarcodeParser
-import com.gps.warehouse.utils.HoneywellAidcHelper
+import com.gps.warehouse.utils.ScannerManager
 
 // 1. Реальный экран
 @Composable
@@ -50,7 +50,7 @@ fun PackagingScreen(
     var dialogQty by remember { mutableStateOf("1") }
 
     // Инициализируем хелпер Honeywell AIDC
-    val honeywellHelper = remember { HoneywellAidcHelper(context) }
+    val honeywellHelper = remember { ScannerManager(context) }
 
     // Слушаем поток сканера
     LaunchedEffect(Unit) {
@@ -81,16 +81,16 @@ fun PackagingScreen(
     // Инициализация и управление сканером
     DisposableEffect(Unit) {
         honeywellHelper.init(
-            onInitialized = {
-                honeywellHelper.enableScanner(true)
-            },
-            onError = { e ->
-                Toast.makeText(context, "Ошибка инициализации сканера: ${e.message}", Toast.LENGTH_LONG).show()
-            }
+//            onInitialized = {
+//                honeywellHelper.enableScanner(true)
+//            },
+//            onError = { e ->
+//                Toast.makeText(context, "Ошибка инициализации сканера: ${e.message}", Toast.LENGTH_LONG).show()
+//            }
         )
 
         onDispose {
-            honeywellHelper.enableScanner(false)
+//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
             // Сбрасываем состояние VM при уходе с экрана, чтобы не видеть старый успех
             viewModel.resetStateToIdle()

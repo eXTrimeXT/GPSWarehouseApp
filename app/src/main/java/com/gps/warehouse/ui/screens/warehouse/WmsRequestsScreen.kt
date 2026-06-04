@@ -22,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.gps.warehouse.data.remote.dto.WmsReceiveItem
 import com.gps.warehouse.data.remote.dto.WmsRequestDto
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
@@ -30,7 +29,7 @@ import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SearchAndFilterBar
 import com.gps.warehouse.utils.BarcodeParser
-import com.gps.warehouse.utils.HoneywellAidcHelper
+import com.gps.warehouse.utils.ScannerManager
 
 // ====================== 1. ЭКРАН (Владеет состоянием и ViewModel) ======================
 @Composable
@@ -72,11 +71,11 @@ fun WmsRequestsScreen(
     }
 
     // Сканер
-    val honeywellHelper = remember { HoneywellAidcHelper(context) }
+    val honeywellHelper = remember { ScannerManager(context) }
     LaunchedEffect(Unit) {
         honeywellHelper.init(
-            onInitialized = { honeywellHelper.enableScanner(true) },
-            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
+//            onInitialized = { honeywellHelper.enableScanner(true) },
+//            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
         )
         honeywellHelper.barcodeFlow.collect { scannedData ->
             if (scannedData.isNotEmpty()) {
@@ -88,7 +87,7 @@ fun WmsRequestsScreen(
     }
     DisposableEffect(Unit) {
         onDispose {
-            honeywellHelper.enableScanner(false)
+//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
         }
     }

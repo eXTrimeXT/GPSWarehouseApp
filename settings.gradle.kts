@@ -9,6 +9,7 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
+        // Подключение папки ./libs
         flatDir {
             dirs("libs")
         }
@@ -22,7 +23,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // Добавьте эту строку
+        // Подключение папки ./libs
         flatDir {
             dirs("libs")
         }

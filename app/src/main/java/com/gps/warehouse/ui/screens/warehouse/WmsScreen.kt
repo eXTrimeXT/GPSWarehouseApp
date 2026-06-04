@@ -1,6 +1,5 @@
 package com.gps.warehouse.ui.screens.warehouse
 
-import android.R
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -31,7 +30,7 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SearchAndFilterBar // Импортируем универсальный компонент
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.utils.HoneywellAidcHelper
+import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.BarcodeParser
 
 @Composable
@@ -63,14 +62,14 @@ fun WmsScreen(
     var dialogError by remember { mutableStateOf<String?>(null) }
 
     // Инициализация сканера
-    val honeywellHelper = remember { HoneywellAidcHelper(context) }
+    val honeywellHelper = remember { ScannerManager(context) }
 
     // Инициализация сканера при открытии экрана
     LaunchedEffect(Unit) {
         viewModel.loadWmsData()
         honeywellHelper.init(
-            onInitialized = { honeywellHelper.enableScanner(true) },
-            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
+//            onInitialized = { honeywellHelper.enableScanner(true) },
+//            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
         )
     }
 
@@ -107,7 +106,7 @@ fun WmsScreen(
     // Освобождение ресурсов сканера при уходе с экрана
     DisposableEffect(Unit) {
         onDispose {
-            honeywellHelper.enableScanner(false)
+//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
         }
     }

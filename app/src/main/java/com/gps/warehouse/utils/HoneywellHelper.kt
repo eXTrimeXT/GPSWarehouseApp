@@ -9,9 +9,9 @@ import com.honeywell.aidc.BarcodeFailureEvent
 import com.honeywell.aidc.BarcodeReadEvent
 import com.honeywell.aidc.BarcodeReader
 
-class HoneywellAidcHelper(private val context: Context) {
+class HoneywellHelper(private val context: Context) {
 
-    private var aidcManager: AidcManager? = null
+    private var honeywellManager: AidcManager? = null
     private var barcodeReader: BarcodeReader? = null
 
     private val _barcodeChannel = Channel<String>(Channel.CONFLATED)
@@ -25,7 +25,7 @@ class HoneywellAidcHelper(private val context: Context) {
         try {
             AidcManager.create(context, object : AidcManager.CreatedCallback {
                 override fun onCreated(manager: AidcManager?) {
-                    aidcManager = manager
+                    honeywellManager = manager
 
                     if (manager == null) {
                         onError(Exception("Manager is null"))
@@ -110,11 +110,11 @@ class HoneywellAidcHelper(private val context: Context) {
             barcodeReader = null
 
             try {
-                aidcManager?.close()
+                honeywellManager?.close()
             } catch (e: Exception) {
                 Log.e(TAG, "Error closing manager", e)
             }
-            aidcManager = null
+            honeywellManager = null
 
             _barcodeChannel.close()
 

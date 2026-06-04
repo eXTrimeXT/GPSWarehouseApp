@@ -34,7 +34,7 @@ import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.BarcodeParser
-import com.gps.warehouse.utils.HoneywellAidcHelper
+import com.gps.warehouse.utils.ScannerManager
 
 @Composable
 fun InventoryCheckScreen(
@@ -44,7 +44,7 @@ fun InventoryCheckScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val honeywellHelper = remember { HoneywellAidcHelper(context) }
+    val honeywellHelper = remember { ScannerManager(context) }
 
     // Состояние выбранного материала для сверки
     var selectedMaterial by remember { mutableStateOf<InventoryMaterialDto?>(null) }
@@ -92,17 +92,17 @@ fun InventoryCheckScreen(
 
     DisposableEffect(Unit) {
         honeywellHelper.init(
-            onInitialized = { honeywellHelper.enableScanner(true) },
-            onError = { e ->
-                Toast.makeText(
-                    context,
-                    "Ошибка сканера: ${e.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+//            onInitialized = { honeywellHelper.enableScanner(true) },
+//            onError = { e ->
+//                Toast.makeText(
+//                    context,
+//                    "Ошибка сканера: ${e.message}",
+//                    Toast.LENGTH_LONG
+//                ).show()
+//            }
         )
         onDispose {
-            honeywellHelper.enableScanner(false)
+//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
         }
     }

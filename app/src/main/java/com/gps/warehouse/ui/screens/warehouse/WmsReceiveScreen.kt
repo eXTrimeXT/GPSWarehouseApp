@@ -4,7 +4,6 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -30,9 +29,7 @@ import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
-import com.gps.warehouse.utils.BarcodeParser
-import com.gps.warehouse.utils.HoneywellAidcHelper
-import com.gps.warehouse.utils.ScannedData
+import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.decodeWmsScanData
 import com.gps.warehouse.utils.isBase64EncodedJson
 
@@ -59,7 +56,7 @@ fun WmsReceiveScreen(
     var dialogExpi by remember { mutableStateOf(true) }
 
     // Хелпер для сканера Honeywell
-    val honeywellHelper = remember { HoneywellAidcHelper(context) }
+    val honeywellHelper = remember { ScannerManager(context) }
 
     // Слушаем поток сканера
     LaunchedEffect(Unit) {
@@ -128,13 +125,13 @@ fun WmsReceiveScreen(
     // Инициализация сканера
     DisposableEffect(Unit) {
         honeywellHelper.init(
-            onInitialized = { honeywellHelper.enableScanner(true) },
-            onError = { e ->
-                Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show()
-            }
+//            onInitialized = { honeywellHelper.enableScanner(true) },
+//            onError = { e ->
+//                Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show()
+//            }
         )
         onDispose {
-            honeywellHelper.enableScanner(false)
+//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
             viewModel.resetReceiveState()
         }

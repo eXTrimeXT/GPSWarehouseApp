@@ -24,7 +24,7 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.BarcodeParser
-import com.gps.warehouse.utils.HoneywellAidcHelper
+import com.gps.warehouse.utils.ScannerManager
 
 @Composable
 fun PackToWarehouseScreen(
@@ -39,16 +39,16 @@ fun PackToWarehouseScreen(
     var quantity by remember { mutableStateOf("") }
     var uniqueCode by remember { mutableStateOf("") }
 
-    val honeywellHelper = remember { HoneywellAidcHelper(context) }
+    val honeywellHelper = remember { ScannerManager(context) }
 
     // Инициализация сканера
     DisposableEffect(Unit) {
         honeywellHelper.init(
-            onInitialized = { honeywellHelper.enableScanner(true) },
-            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
+//            onInitialized = { honeywellHelper.enableScanner(true) },
+//            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
         )
         onDispose {
-            honeywellHelper.enableScanner(false)
+//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
         }
     }
