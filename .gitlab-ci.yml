@@ -21,9 +21,6 @@ before_script:
 build_apk:
   stage: build
   script:
-    # Клонируем репозиторий с правильным доменом
-    - git clone --depth=1 https://git.hmmr.ru/timurmalyshev/android-gps-warehouse-app.git .
-    - chmod +x ./gradle
     - ./gradlew assembleDebug
   artifacts:
     paths:
