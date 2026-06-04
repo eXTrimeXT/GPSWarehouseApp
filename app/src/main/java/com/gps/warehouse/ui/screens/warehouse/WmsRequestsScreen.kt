@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -383,7 +384,10 @@ fun WmsRequestCard(request: WmsRequestDto, onClick: () -> Unit) {
                         text = if (request.isIncoming == "0") "Исходящий" else "Входящий",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold,
-                        color = if (request.isIncoming == "0") MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+                        color = if (request.isIncoming == "0")
+                            MaterialTheme.colorScheme.error
+                        else
+                            MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .padding(8.dp)
                             .wrapContentWidth()
@@ -407,6 +411,7 @@ fun WmsRequestActionDialog(
     onConfirm: (String) -> Unit
 ) {
     AlertDialog(
+        modifier = Modifier,
         onDismissRequest = onDismiss,
         title = { Text(if (request.isIncoming == "1") "Входящий запрос" else "Исходящий запрос", fontWeight = FontWeight.SemiBold) },
         titleContentColor = if (request.isIncoming == "1") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
@@ -419,9 +424,36 @@ fun WmsRequestActionDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm("cancel") }, colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Отклонить") }
-            if (request.isIncoming == "1") Button(onClick = { onConfirm("accept") }) { Text("Принять") }
+            Row( modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                TextButton(
+                    onClick = { onConfirm("cancel") },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) { Text("Отклонить") }
+                if (request.isIncoming == "1") Button(onClick = { onConfirm("accept") }) { Text("Принять") }
+            }
         },
+    )
+}
+
+@Preview
+@Composable
+fun PreviewDialog(){
+    WmsRequestActionDialog(
+        request = WmsRequestDto(
+            id = "",
+            name = "",
+            type = "",
+            userAccept = "",
+            fromStorage = "",
+            isIncoming = "1",
+            fromId = "",
+            isActive = "",
+            toStorage = "",
+            material = "",
+            qty = ""
+        ),
+        onConfirm = {},
+        onDismiss = {}
     )
 }
 
