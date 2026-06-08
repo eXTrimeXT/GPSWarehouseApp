@@ -23,23 +23,25 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.gps.warehouse.ui.assets_screens.AssetDetailsScreen
+import com.gps.warehouse.ui.assets_screens.AssetListScreen
 import com.gps.warehouse.ui.components.UpdateDialog
-import com.gps.warehouse.ui.screens.archive.ArchiveScreen
-import com.gps.warehouse.ui.screens.home.HomeScreen
-import com.gps.warehouse.ui.screens.inventory.InventoryCheckScreen
-import com.gps.warehouse.ui.screens.inventory.InventoryListScreen
-import com.gps.warehouse.ui.screens.login.LoginScreen
-import com.gps.warehouse.ui.screens.archive.OrderDetailsScreen
-import com.gps.warehouse.ui.screens.orders.OrdersScreen
-import com.gps.warehouse.ui.screens.packaging.PackagingScreen
-import com.gps.warehouse.ui.screens.packtowarehouse.PackToWarehouseScreen
-import com.gps.warehouse.ui.screens.profile.ProfileScreen
-import com.gps.warehouse.ui.screens.orders.ReceiveMaterialsScreen
-import com.gps.warehouse.ui.screens.settings.SettingsScreen
-import com.gps.warehouse.ui.screens.warehouse.WarehouseMaterialsScreen
-import com.gps.warehouse.ui.screens.warehouse.WmsReceiveScreen
-import com.gps.warehouse.ui.screens.warehouse.WmsRequestsScreen
-import com.gps.warehouse.ui.screens.warehouse.WmsScreen
+import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
+import com.gps.warehouse.ui.home.HomeScreen
+import com.gps.warehouse.ui.gps_screens.inventory.InventoryCheckScreen
+import com.gps.warehouse.ui.gps_screens.inventory.InventoryListScreen
+import com.gps.warehouse.ui.login.LoginScreen
+import com.gps.warehouse.ui.gps_screens.archive.OrderDetailsScreen
+import com.gps.warehouse.ui.gps_screens.orders.OrdersScreen
+import com.gps.warehouse.ui.gps_screens.packaging.PackagingScreen
+import com.gps.warehouse.ui.gps_screens.packtowarehouse.PackToWarehouseScreen
+import com.gps.warehouse.ui.gps_screens.profile.ProfileScreen
+import com.gps.warehouse.ui.gps_screens.orders.ReceiveMaterialsScreen
+import com.gps.warehouse.ui.gps_screens.settings.SettingsScreen
+import com.gps.warehouse.ui.gps_screens.warehouse.WarehouseMaterialsScreen
+import com.gps.warehouse.ui.gps_screens.warehouse.WmsReceiveScreen
+import com.gps.warehouse.ui.gps_screens.warehouse.WmsRequestsScreen
+import com.gps.warehouse.ui.gps_screens.warehouse.WmsScreen
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants
 import com.gps.warehouse.utils.UpdateManager
@@ -222,6 +224,25 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("settings") {
                             SettingsScreen(navController = navController)
+                        }
+
+                        // В NavHost добавить:
+                        composable("assets") {
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            AssetListScreen(
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("asset_details/{assetId}") { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            AssetDetailsScreen(
+                                assetId = assetId,
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
                         }
                     }
                     // Показ диалога поверх всего контента (после NavHost):

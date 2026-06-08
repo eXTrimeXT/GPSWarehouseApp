@@ -5,10 +5,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.TokenStorage
-import com.gps.warehouse.data.remote.ApiService
-import com.gps.warehouse.data.remote.dto.*
+import com.gps.warehouse.data.remote.GPSApiService
+import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
-import com.gps.warehouse.utils.Constants
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
 import com.gps.warehouse.utils.RsaUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +27,7 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val tokenStorage: TokenStorage,
-    private val apiService: ApiService,
+    private val apiService: GPSApiService,
 ) : ViewModel() {
 
     sealed class UiState {

@@ -2,7 +2,7 @@ package com.gps.warehouse.di
 
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import com.gps.warehouse.data.remote.ApiService
+import com.gps.warehouse.data.remote.GPSApiService
 import com.gps.warehouse.utils.Constants
 import dagger.Module
 import dagger.Provides
@@ -92,7 +92,7 @@ object NetworkModule {
      */
     @Provides
     @Singleton
-    fun provideApiService(retrofit: Retrofit): ApiService {
-        return retrofit.create(ApiService::class.java)
+    fun provideApiService(retrofit: Retrofit): GPSApiService {
+        return retrofit.create(GPSApiService::class.java)
     }
 }
