@@ -16,6 +16,7 @@
 - [X] Логика обновления приложения
 - [X] Разделение на вкладки
 - [X] Настройка темной темы
+- [X] Сканирование для устройств Honeywell и Zebra
 
 ## Описание
 Мобильное приложение для Android, разработанное специально для терминалов сбора данных (ТСД) **Honeywell EDA52** (Android 11). 
@@ -34,7 +35,7 @@
 - Безопасный вход с использованием **RSA-шифрования** пароля.
 - Получение публичного ключа с сервера перед отправкой данных.
 - Использование **JWT-токенов** для аутентификации сессий.
-- Автоматическое завершение сессии через 11 часов неактивности.
+- Автоматическое завершение сессии через 12 часов неактивности.
 
 ### Управление заказами
 - **Список активных заказов**: Просмотр заказов со статусами "Новый", "В пути", "Отправлен".
@@ -92,25 +93,30 @@
 ```text
 com.gps.warehouse/
 ├── data/
-│   ├── local/          # TokenStorage (DataStore), PersistentCookieJar
-│   └── remote/         # ApiService (интерфейс API), DTOs (Data Transfer Objects)
-├── di/                 # Hilt Modules
-│   ├── AppModule.kt    # Предоставление TokenStorage
-│   └── NetworkModule.kt # Настройка Retrofit, OkHttpClient, Gson
+│ ├── local/                        # TokenStorage (DataStore), PersistentCookieJar
+│ └── remote/                       # ApiService (интерфейс API), DTOs (Data Transfer Objects)
+│
+├── di/ # Hilt Modules
+│ ├── AppModule.kt                  # Предоставление TokenStorage
+│ └── NetworkModule.kt              # Настройка Retrofit, OkHttpClient, Gson
+│
 ├── ui/
-│   ├── screens/        # Экраны приложения (Login, Home, Orders, WMS, Inventory и др.)
-│   ├── components/     # Переиспользуемые UI-компоненты
-│   │   ├── MyCustomActionBar.kt # Кастомный AppBar с кнопкой назад
-│   │   ├── ErrorStateView.kt    # Унифицированный экран ошибки с авто-повтором
-│   │   └── CustomLoadingView.kt # Индикатор загрузки
-│   ├── MainActivity.kt # Точка входа UI, настройка NavHost
-│   └── MainViewModel.kt # Единая точка управления состоянием UI и бизнес-логикой
-├── utils/              # Утилиты
-│   ├── BarcodeParser.kt      # Парсер штрихкодов (Plain text / Base64 JSON)
-│   ├── RsaUtils.kt           # Шифрование пароля RSA
-│   ├── HoneywellAidcHelper.kt # Обертка над SDK Honeywell для сканирования
-│   └── Constants.kt          # Константы (URL, таймауты)
-└── App.kt            # Application class с @HiltAndroidApp
+│ ├── screens/                      # Экраны приложения (Login, Home, Orders, WMS, Inventory и др.)
+│ ├── components/                   # Переиспользуемые UI-компоненты
+│ │     ├── MyCustomActionBar.kt    # Кастомный AppBar с кнопкой назад
+│ │     ├── ErrorStateView.kt       # Унифицированный экран ошибки с авто-повтором
+│ │     └── CustomLoadingView.kt    # Индикатор загрузки
+│ ├── MainActivity.kt               # Точка входа UI, настройка NavHost
+│ └── MainViewModel.kt              # Единая точка управления состоянием UI и бизнес-логикой
+│
+├── utils/ # Утилиты
+│ ├── BarcodeParser.kt              # Парсер штрихкодов (Plain text / Base64 JSON)
+│ ├── RsaUtils.kt                   # Шифрование пароля RSA
+│ ├── ScannerManager.kt             # Универсальный менеджер сканеров (диспетчер)
+│ ├── HoneywellAidcHelper.kt        # Обертка над SDK Honeywell для сканирования
+│ ├── ZebraEmdkHelper.kt            # Обертка над SDK Zebra EMDK для сканирования
+│ └── Constants.kt                  # Константы (URL, таймауты)
+└── App.kt                          # Application class с @HiltAndroidApp
 ```
 
 ---
@@ -171,11 +177,14 @@ com.gps.warehouse/
 - Содержит логику всех сетевых запросов.
 - Обрабатывает результаты сканирования и обновляет локальные списки материалов в реальном времени.
 
-### 2. Работа со сканером (`HoneywellAidcHelper`)
-Инкапсулирует сложность работы с нативным SDK Honeywell.
-- Инициализирует `AidcManager` и `BarcodeReader`.
-- Предоставляет данные сканирования через `Channel` и `Flow<String>`, что позволяет легко интегрировать сканер в любой экран через `LaunchedEffect`.
-- Поддерживает режим `CONFLATED` для пропуска лишних событий при быстром сканировании.
+### 2. Универсальная работа со сканерами (ScannerManager)
+- Поддержка различных моделей ТСД 
+- Диспетчер ScannerManager, инкапсулирует работу с нативными SDK производителей.
+- Honeywell AIDC SDK: Инициализирует AidcManager и BarcodeReader для устройств Honeywell.
+- Zebra EMDK SDK: Использует EMDKManager и BarcodeManager для устройств Zebra.
+- Предоставляет унифицированный barcodeFlow (на базе Channel), что позволяет экранам не зависеть от конкретного производителя ТСД.
+- Поддерживает режим CONFLATED для пропуска лишних событий при быстром сканировании.
+- При запуске на устройстве одного производителя, SDK второго производителя корректно обрабатывает ошибку инициализации и не мешает работе.
 
 ### 3. Универсальный парсинг штрихкодов (`BarcodeParser`)
 Поддерживает два формата ввода:
@@ -202,7 +211,7 @@ com.gps.warehouse/
 ### Требования
 - **Android Studio**: Hedgehog или новее.
 - **JDK**: 11 или выше.
-- **Устройство**: Физический ТСД Honeywell EDA52 (или аналог с поддержкой AIDC).
+- **Устройство**: Honeywell EDA52 или Zebra TC520K.
 - **Доступ к API**: `http://gps-test.hmmr.ru/api/`
 
 ### Шаги по запуску

@@ -385,7 +385,7 @@ fun RenderReceiveList(
     }
 }
 
-// 📝 Диалог ввода (ИСПРАВЛЕНО: 5 параметров + копирование заказа)
+// Диалог ввода (ИСПРАВЛЕНО: 5 параметров + копирование заказа)
 @Composable
 fun EditReceiveItemDialog(
     material: String,
@@ -441,7 +441,7 @@ fun EditReceiveItemDialog(
                             Toast.makeText(context, "Номер заказа скопирован", Toast.LENGTH_SHORT).show()
                         },
                         singleLine = true,
-                        readOnly = true,
+                        readOnly = isEditing,
                         enabled = true // Важно для работы clickable
                     )
                 }
