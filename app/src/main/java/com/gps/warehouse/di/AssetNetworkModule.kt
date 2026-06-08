@@ -20,15 +20,6 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AssetNetworkModule {
 
-    // 1. Предоставляем экземпляр Gson
-    @Provides
-    @Singleton
-    fun provideGson(): Gson {
-        return GsonBuilder()
-            .setLenient() // Разрешает нестрогий JSON (полезно, если сервер присылает некорректный JSON)
-            .create()
-    }
-
     // 2. Предоставляем GsonConverterFactory (ИМЕННО ЭТОГО НЕ ХВАТАЛО)
     @Provides
     @Singleton
@@ -36,20 +27,6 @@ object AssetNetworkModule {
         return GsonConverterFactory.create(gson)
     }
 
-    // 3. Предоставляем OkHttpClient (если его еще нет в проекте)
-    @Provides
-    @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY // Для отладки запросов
-        }
-        return OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .build()
-    }
 
     // 4. Базовый URL для API Активов
     @Provides
@@ -58,7 +35,7 @@ object AssetNetworkModule {
     fun provideAssetBaseUrl(): String {
         // Укажите здесь реальный базовый URL для API управления активами
         // Если он такой же, как у GPS, можно использовать Constants.BASE_URL
-        return "http://10.168.143.7:8800/"
+        return "http://10.168.143.7:8800/api/"
     }
 
     // 5. Создаем AssetApiService, используя предоставленные выше зависимости
