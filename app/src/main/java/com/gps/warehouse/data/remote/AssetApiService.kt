@@ -88,4 +88,10 @@ interface AssetApiService {
     suspend fun getWarehouses(
         @Header("Authorization") token: String
     ): List<WarehouseShortDto>
+
+    // Текущий пользователь (или мы)
+    @GET("users/me")
+    suspend fun getCurrentUser(
+        @Header("Authorization") token: String
+    ): AssetsUserProfileDto
 }

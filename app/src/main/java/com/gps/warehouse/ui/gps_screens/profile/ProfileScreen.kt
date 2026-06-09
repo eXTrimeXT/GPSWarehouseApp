@@ -12,10 +12,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.gps.warehouse.data.remote.assets_dto.PermissionDto
 import com.gps.warehouse.data.remote.gps_dto.UserProfileResponse
 import com.gps.warehouse.data.remote.gps_dto.WarehousePermissionDto
 import com.gps.warehouse.ui.components.ErrorStateView
@@ -101,6 +103,7 @@ fun ProfileContent(
             is MainViewModel.UiState.Loading -> { CustomLoadingView() }
             is MainViewModel.UiState.ProfileLoaded -> {
                 val profile = uiState.profile
+                val assetsProfile = uiState.assetsProfile
 
                 // Основной контент с прокруткой
                 Column(
@@ -174,6 +177,12 @@ fun ProfileContent(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
+                    // Права на типы активов
+                    if (!assetsProfile?.permissions.isNullOrEmpty()) {
+                        CollapsiblePermissionCard(permissions = assetsProfile.permissions)
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
                     Spacer(modifier = Modifier.weight(1f))
 
                     // Кнопка выхода
@@ -206,7 +215,7 @@ fun ProfileContent(
 
 @Composable
 fun ProfileItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     label: String,
     value: String? = null
 ) {
@@ -327,6 +336,162 @@ fun CollapsibleWarehouseCard(permissions: List<WarehousePermissionDto>) {
         }
     }
 }
+
+
+@Composable
+fun CollapsiblePermissionCard(permissions: Map<String, PermissionDto>) {
+    var isExpanded by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        onClick = { isExpanded = !isExpanded }
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .animateContentSize()
+        ) {
+            // Заголовок карточки (всегда виден)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Security,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Права доступа (${permissions.size})",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Контент, который показывается только при развернутом состоянии
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+
+                AnimatedVisibility(visible = isExpanded) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        permissions.forEach { (groupName, permission) ->
+                            PermissionGroupCard(groupName, permission)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionGroupCard(groupName: String, permission: PermissionDto) {
+    val displayName = getPermissionDisplayName(groupName)
+    val icon = getPermissionIcon(groupName)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Заголовок группы с иконкой
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = displayName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Бейджи прав доступа
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                PermissionBadge("Чтение", permission.read)
+                PermissionBadge("Запись", permission.write)
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionBadge(label: String, granted: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = if (granted) Icons.Default.CheckCircle else Icons.Default.Cancel,
+            contentDescription = null,
+            tint = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.Medium,
+            color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        )
+    }
+}
+
+fun getPermissionDisplayName(key: String): String {
+    return when (key.lowercase()) {
+        "computer" -> "Компьютеры"
+        "mes_equipment" -> "MES оборудование"
+        "supplies" -> "Расходные материалы"
+        "power_adapter" -> "Блоки питания"
+        "data_collection_equipment" -> "Терминалы сбора данных"
+        "accessories" -> "Аксессуары"
+        "network_equipment" -> "Сетевое оборудование"
+        "printing_equipment" -> "Печатающее оборудование"
+        "server_hardware" -> "Серверное оборудование"
+        "users" -> "Пользователи"
+        else -> key.replace("_", " ").replaceFirstChar { it.uppercase() }
+    }
+}
+
+fun getPermissionIcon(key: String): ImageVector {
+    return when (key.lowercase()) {
+        "computer" -> Icons.Default.Computer
+        "mes_equipment" -> Icons.Default.Memory
+        "supplies" -> Icons.Default.Inventory2
+        "power_adapter" -> Icons.Default.Bolt
+        "data_collection_equipment" -> Icons.Default.QrCodeScanner
+        "accessories" -> Icons.Default.Cable
+        "network_equipment" -> Icons.Default.Wifi
+        "printing_equipment" -> Icons.Default.Print
+        "server_hardware" -> Icons.Default.Dns
+        "users" -> Icons.Default.People
+        else -> Icons.Default.Category
+    }
+}
+
 
 // --- ПРЕВЬЮ ---
 @Preview(showBackground = true, name = "Profile - Loaded")

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.TokenStorage
 import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.GPSApiService
+import com.gps.warehouse.data.remote.assets_dto.AssetsUserProfileDto
 import com.gps.warehouse.data.remote.assets_dto.RegisterTokenRequest
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
@@ -57,7 +58,10 @@ class MainViewModel @Inject constructor(
 
 
         // ====================== Профиль ======================
-        data class ProfileLoaded(val profile: UserProfileResponse) : UiState()
+        data class ProfileLoaded(
+            val profile: UserProfileResponse,
+            val assetsProfile: AssetsUserProfileDto? = null
+        ) : UiState()
         // ====================== Профиль ======================
 
 
@@ -267,12 +271,40 @@ class MainViewModel @Inject constructor(
         }
     }
 
+//    fun loadUserProfile() {
+//        executeRequest(
+//            request = { apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow())) },
+//            onSuccess = { _uiState.value = UiState.ProfileLoaded(it) },
+//            errorMsg = "Не удалось загрузить профиль"
+//        )
+//    }
     fun loadUserProfile() {
-        executeRequest(
-            request = { apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow())) },
-            onSuccess = { _uiState.value = UiState.ProfileLoaded(it) },
-            errorMsg = "Не удалось загрузить профиль"
-        )
+        viewModelScope.launch {
+            _uiState.value = UiState.Loading
+            try {
+                // 1. Загружаем профиль из GPS API
+                val gpsProfile = apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow()))
+
+                // 2. Пытаемся загрузить профиль из Assets API (не критично, если не получится)
+                val assetsProfile = try {
+                    val assetsToken = tokenStorage.getToken()
+                    if (assetsToken != null) {
+                        assetApiService.getCurrentUser("Bearer $assetsToken")
+                    } else {
+                        Log.w("MainViewModel", "Assets токен не найден, пропускаем загрузку Assets профиля")
+                        null
+                    }
+                } catch (e: Exception) {
+                    Log.w("MainViewModel", "Не удалось загрузить Assets профиль: ${e.message}")
+                    null
+                }
+
+                _uiState.value = UiState.ProfileLoaded(gpsProfile, assetsProfile)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки профиля", e)
+                _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить профиль")
+            }
+        }
     }
 
     /**
