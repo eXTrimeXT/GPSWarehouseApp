@@ -25,6 +25,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.gps.warehouse.ui.assets_screens.assets.AssetDetailsScreen
 import com.gps.warehouse.ui.assets_screens.assets.AssetListScreen
+import com.gps.warehouse.ui.assets_screens.assets.AssetsByTypeScreen
 import com.gps.warehouse.ui.assets_screens.assets_classes.AssetClassDetailsScreen
 import com.gps.warehouse.ui.assets_screens.assets_classes.AssetClassListScreen
 import com.gps.warehouse.ui.assets_screens.assets_models.AssetModelDetailsScreen
@@ -274,6 +275,34 @@ class MainActivity : ComponentActivity() {
                         composable("assets") {
                             val assetViewModel: AssetViewModel = hiltViewModel()  // ← Отдельный ViewModel!
                             AssetListScreen(
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("asset_details/{assetId}") { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            AssetDetailsScreen(
+                                assetId = assetId,
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("assets") {
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            AssetListScreen(
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("assets_by_type/{typeDomain}") { backStackEntry ->
+                            val typeDomain = backStackEntry.arguments?.getString("typeDomain") ?: ""
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            AssetsByTypeScreen(
+                                typeDomain = typeDomain,
                                 navController = navController,
                                 viewModel = assetViewModel
                             )

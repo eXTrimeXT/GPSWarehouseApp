@@ -44,6 +44,8 @@ class AssetViewModel @Inject constructor(
         data class VendorsLoaded(val vendors: List<VendorShortDto>) : AssetUiState()
         // Склады
         data class WarehousesLoaded(val warehouses: List<WarehouseShortDto>) : AssetUiState()
+
+        data class UserProfileLoaded(val profile: AssetsUserProfileDto) : AssetUiState()
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
@@ -55,6 +57,25 @@ class AssetViewModel @Inject constructor(
     private val _selectedAssetClass = MutableStateFlow<Int?>(null)
     val selectedAssetClass: StateFlow<Int?> = _selectedAssetClass.asStateFlow()
 
+    private val _userProfile = MutableStateFlow<AssetsUserProfileDto?>(null)
+    val userProfile: StateFlow<AssetsUserProfileDto?> = _userProfile.asStateFlow()
+
+    private val _assetTypes = MutableStateFlow<List<AssetTypeDto>>(emptyList())
+    val assetTypes: StateFlow<List<AssetTypeDto>> = _assetTypes.asStateFlow()
+
+    fun loadUserProfile() {
+        viewModelScope.launch {
+            try {
+                val token = getTokenOrThrow()
+                val profile = assetApiService.getCurrentUser("Bearer $token")
+                _userProfile.value = profile
+                _uiState.value = AssetUiState.UserProfileLoaded(profile)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки профиля")
+            }
+        }
+    }
+
     // ================== Активы ==================
     fun loadAssets() {
         viewModelScope.launch {
@@ -62,6 +83,19 @@ class AssetViewModel @Inject constructor(
             try {
                 val token = getTokenOrThrow()
                 val assets = assetApiService.getAssets("Bearer $token")
+                _uiState.value = AssetUiState.AssetsLoaded(assets)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки активов")
+            }
+        }
+    }
+
+    fun loadAssetsByType(typeAsset: String?) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val token = getTokenOrThrow()
+                val assets = assetApiService.getAssets("Bearer $token", typeAsset?.toInt())
                 _uiState.value = AssetUiState.AssetsLoaded(assets)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки активов")
@@ -84,12 +118,26 @@ class AssetViewModel @Inject constructor(
     // ================== Активы ==================
 
     // ================== Типы активов ==================
+//    fun loadAssetTypes() {
+//        viewModelScope.launch {
+//            _uiState.value = AssetUiState.Loading
+//            try {
+//                val token = getTokenOrThrow()
+//                val types = assetApiService.getAssetTypes("Bearer $token")
+//                _uiState.value = AssetUiState.AssetTypesLoaded(types)
+//            } catch (e: Exception) {
+//                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки типов")
+//            }
+//        }
+//    }
+
     fun loadAssetTypes() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
                 val token = getTokenOrThrow()
                 val types = assetApiService.getAssetTypes("Bearer $token")
+                _assetTypes.value = types
                 _uiState.value = AssetUiState.AssetTypesLoaded(types)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки типов")

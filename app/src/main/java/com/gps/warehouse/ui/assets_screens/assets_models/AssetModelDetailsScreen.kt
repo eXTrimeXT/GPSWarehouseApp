@@ -116,7 +116,7 @@ fun AssetModelDetailsContent(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-                DetailRow("ID класса (FK)", model.classId.toString())
+                DetailRow("ID класса", model.classId.toString())
             }
         }
 

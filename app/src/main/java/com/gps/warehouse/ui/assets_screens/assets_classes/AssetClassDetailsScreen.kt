@@ -122,8 +122,7 @@ fun AssetClassDetailsContent(
                 val type = assetClass.assetType
                 DetailRow("Название (RU)", type?.name)
                 DetailRow("Название (EN)", type?.enName)
-                DetailRow("ID типа (из класса)", assetClass.classTypeId.toString())
-                DetailRow("ID типа (из объекта)", type?.assetTypeId?.toString())
+                DetailRow("ID", type?.assetTypeId?.toString())
             }
         }
 
