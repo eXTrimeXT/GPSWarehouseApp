@@ -362,8 +362,10 @@ private fun getSampleFullAssetDto(): AssetDto {
                     name = "Компьютерная техника",
                     enName = "Computer Hardware"
                 ),
-                createdByUser = null,
-                updatedByUser = null
+                createdBy = null,
+                updatedBy = null,
+                creator = null,
+                updater = null
             ),
             creator = null,
             updater = null

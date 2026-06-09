@@ -7,11 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.TokenStorage
 import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.GPSApiService
-import com.gps.warehouse.data.remote.RegisterTokenRequest
+import com.gps.warehouse.data.remote.assets_dto.RegisterTokenRequest
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
-import com.gps.warehouse.utils.RsaUtils
 import com.gps.warehouse.utils.RsaUtils.encryptPassword
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope

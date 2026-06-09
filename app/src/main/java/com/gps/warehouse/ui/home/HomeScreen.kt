@@ -134,6 +134,18 @@ fun HomeScreenContent(
                     onClick = { onNavigate("asset_types") }
                 )
                 MenuButton(
+                    title = "Классы активов",
+                    subtitle = "Справочник классов IT-активов",
+                    icon = Icons.Default.Layers,
+                    onClick = { onNavigate("asset_classes") }
+                )
+                MenuButton(
+                    title = "Модели активов",
+                    subtitle = "Справочник моделей IT-активов",
+                    icon = Icons.Default.Memory,
+                    onClick = { onNavigate("asset_models") }
+                )
+                MenuButton(
                     title = "Список активов",
                     subtitle = "Просмотр всех IT-активов",
                     icon = Icons.Default.Devices,

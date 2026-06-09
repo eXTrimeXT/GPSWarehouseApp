@@ -19,19 +19,31 @@ class AssetViewModel @Inject constructor(
 ) : ViewModel() {
 
     sealed class AssetUiState {
+        // Базовые состояния
         object Idle : AssetUiState()
         object Loading : AssetUiState()
+        data class Error(val message: String) : AssetUiState()
+
+        // Активы
         data class AssetsLoaded(val assets: List<AssetShortDto>) : AssetUiState()
         data class AssetDetailsLoaded(val asset: AssetDto) : AssetUiState()
+        // Типы активов
         data class AssetTypesLoaded(val types: List<AssetTypeDto>) : AssetUiState()
-        data class AssetTypeDetailsLoaded(val assetType: AssetTypeDto) : AssetUiState() // НОВОЕ
+        data class AssetTypeDetailsLoaded(val assetType: AssetTypeDto) : AssetUiState()
+        // Классы активов
         data class AssetClassesLoaded(val classes: List<AssetClassDto>) : AssetUiState()
+        data class AssetClassDetailsLoaded(val assetClass: AssetClassDto) : AssetUiState()
+        // Модель активов
         data class AssetModelsLoaded(val models: List<AssetModelDto>) : AssetUiState()
+        data class AssetModelDetailsLoaded(val model: AssetModelDto) : AssetUiState()
+        // Каталог активов
         data class CatalogLoaded(val catalog: List<AssetCatalogDto>) : AssetUiState()
+        // Пользователи
         data class UsersLoaded(val users: List<UserShortDto>) : AssetUiState()
+        // Поставщики и производители
         data class VendorsLoaded(val vendors: List<VendorShortDto>) : AssetUiState()
+        // Склады
         data class WarehousesLoaded(val warehouses: List<WarehouseShortDto>) : AssetUiState()
-        data class Error(val message: String) : AssetUiState()
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
@@ -43,6 +55,7 @@ class AssetViewModel @Inject constructor(
     private val _selectedAssetClass = MutableStateFlow<Int?>(null)
     val selectedAssetClass: StateFlow<Int?> = _selectedAssetClass.asStateFlow()
 
+    // ================== Активы ==================
     fun loadAssets() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -68,7 +81,9 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+    // ================== Активы ==================
 
+    // ================== Типы активов ==================
     fun loadAssetTypes() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -81,7 +96,9 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+    // ================== Типы активов ==================
 
+    // ================== Классы ==================
     fun loadAssetClasses(typeId: Int? = null) {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -95,6 +112,21 @@ class AssetViewModel @Inject constructor(
         }
     }
 
+    fun loadAssetClassDetails(classId: Int) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val token = getTokenOrThrow()
+                val assetClass = assetApiService.getAssetClassById("Bearer $token", classId)
+                _uiState.value = AssetUiState.AssetClassDetailsLoaded(assetClass)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки класса актива")
+            }
+        }
+    }
+    // ================== Классы ==================
+
+    // ================== Модели ==================
     fun loadAssetModels(classId: Int? = null) {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -108,6 +140,21 @@ class AssetViewModel @Inject constructor(
         }
     }
 
+    fun loadAssetModelDetails(modelId: Int) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val token = getTokenOrThrow()
+                val model = assetApiService.getAssetModelById("Bearer $token", modelId)
+                _uiState.value = AssetUiState.AssetModelDetailsLoaded(model)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки модели актива")
+            }
+        }
+    }
+    // ================== Модели ==================
+
+    // ================== Каталог ==================
     fun loadCatalog() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -120,7 +167,9 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+    // ================== Каталог ==================
 
+    // ================== Пользователи ==================
     fun loadUsers() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -133,7 +182,9 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+    // ================== Пользователи ==================
 
+    // ================== Поставщики/Производители ==================
     fun loadVendors() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -146,7 +197,9 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+    // ================== Поставщики/Производители ==================
 
+    // ================== Склады ==================
     fun loadWarehouses() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -159,7 +212,9 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+    // ================== Склады ==================
 
+    // ================== Фильтры ==================
     fun filterByAssetType(typeId: Int?) {
         _selectedAssetType.value = typeId
         loadAssets()
@@ -169,6 +224,7 @@ class AssetViewModel @Inject constructor(
         _selectedAssetClass.value = classId
         loadAssets()
     }
+    // ================== Фильтры ==================
 
     fun resetState() {
         _uiState.value = AssetUiState.Idle
