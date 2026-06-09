@@ -1,6 +1,8 @@
 package com.gps.warehouse.ui.home
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -9,6 +11,8 @@ import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +26,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.assets_screens.assets.AssetTypeCard
+import com.gps.warehouse.ui.assets_screens.assets.AssetTypeInfo
+import com.gps.warehouse.ui.assets_screens.assets.getAvailableAssetTypes
 
 // Перечисление вкладок нижней навигации
 enum class HomeTab(val title: String, val icon: ImageVector) {
@@ -32,7 +40,10 @@ enum class HomeTab(val title: String, val icon: ImageVector) {
 }
 
 @Composable
-fun HomeScreen(navController: NavHostController) {
+fun HomeScreen(
+    navController: NavHostController,
+    assetViewModel: AssetViewModel
+) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) } // 0 = Заказы (по умолчанию)
     val tabs = HomeTab.entries.toTypedArray()
 
@@ -53,7 +64,8 @@ fun HomeScreen(navController: NavHostController) {
         HomeScreenContent(
             modifier = Modifier.padding(paddingValues),
             selectedTabIndex = selectedTabIndex,
-            onNavigate = { route -> navController.navigate(route) }
+            onNavigate = { route -> navController.navigate(route) },
+            assetViewModel = assetViewModel
         )
     }
 }
@@ -62,7 +74,8 @@ fun HomeScreen(navController: NavHostController) {
 fun HomeScreenContent(
     modifier: Modifier = Modifier,
     selectedTabIndex: Int,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    assetViewModel: AssetViewModel? = null
 ) {
     Column(
         modifier = modifier
@@ -127,29 +140,9 @@ fun HomeScreenContent(
             }
             // Вкладка "Активы"
             2 -> {
-//                MenuButton(
-//                    title = "Типы активов",
-//                    subtitle = "Справочник типов IT-активов",
-//                    icon = Icons.Default.Category,
-//                    onClick = { onNavigate("asset_types") }
-//                )
-//                MenuButton(
-//                    title = "Классы активов",
-//                    subtitle = "Справочник классов IT-активов",
-//                    icon = Icons.Default.Layers,
-//                    onClick = { onNavigate("asset_classes") }
-//                )
-//                MenuButton(
-//                    title = "Модели активов",
-//                    subtitle = "Справочник моделей IT-активов",
-//                    icon = Icons.Default.Memory,
-//                    onClick = { onNavigate("asset_models") }
-//                )
-                MenuButton(
-                    title = "Список активов",
-                    subtitle = "Просмотр всех IT-активов",
-                    icon = Icons.Default.Devices,
-                    onClick = { onNavigate("assets") }
+                AssetsTabContent(
+                    assetViewModel = assetViewModel,
+                    onNavigate = onNavigate
                 )
             }
             // Вкладка "Настройки"
@@ -166,6 +159,117 @@ fun HomeScreenContent(
                     icon = Icons.Default.Settings,
                     onClick = { onNavigate("settings") }
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Содержимое вкладки "Активы" — карточки типов активов
+ */
+@Composable
+fun AssetsTabContent(
+    assetViewModel: AssetViewModel?,
+    onNavigate: (String) -> Unit
+) {
+    if (assetViewModel == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("AssetViewModel не передан")
+        }
+        return
+    }
+
+    val uiState by assetViewModel.uiState.collectAsState()
+    val userProfile by assetViewModel.userProfile.collectAsState()
+    val assetTypes by assetViewModel.assetTypes.collectAsState()
+
+    LaunchedEffect(Unit) {
+        assetViewModel.loadUserProfile()
+        assetViewModel.loadAssetTypes()
+        assetViewModel.loadAssets()
+    }
+
+    val allAssets = when (val state = uiState) {
+        is AssetViewModel.AssetUiState.AssetsLoaded -> state.assets
+        else -> emptyList()
+    }
+
+    when (uiState) {
+        is AssetViewModel.AssetUiState.Loading -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+        is AssetViewModel.AssetUiState.Error -> {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = (uiState as AssetViewModel.AssetUiState.Error).message,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = {
+                        assetViewModel.loadUserProfile()
+                        assetViewModel.loadAssetTypes()
+                    }) {
+                        Text("Повторить")
+                    }
+                }
+            }
+        }
+        else -> {
+            userProfile?.let { profile ->
+                val availableTypes = getAvailableAssetTypes(profile.permissions, assetTypes)
+                val othersCount = allAssets.count { it.typeAsset == null }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    availableTypes.forEach { typeInfo ->
+                        val count = allAssets.count { it.typeAsset == typeInfo.enName }
+                        AssetTypeCard(
+                            typeInfo = typeInfo,
+                            onClick = {
+                                onNavigate("assets_by_type/${typeInfo.enName}")
+                            },
+                            assetsCount = count
+                        )
+                    }
+
+                    // Карточка "Другие"
+                    AssetTypeCard(
+                        typeInfo = AssetTypeInfo(
+                            key = "others",
+                            displayName = "Другие",
+                            icon = Icons.Default.MoreHoriz,
+                            description = "Активы без категории",
+                            enName = null
+                        ),
+                        onClick = {
+                            onNavigate("assets_by_type/others")
+                        },
+                        assetsCount = othersCount
+                    )
+                }
+            } ?: run {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
             }
         }
     }

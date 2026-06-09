@@ -139,8 +139,10 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("home") {
+                            val assetViewModel: AssetViewModel = hiltViewModel()
                             HomeScreen(
                                 navController = navController,
+                                assetViewModel = assetViewModel
                             )
 
                         }

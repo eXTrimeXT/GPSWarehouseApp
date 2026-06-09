@@ -18,6 +18,8 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.CompanyDto
 import com.gps.warehouse.data.remote.assets_dto.LocationDto
 import com.gps.warehouse.data.remote.assets_dto.SoftwareDto
+import com.gps.warehouse.data.remote.assets_dto.UserDto
+import com.gps.warehouse.data.remote.assets_dto.UserShortDto
 import com.gps.warehouse.data.remote.assets_dto.VendorClassDto
 import com.gps.warehouse.data.remote.assets_dto.VendorDto
 import com.gps.warehouse.data.remote.assets_dto.WarehouseDto
@@ -104,14 +106,19 @@ fun AssetDetailsContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Основная информация", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Основная информация",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.height(12.dp))
-
                 DetailRow("Название", asset.name)
                 DetailRow("Инвентарный номер", asset.inventoryId)
                 DetailRow("Серийный номер", asset.serialNumber)
                 DetailRow("Статус", asset.assetStatus)
                 DetailRow("Домен типа", asset.typeDomain)
+                // отображаем тип актива
+                DetailRow("Тип актива (type_asset)", asset.model?.assetClass?.assetType?.enName)
                 DetailRow("Прикреплённый инв. номер", asset.affixedInventoryId)
                 DetailRow("Место хранения", asset.infoStorageLocation)
                 DetailRow("Комментарий", asset.comment)
@@ -124,12 +131,19 @@ fun AssetDetailsContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Модель", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Модель",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 DetailRow("Название модели", asset.model?.modelName)
                 DetailRow("Активна", asset.model?.let { if (it.isActive) "Да" else "Нет" })
-                DetailRow("Серийный номер обязателен", asset.model?.let { if (it.isSerialRequired) "Да" else "Нет" })
+                DetailRow(
+                    "Серийный номер обязателен",
+                    asset.model?.let { if (it.isSerialRequired) "Да" else "Нет" }
+                )
                 DetailRow("Описание модели", asset.model?.description)
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -147,7 +161,11 @@ fun AssetDetailsContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Расположение", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Расположение",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 DetailRow("Склад", asset.warehouse?.name)
@@ -172,7 +190,11 @@ fun AssetDetailsContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Ответственные лица", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Ответственные лица",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 DetailRow("Подготовил (ФИО)", asset.preparer?.owner)
@@ -195,7 +217,11 @@ fun AssetDetailsContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Поставщик и производитель", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Поставщик и производитель",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 DetailRow("Производитель", asset.manufacturer?.name)
@@ -216,7 +242,11 @@ fun AssetDetailsContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Программное обеспечение", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Программное обеспечение",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 DetailRow("Тип ОС", asset.software?.osType)
@@ -230,7 +260,10 @@ fun AssetDetailsContent(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
                 DetailRow("ПО удалённого управления", asset.software?.remoteControl)
-                DetailRow("Административные права", asset.software?.adminPermission?.let { if (it) "Да" else "Нет" })
+                DetailRow(
+                    "Административные права",
+                    asset.software?.adminPermission?.let { if (it) "Да" else "Нет" }
+                )
                 DetailRow("ID установившего", asset.software?.whoInstalled?.toString())
                 DetailRow("Дата установки", asset.software?.installedAt)
 
@@ -248,7 +281,11 @@ fun AssetDetailsContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Даты", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Даты",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 DetailRow("Дата ввода в эксплуатацию", asset.dateIssue)
@@ -265,7 +302,11 @@ fun AssetDetailsContent(
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Техническая информация", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(
+                    "Техническая информация",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.height(12.dp))
 
                 DetailRow("ID актива", asset.assetId.toString())
@@ -280,10 +321,6 @@ fun AssetDetailsContent(
     }
 }
 
-/**
- * Строка детальной информации.
- * Всегда отображает label. Если value == null, выводится пустая строка "".
- */
 @Composable
 fun DetailRow(label: String, value: String?) {
     Row(
@@ -301,7 +338,6 @@ fun DetailRow(label: String, value: String?) {
         Text(
             text = value ?: "",
             style = MaterialTheme.typography.bodyMedium,
-            // Если значение пустое, делаем его чуть бледнее для визуального отличия, но текст остаётся ""
             color = if (value.isNullOrBlank())
                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
             else
@@ -312,13 +348,21 @@ fun DetailRow(label: String, value: String?) {
 }
 
 
+// ============================================================================
+// PREVIEW
+@Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=3070dp")
+@Composable
+fun AssetDetailsContentPreview_Full() {
+    MaterialTheme {
+        Surface(modifier =  Modifier.fillMaxSize()) {
+            AssetDetailsContent(asset = getSampleFullAssetDto())
+        }
+    }
+}
 
-// ============================================================================
-// PREVIEW ФУНКЦИИ
-// ============================================================================
 private fun getSampleFullAssetDto(): AssetDto {
     return AssetDto(
-        assetId = 1042,
+        assetId = 1,
         name = "Ноутбук Lenovo ThinkPad X1 Carbon",
         inventoryId = "INV-2024-00158",
         serialNumber = "SN-9876543210",
@@ -338,23 +382,20 @@ private fun getSampleFullAssetDto(): AssetDto {
         createdAt = "2024-01-01T10:00:00Z",
         updatedAt = "2024-01-15T12:30:00Z",
         deletedAt = null,
-
         model = AssetModelDto(
             modelId = 55,
             modelName = "ThinkPad X1 Carbon Gen 11",
             classId = 10,
-            description = "Легкий бизнес-ноутбук с процессором Intel i7",
+            description = "Легкий бизнес-ноутбук",
             isActive = true,
             isSerialRequired = true,
             createdAt = "2023-12-01T00:00:00Z",
             updatedAt = null,
-            createdBy = 1,
-            updatedBy = 1,
             assetClass = AssetClassDto(
                 classId = 10,
                 className = "Портативные компьютеры",
                 classTypeId = 1,
-                description = "Мобильные вычислительные устройства",
+                description = "Мобильные устройства",
                 createdAt = "2023-01-01T00:00:00Z",
                 updatedAt = null,
                 assetType = AssetTypeDto(
@@ -362,31 +403,45 @@ private fun getSampleFullAssetDto(): AssetDto {
                     name = "Компьютерная техника",
                     enName = "Computer Hardware"
                 ),
-                createdBy = null,
-                updatedBy = null,
                 creator = null,
-                updater = null
+                updater = null,
+                createdBy = 0,
+                updatedBy = 0
             ),
             creator = null,
-            updater = null
+            updater = null,
+            createdBy = 0,
+            updatedBy = 0
         ),
-
         warehouse = WarehouseDto(
             warehouseId = 3,
-            name = "Центральный склад IT-оборудования",
+            name = "Центральный склад IT",
             locationId = 7,
             preparedBy = 5,
             location = LocationDto(
                 locationId = 7,
                 country = "Россия",
                 city = "Москва",
-                address = "ул. Ленина, д. 10, стр. 2",
+                address = "ул. Ленина, д. 10",
                 room = "Кабинет 305",
                 floor = "3"
             ),
             preparer = null
         ),
-        preparer = null,
+        preparer = UserDto(
+            userId = 5,
+            userTabId = "EMP005",
+            owner = "Иванов И.И.",
+            userEnName = "Ivanov I.I.",
+            permissions = null,
+            userPosition = "Системный администратор",
+            departmentId = 2,
+            email = "ivanov@hmmr.ru",
+            phone = "+79991234567",
+            isActive = true,
+            createdAt = "2023-01-01T00:00:00Z",
+            updatedAt = null
+        ),
         checker = null,
         manufacturer = VendorDto(
             vendorId = 101,
@@ -397,53 +452,31 @@ private fun getSampleFullAssetDto(): AssetDto {
             createdBy = 1,
             vendorClass = VendorClassDto(
                 vendorClassId = 1,
-                name = "Глобальный производитель",
+                name = "Производитель",
                 description = null
             ),
             company = CompanyDto(
                 companyId = 50,
-                name = "Lenovo Russia LLC",
+                name = "Lenovo Russia",
                 inn = "7701234567",
                 kpp = "770101001"
             ),
             creator = null
         ),
-
-        vendor = VendorDto(
-            vendorId = 202,
-            name = "ООО 'ТехноПоставка'",
-            vendorClassId = 2,
-            companyId = 51,
-            createdAt = "2021-05-10T00:00:00Z",
-            createdBy = 1,
-            vendorClass = VendorClassDto(vendorClassId = 2, name = "Дистрибьютор", description = null),
-            company = CompanyDto(companyId = 51, name = "ООО 'ТехноПоставка'", inn = "7709876543", kpp = "770901001"),
-            creator = null
-        ),
-
+        vendor = null,
         software = SoftwareDto(
             softwareId = 12,
-            officeType = "Microsoft Office 2021 Professional Plus",
-            officeKey = "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX",
+            officeType = "MS Office 2021",
+            officeKey = "XXXXX-XXXXX",
             osType = "Windows 11 Pro",
-            osKey = "YYYYY-YYYYY-YYYYY-YYYYY",
-            remoteControl = "TeamViewer Host",
+            osKey = "YYYYY-YYYYY",
+            remoteControl = "TeamViewer",
             adminPermission = true,
             whoInstalled = 5,
             installedAt = "2024-01-12T09:00:00Z",
-            comment = "Стандартный пакет для разработчиков",
+            comment = "Стандартный пакет",
             createdAt = "2024-01-12T09:00:00Z",
             updatedAt = null
         )
     )
-}
-
-@Preview(showBackground = true, showSystemUi = true, name = "Полностью заполненный актив")
-@Composable
-fun AssetDetailsContentPreview_Full() {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            AssetDetailsContent(asset = getSampleFullAssetDto())
-        }
-    }
 }

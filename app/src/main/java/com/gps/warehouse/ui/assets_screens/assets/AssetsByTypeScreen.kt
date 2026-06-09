@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetShortDto
@@ -27,10 +28,9 @@ fun AssetsByTypeScreen(
     val uiState by viewModel.uiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
 
+    // Загружаем ВСЕ активы (фильтрация будет на клиенте)
     LaunchedEffect(typeDomain) {
-        // Если typeDomain == "others", загружаем активы без типа
-        val typeAsset = if (typeDomain == "others") null else typeDomain
-        viewModel.loadAssetsByType(typeAsset)
+        viewModel.loadAssets()
     }
 
     val typeName = if (typeDomain == "others") "Другие" else getAssetTypeDisplayName(typeDomain)
@@ -70,7 +70,17 @@ fun AssetsByTypeScreen(
                     }
                 }
                 is AssetViewModel.AssetUiState.AssetsLoaded -> {
-                    val filteredAssets = state.assets.filter {
+                    // 🔑 КЛЮЧЕВАЯ ФИЛЬТРАЦИЯ по type_asset
+                    val filteredByType = state.assets.filter { asset ->
+                        if (typeDomain == "others") {
+                            asset.typeAsset == null  // Активы БЕЗ типа
+                        } else {
+                            asset.typeAsset == typeDomain  // Активы с нужным типом
+                        }
+                    }
+
+                    // Дополнительная фильтрация по поисковому запросу
+                    val filteredAssets = filteredByType.filter {
                         searchQuery.isEmpty() ||
                                 it.name.contains(searchQuery, ignoreCase = true) ||
                                 it.inventoryId.contains(searchQuery, ignoreCase = true)
@@ -81,13 +91,31 @@ fun AssetsByTypeScreen(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = "Активы не найдены",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Активы не найдены",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (searchQuery.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Попробуйте изменить поисковый запрос",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
                         }
                     } else {
+                        // Счётчик найденных активов
+                        Text(
+                            text = "Найдено: ${filteredAssets.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
                             contentPadding = PaddingValues(16.dp),
@@ -115,10 +143,7 @@ fun AssetsByTypeScreen(
                                 color = MaterialTheme.colorScheme.error
                             )
                             Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = {
-                                val typeAsset = if (typeDomain == "others") null else typeDomain
-                                viewModel.loadAssetsByType(typeAsset)
-                            }) {
+                            Button(onClick = { viewModel.loadAssets() }) {
                                 Text("Повторить")
                             }
                         }
@@ -178,6 +203,14 @@ fun AssetCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+            // Показываем тип актива, если он есть
+            if (!asset.typeAsset.isNullOrBlank()) {
+                Text(
+                    text = "Тип: ${getAssetTypeDisplayName(asset.typeAsset)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -198,6 +231,61 @@ fun AssetCard(
                     contentDescription = "Подробнее"
                 )
             }
+        }
+    }
+}
+
+
+// ================
+// PREVIEW ФУНКЦИИ
+@Preview(showBackground = true, name = "Карточка актива (Заполненная)")
+@Composable
+fun AssetCardPreview_Full() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxWidth()) {
+            AssetCard(
+                asset = AssetShortDto(
+                    assetId = 1,
+                    name = "ПК на Arch Linux",
+                    inventoryId = "инвентарный номер",
+                    serialNumber = "серийный номер",
+                    assetStatus = "В эксплуатации",
+                    modelId = 1,
+                    typeAsset = "computer",
+                    warehouseId = 1,
+                    parentId = null,
+                    softwareId = 3,
+                    manufacturerId = 1,
+                    vendorId = 1
+                ),
+                onClick = { }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Карточка актива (Минимальная / Другие)")
+@Composable
+fun AssetCardPreview_Minimal() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxWidth()) {
+            AssetCard(
+                asset = AssetShortDto(
+                    assetId = 2,
+                    name = "Куртка лето 88-92/182-188",
+                    inventoryId = "110000004635",
+                    serialNumber = null,
+                    assetStatus = "Приемка",
+                    modelId = null,
+                    typeAsset = null,
+                    warehouseId = null,
+                    parentId = null,
+                    softwareId = null,
+                    manufacturerId = null,
+                    vendorId = null
+                ),
+                onClick = { }
+            )
         }
     }
 }
