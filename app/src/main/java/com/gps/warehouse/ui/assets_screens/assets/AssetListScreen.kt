@@ -5,12 +5,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
@@ -35,7 +38,6 @@ fun AssetListScreen(
         viewModel.loadAssets() // Загружаем все активы для подсчёта количества
     }
 
-    // Получаем список всех активов из состояния
     val allAssets = when (val state = uiState) {
         is AssetViewModel.AssetUiState.AssetsLoaded -> state.assets
         else -> emptyList()
@@ -44,7 +46,7 @@ fun AssetListScreen(
     Scaffold(
         topBar = {
             MyCustomActionBar(
-                text = "Активы",
+                text = "Категории активов",
                 onBackClick = { navController.popBackStack() }
             )
         }
@@ -52,79 +54,28 @@ fun AssetListScreen(
         when (uiState) {
             is AssetViewModel.AssetUiState.Loading -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
                 }
             }
-            is AssetViewModel.AssetUiState.AssetsLoaded,
-            is AssetViewModel.AssetUiState.AssetTypesLoaded,
-            is AssetViewModel.AssetUiState.UserProfileLoaded,
-            is AssetViewModel.AssetUiState.Idle -> {
-                userProfile?.let { profile ->
-                    val availableTypes = getAvailableAssetTypes(profile.permissions, assetTypes)
-                    val othersCount = allAssets.count { it.typeAsset == null }
-
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Карточки типов активов
-                        items(availableTypes) { typeInfo ->
-                            val count = allAssets.count { it.typeAsset == typeInfo.enName }
-                            AssetTypeCard(
-                                typeInfo = typeInfo,
-                                assetsCount = count,
-                                onClick = {
-                                    navController.navigate("assets_by_type/${typeInfo.enName}")
-                                }
-                            )
-                        }
-
-                        // Карточка "Другие" (активы без типа)
-                        item {
-                            AssetTypeCard(
-                                typeInfo = AssetTypeInfo(
-                                    key = "others",
-                                    displayName = "Другие",
-                                    icon = Icons.Default.MoreHoriz,
-                                    description = "Активы без категории",
-                                    enName = null
-                                ),
-                                assetsCount = othersCount,
-                                onClick = {
-                                    navController.navigate("assets_by_type/others")
-                                }
-                            )
-                        }
-                    }
-                } ?: run {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-            }
             is AssetViewModel.AssetUiState.Error -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
+                    modifier = Modifier.fillMaxSize().padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = (uiState as AssetViewModel.AssetUiState.Error).message,
+                            style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.error
                         )
                         Spacer(modifier = Modifier.height(16.dp))
@@ -138,7 +89,83 @@ fun AssetListScreen(
                     }
                 }
             }
-            else -> {}
+            else -> {
+                userProfile?.let { profile ->
+                    val availableTypes = getAvailableAssetTypes(profile.permissions, assetTypes)
+                    val othersCount = allAssets.count { it.typeAsset == null }
+
+                    if (availableTypes.isEmpty() && othersCount == 0) {
+                        // Красивый пустой экран, если нет прав и нет "других" активов
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(paddingValues),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.Inventory2,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Нет доступных активов",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "У вас нет прав просмотра или активы отсутствуют",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(paddingValues),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp) // Более компактный интервал
+                        ) {
+                            items(availableTypes) { typeInfo ->
+                                val count = allAssets.count { it.typeAsset == typeInfo.enName }
+                                AssetTypeCard(
+                                    typeInfo = typeInfo,
+                                    assetsCount = count,
+                                    onClick = {
+                                        navController.navigate("assets_by_type/${typeInfo.enName}")
+                                    }
+                                )
+                            }
+
+                            // Карточка "Другие" (показываем всегда, если есть права на просмотр в целом)
+                            item {
+                                AssetTypeCard(
+                                    typeInfo = AssetTypeInfo(
+                                        key = "others",
+                                        displayName = "Прочие активы",
+                                        icon = Icons.Default.MoreHoriz,
+                                        description = "Активы без присвоенной категории",
+                                        enName = null
+                                    ),
+                                    assetsCount = othersCount,
+                                    onClick = {
+                                        navController.navigate("assets_by_type/others")
+                                    }
+                                )
+                            }
+                        }
+                    }
+                } ?: run {
+                    Box(
+                        modifier = Modifier.fillMaxSize().padding(paddingValues),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+            }
         }
     }
 }
@@ -161,55 +188,79 @@ fun AssetTypeCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        shape = MaterialTheme.shapes.medium, // Более современные скругления (12.dp)
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp) // Легкая, ненавязчивая тень
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(12.dp), // Компактные внутренние отступы
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = typeInfo.icon,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = typeInfo.displayName,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = typeInfo.description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                // Бейдж с количеством активов
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Text(
-                        text = "$assetsCount шт.",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+            // Иконка в цветном контейнере
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = typeInfo.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = typeInfo.displayName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    // Компактный бейдж количества
+                    if (assetsCount > 0) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = MaterialTheme.shapes.extraSmall, // Форма "таблетки"
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Text(
+                                text = "$assetsCount",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+//                Spacer(modifier = Modifier.height(2.dp))
+//
+//                Text(
+//                    text = typeInfo.description,
+//                    style = MaterialTheme.typography.bodySmall,
+//                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                    maxLines = 1,
+//                    overflow = TextOverflow.Ellipsis
+//                )
+            }
+
+            // Современная стрелка
             Icon(
-                imageVector = Icons.Default.ChevronRight,
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = "Открыть",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp)
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -243,7 +294,7 @@ fun getAvailableAssetTypes(
                 key = type.enName,
                 displayName = type.name,
                 icon = iconMap[type.enName] ?: Icons.Default.Category,
-                description = "Тип актива: ${type.name}",
+                description = "Тип: ${type.name}", // Сделали описание короче и информативнее
                 enName = type.enName
             )
         }
