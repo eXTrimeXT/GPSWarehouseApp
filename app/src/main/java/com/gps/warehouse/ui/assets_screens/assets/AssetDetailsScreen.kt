@@ -112,7 +112,7 @@ fun AssetDetailsContent(
                 DetailRow("Серийный номер", asset.serialNumber)
                 DetailRow("Статус", asset.assetStatus)
                 DetailRow("Домен типа", asset.typeDomain)
-                DetailRow("Прикреплённый инв. номер", asset.affixedInventoryId?.toString())
+                DetailRow("Прикреплённый инв. номер", asset.affixedInventoryId)
                 DetailRow("Место хранения", asset.infoStorageLocation)
                 DetailRow("Комментарий", asset.comment)
             }
