@@ -5,11 +5,13 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.TokenStorage
+import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.GPSApiService
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
 import com.gps.warehouse.utils.RsaUtils
+import com.gps.warehouse.utils.RsaUtils.encryptPassword
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -28,6 +30,7 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val tokenStorage: TokenStorage,
     private val apiService: GPSApiService,
+    private val assetApiService: AssetApiService,
 ) : ViewModel() {
 
     sealed class UiState {
@@ -198,24 +201,64 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun login(login: String, password: String) {
-        viewModelScope.launch {
-            _uiState.value = UiState.Loading
-            try {
-                val publicKey = apiService.getPublicKey()
-                val encryptedPassword = RsaUtils.encryptPassword(password, publicKey)
-                val response = apiService.login(LoginRequest(login, encryptedPassword))
+//    fun login(login: String, password: String) {
+//        viewModelScope.launch {
+//            _uiState.value = UiState.Loading
+//            try {
+//                val publicKey = apiService.getPublicKey()
+//                val encryptedPassword = RsaUtils.encryptPassword(password, publicKey)
+//                val response = apiService.login(LoginRequest(login, encryptedPassword))
+//
+//                if (response.status == "success") {
+//                    tokenStorage.saveToken(response.data.token)
+//                    currentToken = response.data.token
+//                    currentLogin = login
+//                    _uiState.value = UiState.LoggedIn(response.data.token)
+//                } else {
+//                    _uiState.value = UiState.Error(response.msg)
+//                }
+//            } catch (e: Exception) {
+//                _uiState.value = UiState.Error(e.message ?: "Unknown error")
+//            }
+//        }
+//    }
 
-                if (response.status == "success") {
-                    tokenStorage.saveToken(response.data.token)
-                    currentToken = response.data.token
-                    currentLogin = login
-                    _uiState.value = UiState.LoggedIn(response.data.token)
-                } else {
-                    _uiState.value = UiState.Error(response.msg)
-                }
+    fun login(username: String, password: String) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = UiState.Loading
+
+                // ========== 1. GPS API: получаем ключ и логинимся ==========
+                val gpsPublicKeyPem = apiService.getPublicKey()  // Возвращает PEM-строку
+                val gpsEncryptedPassword = encryptPassword(password, gpsPublicKeyPem)
+
+                val gpsResponse = apiService.login(
+                    LoginRequest(username, gpsEncryptedPassword)
+                )
+                val gpsToken = gpsResponse.data.token
+                tokenStorage.saveGpsToken(gpsToken)
+
+                // ========== 2. Assets API: получаем СВОЙ ключ и логинимся ==========
+                val assetKeyResponse = assetApiService.getAssetPublicKey()
+                // assetKeyResponse.key — PEM-ключ
+                // assetKeyResponse.id — ID ключа (обязательно для /user_auth)
+
+                val assetEncryptedPassword = encryptPassword(password, assetKeyResponse.key)
+
+                val assetsResponse = assetApiService.assetLogin(
+                    AssetApiService.AssetLoginRequest(
+                        login = username,
+                        password = assetEncryptedPassword,
+                    )
+                )
+                val assetsToken = assetsResponse.data.token
+                tokenStorage.saveAssetsToken(assetsToken)
+
+                _uiState.value = UiState.LoggedIn(gpsToken)
+
             } catch (e: Exception) {
-                _uiState.value = UiState.Error(e.message ?: "Unknown error")
+                Log.e("MainViewModel", "Ошибка входа: ${e.message}", e)
+                _uiState.value = UiState.Error(e.message ?: "Ошибка входа")
             }
         }
     }

@@ -226,9 +226,9 @@ class MainActivity : ComponentActivity() {
                             SettingsScreen(navController = navController)
                         }
 
-                        // В NavHost добавить:
+                        // В NavHost:
                         composable("assets") {
-                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            val assetViewModel: AssetViewModel = hiltViewModel()  // ← Отдельный ViewModel!
                             AssetListScreen(
                                 navController = navController,
                                 viewModel = assetViewModel
