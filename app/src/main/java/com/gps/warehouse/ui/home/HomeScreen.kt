@@ -145,12 +145,12 @@ fun HomeScreenContent(
 //                    icon = Icons.Default.Memory,
 //                    onClick = { onNavigate("asset_models") }
 //                )
-//                MenuButton(
-//                    title = "Список активов",
-//                    subtitle = "Просмотр всех IT-активов",
-//                    icon = Icons.Default.Devices,
-//                    onClick = { onNavigate("assets") }
-//                )
+                MenuButton(
+                    title = "Список активов",
+                    subtitle = "Просмотр всех IT-активов",
+                    icon = Icons.Default.Devices,
+                    onClick = { onNavigate("assets") }
+                )
             }
             // Вкладка "Настройки"
             3 -> {

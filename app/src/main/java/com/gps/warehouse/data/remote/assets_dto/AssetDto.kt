@@ -39,6 +39,7 @@ data class AssetShortDto(
     @SerializedName("serial_number") val serialNumber: String,
     @SerializedName("asset_status") val assetStatus: String,
     @SerializedName("model_id") val modelId: Int,
+    @SerializedName("type_asset") val typeAsset: String,
     @SerializedName("warehouse_id") val warehouseId: Int?,
     @SerializedName("parent_id") val parentId: Int?,
     @SerializedName("software_id") val softwareId: Int?,
