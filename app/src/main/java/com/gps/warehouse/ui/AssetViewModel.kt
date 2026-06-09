@@ -24,6 +24,7 @@ class AssetViewModel @Inject constructor(
         data class AssetsLoaded(val assets: List<AssetShortDto>) : AssetUiState()
         data class AssetDetailsLoaded(val asset: AssetDto) : AssetUiState()
         data class AssetTypesLoaded(val types: List<AssetTypeDto>) : AssetUiState()
+        data class AssetTypeDetailsLoaded(val assetType: AssetTypeDto) : AssetUiState() // НОВОЕ
         data class AssetClassesLoaded(val classes: List<AssetClassDto>) : AssetUiState()
         data class AssetModelsLoaded(val models: List<AssetModelDto>) : AssetUiState()
         data class CatalogLoaded(val catalog: List<AssetCatalogDto>) : AssetUiState()

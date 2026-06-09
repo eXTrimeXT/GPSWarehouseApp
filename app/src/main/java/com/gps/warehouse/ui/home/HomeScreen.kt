@@ -128,6 +128,12 @@ fun HomeScreenContent(
             // Вкладка "Активы"
             2 -> {
                 MenuButton(
+                    title = "Типы активов",
+                    subtitle = "Справочник типов IT-активов",
+                    icon = Icons.Default.Category,
+                    onClick = { onNavigate("asset_types") }
+                )
+                MenuButton(
                     title = "Список активов",
                     subtitle = "Просмотр всех IT-активов",
                     icon = Icons.Default.Devices,

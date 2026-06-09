@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui.assets_screens
+package com.gps.warehouse.ui.assets_screens.assets
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,8 +18,6 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.CompanyDto
 import com.gps.warehouse.data.remote.assets_dto.LocationDto
 import com.gps.warehouse.data.remote.assets_dto.SoftwareDto
-import com.gps.warehouse.data.remote.assets_dto.UserDto
-import com.gps.warehouse.data.remote.assets_dto.UserShortDto
 import com.gps.warehouse.data.remote.assets_dto.VendorClassDto
 import com.gps.warehouse.data.remote.assets_dto.VendorDto
 import com.gps.warehouse.data.remote.assets_dto.WarehouseDto

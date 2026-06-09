@@ -23,8 +23,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.gps.warehouse.ui.assets_screens.AssetDetailsScreen
-import com.gps.warehouse.ui.assets_screens.AssetListScreen
+import com.gps.warehouse.ui.assets_screens.assets.AssetDetailsScreen
+import com.gps.warehouse.ui.assets_screens.assets.AssetListScreen
+import com.gps.warehouse.ui.assets_screens.assets_types.AssetTypeListScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
 import com.gps.warehouse.ui.home.HomeScreen
@@ -244,7 +245,15 @@ class MainActivity : ComponentActivity() {
                                 viewModel = assetViewModel
                             )
                         }
+
+                        // Типы активов
+                        composable("asset_types") {
+                            AssetTypeListScreen(
+                                navController = navController
+                            )
+                        }
                     }
+
                     // Показ диалога поверх всего контента (после NavHost):
                     if (showUpdateDialog != null) {
                         UpdateDialog(

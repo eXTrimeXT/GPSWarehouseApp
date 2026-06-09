@@ -47,7 +47,7 @@ interface AssetApiService {
 
     // ====================== Типы активов ======================
 
-    @GET("asset-types/")
+    @GET("assets-types/")
     suspend fun getAssetTypes(
         @Header("Authorization") token: String
     ): List<AssetTypeDto>
