@@ -173,10 +173,7 @@ class AssetViewModel @Inject constructor(
         _uiState.value = AssetUiState.Idle
     }
 
-//    private suspend fun getTokenOrThrow(): String {
-//        return tokenStorage.getToken() ?: throw Exception("Пользователь не авторизован")
-//    }
     private suspend fun getTokenOrThrow(): String {
-        return tokenStorage.getAssetsToken() ?: throw Exception("Нет сессии Assets API")
+        return tokenStorage.getToken() ?: throw Exception("Пользователь не авторизован")
     }
 }

@@ -3,72 +3,34 @@ package com.gps.warehouse.data.remote
 import com.gps.warehouse.data.remote.assets_dto.*
 import retrofit2.http.*
 
-// ====================== DTO для авторизации Assets API ======================
+// ====================== DTO для авторизации ======================
 
-/**
- * Ответ от /user_key
- */
-data class AssetPublicKeyResponse(
-    val key: String,  // PEM-ключ
-    val id: String    // ID ключа (обязательно передавать в /user_auth)
+data class RegisterTokenRequest(
+    val token: String
 )
 
-/**
- * Запрос на /user_auth
- */
-data class AssetLoginRequest(
-    val login: String,
-    val password: String,
-    val id: String  // ID ключа из /user_key
-)
-
-/**
- * Ответ от /user_auth
- */
-data class AssetLoginResponse(
+data class RegisterTokenResponse(
     val status: String,
     val msg: String,
-    val data: AssetTokenData
+    val data: TokenData? = null
 )
 
-data class AssetTokenData(
-    val token: String
+data class TokenData(
+    val token: String? = null
 )
 
 interface AssetApiService {
 
-    // ====================== Активы ======================
-
     // ====================== Авторизация Assets API ======================
 
     /**
-     * Получение публичного ключа для шифрования пароля (Assets API)
-     * Ответ: JSON {"key": "-----BEGIN PUBLIC KEY-----...", "id": "..."}
+     * Регистрация токена GPS API в Assets API
+     * Создает сессию в Redis Assets API
      */
-    @GET("user_key")
-    suspend fun getAssetPublicKey(): AssetPublicKeyResponse
+    @POST("auth_token")
+    suspend fun registerToken(@Body request: RegisterTokenRequest): RegisterTokenResponse
 
-    /**
-     * Авторизация в Assets API
-     * ВАЖНО: endpoint /user_auth (не /login!), и в теле есть поле 'id'
-     */
-    @POST("user_auth")
-    suspend fun assetLogin(@Body request: AssetLoginRequest): AssetLoginResponse
-
-    data class AssetLoginRequest(
-        val login: String,
-        val password: String
-    )
-
-    data class AssetLoginResponse(
-        val status: String,
-        val msg: String,
-        val data: AssetTokenData
-    )
-
-    data class AssetTokenData(
-        val token: String
-    )
+    // ====================== Активы ======================
 
     @GET("assets/")
     suspend fun getAssets(

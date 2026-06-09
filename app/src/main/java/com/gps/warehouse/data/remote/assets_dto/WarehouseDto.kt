@@ -19,7 +19,25 @@ data class WarehouseShortDto(
 )
 
 data class LocationDto(
-    @SerializedName("location_id") val locationId: Int,
-    val name: String,
-    val address: String?
+    @SerializedName("location_id")
+    val locationId: Int,
+
+    @SerializedName("country")
+    val country: String?,
+
+    @SerializedName("city")
+    val city: String?,
+
+    @SerializedName("address")
+    val address: String?,
+
+    @SerializedName("room")
+    val room: String?,
+
+    @SerializedName("floor")
+    val floor: String?
+
+    // Примечание: Поля relationships (companies, warehouses) намеренно опущены.
+    // Включение списков связанных объектов в DTO локации создаст огромную нагрузку
+    // и риск циклических ссылок (Circular Reference) при сериализации JSON.
 )

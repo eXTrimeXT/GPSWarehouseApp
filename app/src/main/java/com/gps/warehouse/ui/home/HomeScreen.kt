@@ -133,18 +133,6 @@ fun HomeScreenContent(
                     icon = Icons.Default.Devices,
                     onClick = { onNavigate("assets") }
                 )
-                MenuButton(
-                    title = "Каталог активов",
-                    subtitle = "Каталог и владельцы",
-                    icon = Icons.AutoMirrored.Filled.LibraryBooks,
-                    onClick = { onNavigate("asset_catalog") }
-                )
-                MenuButton(
-                    title = "Типы и модели",
-                    subtitle = "Справочники типов, классов и моделей",
-                    icon = Icons.Default.Category,
-                    onClick = { onNavigate("asset_types") }
-                )
             }
             // Вкладка "Настройки"
             3 -> {

@@ -37,69 +37,6 @@ class TokenStorage @Inject constructor(private val context: Context) {
     // Поток для получения токена
     val tokenFlow: Flow<String?> = context.dataStore.data.map { it[TOKEN] }
 
-    // Ключи для хранения в DataStore
-    private val GPS_TOKEN_KEY = stringPreferencesKey("gps_token")
-    private val ASSETS_TOKEN_KEY = stringPreferencesKey("assets_token")
-
-    // ==================== GPS API TOKEN ====================
-
-    /**
-     * Сохраняет токен авторизации для GPS API
-     */
-    suspend fun saveGpsToken(token: String) {
-        context.dataStore.edit { preferences ->
-            preferences[GPS_TOKEN_KEY] = token
-        }
-    }
-
-    /**
-     * Получает токен авторизации для GPS API. Возвращает null, если токена нет.
-     */
-    suspend fun getGpsToken(): String? {
-        return context.dataStore.data
-            .map { preferences -> preferences[GPS_TOKEN_KEY] }
-            .first()
-    }
-
-    // ==================== ASSETS API TOKEN ====================
-
-    /**
-     * Сохраняет токен авторизации для Assets API
-     */
-    suspend fun saveAssetsToken(token: String) {
-        context.dataStore.edit { preferences ->
-            preferences[ASSETS_TOKEN_KEY] = token
-        }
-    }
-
-    /**
-     * Получает токен авторизации для Assets API. Возвращает null, если токена нет.
-     */
-    suspend fun getAssetsToken(): String? {
-        return context.dataStore.data
-            .map { preferences -> preferences[ASSETS_TOKEN_KEY] }
-            .first()
-    }
-
-    // ==================== УТИЛИТЫ ====================
-
-    /**
-     * Очищает оба токена (используется при выходе из системы / logout)
-     */
-    suspend fun clearAllTokens() {
-        context.dataStore.edit { preferences ->
-            preferences.remove(GPS_TOKEN_KEY)
-            preferences.remove(ASSETS_TOKEN_KEY)
-        }
-    }
-
-    /**
-     * Проверка, авторизован ли пользователь хотя бы в одной из систем
-     */
-    suspend fun isLoggedIn(): Boolean {
-        return getGpsToken() != null || getAssetsToken() != null
-    }
-
     suspend fun saveToken(token: String) {
         context.dataStore.edit {
             it[TOKEN] = token
@@ -110,17 +47,17 @@ class TokenStorage @Inject constructor(private val context: Context) {
 
     suspend fun clearToken() {
         context.dataStore.edit {
-            it.remove(PreferencesKeys.TOKEN)
-            it.remove(PreferencesKeys.LOGIN_TIMESTAMP)
+            it.remove(TOKEN)
+            it.remove(LOGIN_TIMESTAMP)
         }
     }
 
     suspend fun getToken(): String? {
-        return context.dataStore.data.map { it[PreferencesKeys.TOKEN] }.firstOrNull()
+        return context.dataStore.data.map { it[TOKEN] }.firstOrNull()
     }
 
     suspend fun getLoginTimestamp(): Long? {
-        return context.dataStore.data.map { it[PreferencesKeys.LOGIN_TIMESTAMP] }.firstOrNull()
+        return context.dataStore.data.map { it[LOGIN_TIMESTAMP] }.firstOrNull()
     }
     // ======================== ТОКЕН ========================
 

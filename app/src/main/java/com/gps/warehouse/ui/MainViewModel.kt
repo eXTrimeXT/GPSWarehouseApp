@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.TokenStorage
 import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.GPSApiService
+import com.gps.warehouse.data.remote.RegisterTokenRequest
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
@@ -228,31 +229,22 @@ class MainViewModel @Inject constructor(
             try {
                 _uiState.value = UiState.Loading
 
-                // ========== 1. GPS API: получаем ключ и логинимся ==========
-                val gpsPublicKeyPem = apiService.getPublicKey()  // Возвращает PEM-строку
-                val gpsEncryptedPassword = encryptPassword(password, gpsPublicKeyPem)
+                // 1. Получаем публичный ключ от GPS API
+                val publicKey = apiService.getPublicKey()
+                val encryptedPassword = encryptPassword(password, publicKey)
 
-                val gpsResponse = apiService.login(
-                    LoginRequest(username, gpsEncryptedPassword)
-                )
+                // 2. Логинимся в GPS API
+                val gpsResponse = apiService.login(LoginRequest(username, encryptedPassword))
                 val gpsToken = gpsResponse.data.token
-                tokenStorage.saveGpsToken(gpsToken)
 
-                // ========== 2. Assets API: получаем СВОЙ ключ и логинимся ==========
-                val assetKeyResponse = assetApiService.getAssetPublicKey()
-                // assetKeyResponse.key — PEM-ключ
-                // assetKeyResponse.id — ID ключа (обязательно для /user_auth)
+                // 3. Регистрируем этот токен в Assets API
+                // Assets API создаст сессию в Redis и будет принимать этот токен
+                assetApiService.registerToken(RegisterTokenRequest(gpsToken))
 
-                val assetEncryptedPassword = encryptPassword(password, assetKeyResponse.key)
-
-                val assetsResponse = assetApiService.assetLogin(
-                    AssetApiService.AssetLoginRequest(
-                        login = username,
-                        password = assetEncryptedPassword,
-                    )
-                )
-                val assetsToken = assetsResponse.data.token
-                tokenStorage.saveAssetsToken(assetsToken)
+                // 4. Сохраняем ОДИН токен для обоих API
+                tokenStorage.saveToken(gpsToken)
+                currentToken = gpsToken
+                currentLogin = username
 
                 _uiState.value = UiState.LoggedIn(gpsToken)
 

@@ -5,10 +5,11 @@ import com.google.gson.annotations.SerializedName
 data class AssetDto(
     @SerializedName("asset_id") val assetId: Int,
     val name: String,
-    @SerializedName("inventory_id") val inventoryId: String,
-    @SerializedName("serial_number") val serialNumber: String,
-    @SerializedName("asset_status") val assetStatus: String,
-    @SerializedName("model_id") val modelId: Int,
+    @SerializedName("inventory_id") val inventoryId: String?,
+    @SerializedName("affixed_inventory_id") val affixedInventoryId: String?,
+    @SerializedName("serial_number") val serialNumber: String?,
+    @SerializedName("asset_status") val assetStatus: String?,
+    @SerializedName("model_id") val modelId: Int?,
     @SerializedName("warehouse_id") val warehouseId: Int?,
     @SerializedName("parent_id") val parentId: Int?,
     @SerializedName("software_id") val softwareId: Int?,
@@ -26,7 +27,7 @@ data class AssetDto(
     @SerializedName("warehouse_obj") val warehouse: WarehouseDto?,
     val preparer: UserDto?,
     val checker: UserDto?,
-//    val software: SoftwareDto?,
+    val software: SoftwareDto?,
     val manufacturer: VendorDto?,
     val vendor: VendorDto?
 )
