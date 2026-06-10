@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.collections.emptyList
 
 @HiltViewModel
 class AssetViewModel @Inject constructor(
@@ -38,6 +39,7 @@ class AssetViewModel @Inject constructor(
         data class AssetModelDetailsLoaded(val model: AssetModelDto) : AssetUiState()
         // Каталог активов
         data class CatalogLoaded(val catalog: List<AssetCatalogDto>) : AssetUiState()
+        data class CatalogItemDetailsLoaded(val catalogItem: AssetCatalogDto) : AssetUiState()
         // Пользователи
         data class UsersLoaded(val users: List<UserShortDto>) : AssetUiState()
         // Поставщики и производители
@@ -46,6 +48,10 @@ class AssetViewModel @Inject constructor(
         data class WarehousesLoaded(val warehouses: List<WarehouseShortDto>) : AssetUiState()
 
         data class UserProfileLoaded(val profile: AssetsUserProfileDto) : AssetUiState()
+
+        data class MyAssetsLoaded(val assets: List<AssetCatalogDto>) : AssetUiState()
+
+        data class PcDataLoaded(val pcData: PcDataDto) : AssetUiState()
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
@@ -62,6 +68,22 @@ class AssetViewModel @Inject constructor(
 
     private val _assetTypes = MutableStateFlow<List<AssetTypeDto>>(emptyList())
     val assetTypes: StateFlow<List<AssetTypeDto>> = _assetTypes.asStateFlow()
+
+    private val _catalog = MutableStateFlow<List<AssetCatalogDto>>(emptyList())
+    val catalog: StateFlow<List<AssetCatalogDto>> = _catalog.asStateFlow()
+
+    sealed class CatalogUiState {
+        object Idle : CatalogUiState()
+        object Loading : CatalogUiState()
+        data class Loaded(val items: List<AssetCatalogDto>) : CatalogUiState()
+        data class Error(val message: String) : CatalogUiState()
+    }
+
+    private val _catalogUiState = MutableStateFlow<CatalogUiState>(CatalogUiState.Idle)
+    val catalogUiState: StateFlow<CatalogUiState> = _catalogUiState.asStateFlow()
+
+    private val _pcData = MutableStateFlow<PcDataDto?>(null)
+    val pcData: StateFlow<PcDataDto?> = _pcData.asStateFlow()
 
     fun loadUserProfile() {
         viewModelScope.launch {
@@ -205,13 +227,67 @@ class AssetViewModel @Inject constructor(
     // ================== Каталог ==================
     fun loadCatalog() {
         viewModelScope.launch {
+            _catalogUiState.value = CatalogUiState.Loading
+            try {
+                val token = getTokenOrThrow()
+                // ВАЖНО: Убедитесь, что метод называется getCatalogItems или getAssetCatalog,
+                // и в AssetApiService endpoint указывает на "catalog/items/"
+                val items = assetApiService.getCatalogItems("Bearer $token")
+
+                _catalog.value = items // Обновляем список для счетчика в HomeScreen
+                _catalogUiState.value = CatalogUiState.Loaded(items) // Обновляем UI для CatalogListScreen
+            } catch (e: Exception) {
+                _catalogUiState.value = CatalogUiState.Error(e.message ?: "Ошибка загрузки каталога")
+            }
+        }
+    }
+
+    fun loadCatalogItemDetails(catalogId: Int) {
+        viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
                 val token = getTokenOrThrow()
-                val catalog = assetApiService.getAssetCatalog("Bearer $token")
-                _uiState.value = AssetUiState.CatalogLoaded(catalog)
+                val catalogItem = assetApiService.getCatalogItemById("Bearer $token", catalogId)
+                _uiState.value = AssetUiState.CatalogItemDetailsLoaded(catalogItem)
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки каталога")
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки детали каталога")
+            }
+        }
+    }
+
+    fun loadMyAssets(currentUserId: Int?) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val token = getTokenOrThrow()
+                // Загружаем каталог (он уже может быть в кэше, но на всякий случай запрашиваем актуальный)
+                val catalog = assetApiService.getCatalogItems("Bearer $token")
+
+                // Фильтруем: оставляем только те записи, где owner совпадает с текущим пользователем
+                val myAssets = if (currentUserId != null) {
+                    catalog.filter { it.owner?.userId == currentUserId }
+                } else {
+                    emptyList()
+                }
+
+                _uiState.value = AssetUiState.MyAssetsLoaded(myAssets)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки моих активов")
+            }
+        }
+    }
+
+    // Метод загрузки данных ПК
+    fun loadPcData(username: String) {
+        viewModelScope.launch {
+            try {
+                val token = getTokenOrThrow()
+                val pcData = assetApiService.getPcData("Bearer $token", username)
+                _pcData.value = pcData
+                // НЕ меняем _uiState, чтобы не перезаписать состояние MyAssetsLoaded
+            } catch (e: Exception) {
+                android.util.Log.e("AssetViewModel", "Ошибка загрузки данных ПК: ${e.message}")
+                // НЕ меняем _uiState на Error, чтобы не сломать отображение активов
             }
         }
     }

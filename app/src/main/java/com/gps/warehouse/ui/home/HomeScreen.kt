@@ -1,12 +1,9 @@
 package com.gps.warehouse.ui.home
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -185,17 +182,21 @@ fun AssetsTabContent(
     val uiState by assetViewModel.uiState.collectAsState()
     val userProfile by assetViewModel.userProfile.collectAsState()
     val assetTypes by assetViewModel.assetTypes.collectAsState()
+    val catalogItems by assetViewModel.catalog.collectAsState()
 
     LaunchedEffect(Unit) {
         assetViewModel.loadUserProfile()
         assetViewModel.loadAssetTypes()
-        assetViewModel.loadAssets()
+        assetViewModel.loadAssets()       // Для подсчета типов активов
+        assetViewModel.loadCatalog()      // Загружаем каталог
     }
 
+    // Получаем количество активов
     val allAssets = when (val state = uiState) {
         is AssetViewModel.AssetUiState.AssetsLoaded -> state.assets
         else -> emptyList()
     }
+
 
     when (uiState) {
         is AssetViewModel.AssetUiState.Loading -> {
@@ -230,6 +231,7 @@ fun AssetsTabContent(
             userProfile?.let { profile ->
                 val availableTypes = getAvailableAssetTypes(profile.permissions, assetTypes)
                 val othersCount = allAssets.count { it.typeAsset == null }
+                val catalogCount = catalogItems.size
 
                 Column(
                     modifier = Modifier
@@ -237,6 +239,41 @@ fun AssetsTabContent(
                         .padding(vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Карточка "Мои активы"
+                    AssetTypeCard(
+                        typeInfo = AssetTypeInfo(
+                            key = "my_assets",
+                            displayName = "Мои активы",
+                            icon = Icons.Default.Badge, // Иконка бейджа/пользователя
+                            description = "Активы, закрепленные за вами",
+                            enName = null
+                        ),
+                        // Считаем количество активов, где владелец = текущий пользователь
+                        assetsCount = profile.userId?.let { currentId ->
+                            catalogItems.count { it.owner?.userId == currentId }
+                        } ?: 0,
+                        onClick = {
+                            onNavigate("my_assets")
+                        }
+                    )
+
+                    // Карточка каталога (связь пользователя и актива)
+                    AssetTypeCard(
+                        typeInfo = AssetTypeInfo(
+                            key = "catalog",
+                            displayName = "Каталог активов",
+                            icon = Icons.Default.Book,
+                            description = "Учёт активов с гарантией и владельцами",
+                            enName = null
+                        ),
+                        onClick = {
+                            onNavigate("catalog")
+                        },
+                        assetsCount = catalogCount
+                    )
+
+                    HorizontalDivider()
+
                     availableTypes.forEach { typeInfo ->
                         val count = allAssets.count { it.typeAsset == typeInfo.enName }
                         AssetTypeCard(

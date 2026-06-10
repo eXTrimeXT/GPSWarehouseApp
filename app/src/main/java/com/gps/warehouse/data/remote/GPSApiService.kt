@@ -61,7 +61,8 @@ interface GPSApiService {
 
     // Получение данных WMS (Склады)
     @POST("getwms")
-    suspend fun getWmsData(@Body request: GetWmsRequest): List<WmsItemDto>
+//    suspend fun getWmsData(@Body request: GetWmsRequest): List<WmsItemDto>
+    suspend fun getWmsData(@Body request: GetWmsRequest): WmsResponseDto
 
     // Перемещение материала между складами
     @POST("movewms")

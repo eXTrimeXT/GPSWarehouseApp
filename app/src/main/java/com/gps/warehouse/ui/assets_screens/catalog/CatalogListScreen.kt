@@ -1,0 +1,173 @@
+package com.gps.warehouse.ui.assets_screens.catalog
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Android
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
+import com.gps.warehouse.data.remote.assets_dto.AssetCatalogDto
+import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.components.MyCustomActionBar
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CatalogListScreen(
+    navController: NavHostController,
+    viewModel: AssetViewModel = hiltViewModel()
+) {
+    val catalogState by viewModel.catalogUiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadCatalog()
+    }
+
+    Scaffold(
+        topBar = {
+            MyCustomActionBar(
+                text = "Каталог активов",
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+    ) { paddingValues ->
+        when (val state = catalogState) {
+            is AssetViewModel.CatalogUiState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is AssetViewModel.CatalogUiState.Loaded -> {
+                if (state.items.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Book, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Каталог пуст", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(paddingValues),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(state.items) { item ->
+                            CatalogItemCard(
+                                catalogItem = item,
+                                onClick = { navController.navigate("catalog_details/${item.catalogId}") }
+                            )
+                        }
+                    }
+                }
+            }
+            is AssetViewModel.CatalogUiState.Error -> {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = { viewModel.loadCatalog() }) { Text("Повторить") }
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
+}
+
+@Composable
+fun CatalogItemCard(
+    catalogItem: AssetCatalogDto,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Иконка меняется в зависимости от типа записи
+            val isAndroid = catalogItem.androidData != null && catalogItem.asset == null
+            val icon = if (isAndroid) Icons.Default.Android else Icons.Default.Book
+            val iconTint = if (isAndroid) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onPrimaryContainer
+
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = (if (isAndroid) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer).copy(alpha = 0.6f),
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = iconTint
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                // Умное определение заголовка
+                val title = when {
+                    catalogItem.asset != null -> catalogItem.asset.name
+                    catalogItem.androidData?.device?.name != null -> catalogItem.androidData.device.name
+                    catalogItem.androidId != null -> "Android устройство"
+                    else -> "Запись каталога #${catalogItem.catalogId}"
+                }
+
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // Умное определение подзаголовка
+                val subtitle = when {
+                    catalogItem.asset != null -> "Инв. номер: ${catalogItem.asset.inventoryId}"
+                    catalogItem.androidData != null -> "Модель: ${catalogItem.androidData.device?.model ?: "Не указана"}"
+                    else -> "ID: ${catalogItem.catalogId}"
+                }
+
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                catalogItem.owner?.let { owner ->
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Владелец: ${owner.owner}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = "Открыть",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}

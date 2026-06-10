@@ -55,7 +55,7 @@ fun AssetsByTypeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                placeholder = { Text("Поиск по имени или инвентарному номеру") },
+                placeholder = { Text("Поиск") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true
             )
@@ -70,7 +70,7 @@ fun AssetsByTypeScreen(
                     }
                 }
                 is AssetViewModel.AssetUiState.AssetsLoaded -> {
-                    // 🔑 КЛЮЧЕВАЯ ФИЛЬТРАЦИЯ по type_asset
+                    // КЛЮЧЕВАЯ ФИЛЬТРАЦИЯ по type_asset
                     val filteredByType = state.assets.filter { asset ->
                         if (typeDomain == "others") {
                             asset.typeAsset == null  // Активы БЕЗ типа

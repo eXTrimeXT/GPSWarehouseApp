@@ -21,3 +21,9 @@ data class WmsReceiveResponse(
     val status: String,  // "success" или "error"
     val message: String?
 )
+
+data class WmsResponseDto(
+    @SerializedName("data") val data: List<WmsItemDto>,
+    @SerializedName("page") val page: Int,
+    @SerializedName("page_qty") val pageQty: Int
+)

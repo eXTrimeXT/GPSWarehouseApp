@@ -61,9 +61,15 @@ interface AssetApiService {
 
     // ====================== Каталог ======================
     @GET("catalog/items/")
-    suspend fun getAssetCatalog(
+    suspend fun getCatalogItems(
         @Header("Authorization") token: String
     ): List<AssetCatalogDto>
+
+    @GET("catalog/items/{catalog_id}")
+    suspend fun getCatalogItemById(
+        @Header("Authorization") token: String,
+        @Path("catalog_id") catalogId: Int
+    ): AssetCatalogDto
 
     // ====================== Пользователи ======================
     @GET("users/")
@@ -94,4 +100,11 @@ interface AssetApiService {
     suspend fun getCurrentUser(
         @Header("Authorization") token: String
     ): AssetsUserProfileDto
+
+    // Данные ПК пользователя
+    @GET("pc-data/{username}")
+    suspend fun getPcData(
+        @Header("Authorization") token: String,
+        @Path("username") username: String
+    ): PcDataDto
 }

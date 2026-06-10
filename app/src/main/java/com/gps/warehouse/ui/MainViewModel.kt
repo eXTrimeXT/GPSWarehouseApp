@@ -449,8 +449,8 @@ class MainViewModel @Inject constructor(
             request = {
                 apiService.getWmsData(GetWmsRequest(getTokenOrThrow()))
             },
-            onSuccess = { items ->
-                _uiState.value = UiState.WmsLoaded(items)
+            onSuccess = { response ->
+                _uiState.value = UiState.WmsLoaded(response.data)
             },
             errorMsg = "Ошибка загрузки данных складов"
         )

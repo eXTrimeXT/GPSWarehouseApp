@@ -31,6 +31,9 @@ import com.gps.warehouse.ui.assets_screens.assets_classes.AssetClassListScreen
 import com.gps.warehouse.ui.assets_screens.assets_models.AssetModelDetailsScreen
 import com.gps.warehouse.ui.assets_screens.assets_models.AssetModelListScreen
 import com.gps.warehouse.ui.assets_screens.assets_types.AssetTypeListScreen
+import com.gps.warehouse.ui.assets_screens.catalog.CatalogDetailsScreen
+import com.gps.warehouse.ui.assets_screens.catalog.CatalogListScreen
+import com.gps.warehouse.ui.assets_screens.catalog.MyAssetsScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
 import com.gps.warehouse.ui.home.HomeScreen
@@ -321,7 +324,25 @@ class MainActivity : ComponentActivity() {
                         }
 
                         // Каталог активов (связь актива и пользователя)
+                        composable("catalog") {
+                            CatalogListScreen(
+                                navController = navController
+                            )
+                        }
 
+                        composable("catalog_details/{catalogId}") { backStackEntry ->
+                            val catalogId = backStackEntry.arguments?.getString("catalogId")?.toIntOrNull() ?: 0
+                            CatalogDetailsScreen(
+                                catalogId = catalogId,
+                                navController = navController
+                            )
+                        }
+
+                        composable("my_assets") {
+                            MyAssetsScreen(
+                                navController = navController
+                            )
+                        }
                     }
 
                     // Показ диалога поверх всего контента (после NavHost):
