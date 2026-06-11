@@ -4,8 +4,7 @@ import com.google.gson.annotations.SerializedName
 
 // Схема для android_id
 data class AndroidDataDto(
-    @SerializedName("id") val id: Int?,
-    @SerializedName("android_id") val androidId: String?,
+    val id: Int?,
     val device: DeviceInfoDto?,
     val system: SystemInfoDto?,
     val hardware: HardwareInfoDto?,

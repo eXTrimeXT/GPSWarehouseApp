@@ -452,6 +452,9 @@ class MainViewModel @Inject constructor(
             onSuccess = { response ->
                 _uiState.value = UiState.WmsLoaded(response.data)
             },
+//            onSuccess = { items ->
+//                _uiState.value = UiState.WmsLoaded(items)
+//            },
             errorMsg = "Ошибка загрузки данных складов"
         )
     }

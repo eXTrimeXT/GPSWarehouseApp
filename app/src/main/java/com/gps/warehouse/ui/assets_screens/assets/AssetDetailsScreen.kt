@@ -114,7 +114,7 @@ fun AssetDetailsContent(
                 Spacer(modifier = Modifier.height(12.dp))
                 DetailRow("Название", asset.name)
                 DetailRow("Инвентарный номер", asset.inventoryId)
-                DetailRow("Серийный номер", asset.serialNumber)
+//                DetailRow("Серийный номер", asset.se)
                 DetailRow("Статус", asset.assetStatus)
                 DetailRow("Домен типа", asset.typeDomain)
                 // отображаем тип актива
@@ -365,7 +365,6 @@ private fun getSampleFullAssetDto(): AssetDto {
         assetId = 1,
         name = "Ноутбук Lenovo ThinkPad X1 Carbon",
         inventoryId = "INV-2024-00158",
-        serialNumber = "SN-9876543210",
         assetStatus = "В эксплуатации",
         typeDomain = "IT_Hardware",
         affixedInventoryId = "true",

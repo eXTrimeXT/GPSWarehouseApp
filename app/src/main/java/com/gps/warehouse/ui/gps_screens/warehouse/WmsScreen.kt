@@ -25,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.WmsItemDto
+import com.gps.warehouse.data.remote.gps_dto.WmsReceiveItem
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
@@ -32,6 +33,9 @@ import com.gps.warehouse.ui.components.SearchAndFilterBar // Импортиру�
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.BarcodeParser
+import com.gps.warehouse.utils.ScannedData
+import com.gps.warehouse.utils.decodeWmsScanData
+import com.gps.warehouse.utils.isBase64EncodedJson
 
 @Composable
 fun WmsScreen(
@@ -74,26 +78,63 @@ fun WmsScreen(
     }
 
     // Обработка сканирования на экране WMS
+//    LaunchedEffect(Unit) {
+//        honeywellHelper.barcodeFlow.collect { scannedData ->
+//            if (scannedData.isNotEmpty()) {
+//                // Парсим данные со сканера
+//                val materialCode = BarcodeParser.parse(scannedData)?.material ?: scannedData
+//
+//                // Ищем материал в текущем списке
+//                if (uiState is MainViewModel.UiState.WmsLoaded) {
+//                    val foundItem = (uiState as MainViewModel.UiState.WmsLoaded).items.find { it.material == materialCode }
+//
+//                    if (foundItem != null) {
+//                        // Материал найден - открываем диалог перемещения
+//                        itemToMove = foundItem
+//                        moveQty = "" // foundItem.qty.toInt().toString()
+//                        targetStorage = ""
+//                        dialogError = null
+//                        showDialogSuccess = false
+//                        showMoveDialog = true
+//                    } else {
+//                        // Материал не найден в текущем списке
+//                        Toast.makeText(context, "Материал $materialCode не найден в списке", Toast.LENGTH_SHORT).show()
+//                    }
+//                } else {
+//                    Toast.makeText(context, "Список материалов еще не загружен", Toast.LENGTH_SHORT).show()
+//                }
+//            }
+//        }
+//    }
+
+    // Обработка сканирования на экране WMS (поддержка 2 форматов QR)
     LaunchedEffect(Unit) {
         honeywellHelper.barcodeFlow.collect { scannedData ->
             if (scannedData.isNotEmpty()) {
-                // Парсим данные со сканера
-                val materialCode = BarcodeParser.parse(scannedData)?.material ?: scannedData
+                // BarcodeParser уже распознает оба формата Base64 и возвращает ScannedData
+                val parsedData: ScannedData? = BarcodeParser.parse(scannedData)
+                // Если распарсилось успешно - берем артикул, иначе используем сырую строку
+                val materialCode = parsedData?.material ?: scannedData.trim()
 
-                // Ищем материал в текущем списке
+                // Ищем материал в загруженном списке складов
                 if (uiState is MainViewModel.UiState.WmsLoaded) {
-                    val foundItem = (uiState as MainViewModel.UiState.WmsLoaded).items.find { it.material == materialCode }
+                    val foundItem = (uiState as MainViewModel.UiState.WmsLoaded)
+                        .items.find { it.material == materialCode }
 
                     if (foundItem != null) {
                         // Материал найден - открываем диалог перемещения
                         itemToMove = foundItem
-                        moveQty = "" // foundItem.qty.toInt().toString()
+                        // Предзаполняем количество из QR, если оно > 0, иначе оставляем пустым
+                        moveQty = if (parsedData != null && parsedData.qty > 0) {
+                            parsedData.qty.toString()
+                        } else {
+                            ""
+                        }
                         targetStorage = ""
                         dialogError = null
                         showDialogSuccess = false
                         showMoveDialog = true
                     } else {
-                        // Материал не найден в текущем списке
                         Toast.makeText(context, "Материал $materialCode не найден в списке", Toast.LENGTH_SHORT).show()
                     }
                 } else {

@@ -7,7 +7,6 @@ data class AssetDto(
     val name: String,
     @SerializedName("inventory_id") val inventoryId: String?,
     @SerializedName("affixed_inventory_id") val affixedInventoryId: String?,
-    @SerializedName("serial_number") val serialNumber: String?,
     @SerializedName("asset_status") val assetStatus: String?,
     @SerializedName("model_id") val modelId: Int?,
     @SerializedName("warehouse_id") val warehouseId: Int?,

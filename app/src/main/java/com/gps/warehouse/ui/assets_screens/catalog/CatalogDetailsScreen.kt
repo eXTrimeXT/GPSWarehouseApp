@@ -84,7 +84,10 @@ fun CatalogDetailsContent(
 
                 DetailRow("ID записи", catalogItem.catalogId.toString())
                 catalogItem.assetId?.let { DetailRow("ID актива", it.toString()) }
-                catalogItem.androidId?.let { DetailRow("Android ID", it) }
+
+                // ✅ Серийный номер теперь здесь (на верхнем уровне)
+                catalogItem.serialNumber?.let { DetailRow("Серийный номер", it) }
+
                 catalogItem.ownerId?.let { DetailRow("ID владельца", it.toString()) }
                 DetailRow("Создано", catalogItem.createdAt)
             }
@@ -113,9 +116,8 @@ fun CatalogDetailsContent(
 
                     DetailRow("Название", asset.name)
                     DetailRow("Инвентарный номер", asset.inventoryId)
-                    asset.serialNumber?.let { DetailRow("Серийный номер", it) }
                     DetailRow("Статус", asset.assetStatus)
-                    asset.infoStorageLocation?.let { DetailRow("Место хранения", it) }
+//                    asset.storageLocation?.let { DetailRow("Место хранения", it) }
                     asset.dateIssue?.let { DetailRow("Дата ввода в эксплуатацию", it) }
                     asset.datePurchasing?.let { DetailRow("Дата покупки", it) }
                     asset.comment?.let { DetailRow("Комментарий", it) }

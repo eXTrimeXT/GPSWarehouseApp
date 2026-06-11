@@ -13,10 +13,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.gps.warehouse.data.remote.assets_dto.AndroidDataDto
 import com.gps.warehouse.data.remote.assets_dto.AssetCatalogDto
+import com.gps.warehouse.data.remote.assets_dto.LocationDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
 
@@ -124,9 +127,8 @@ fun CatalogItemCard(
             Column(modifier = Modifier.weight(1f)) {
                 // Умное определение заголовка
                 val title = when {
-                    catalogItem.asset != null -> catalogItem.asset.name
-                    catalogItem.androidData?.device?.name != null -> catalogItem.androidData.device.name
-                    catalogItem.androidId != null -> "Android устройство"
+                    catalogItem.asset != null -> catalogItem.asset.name ?: "Актив #${catalogItem.assetId}"
+                    catalogItem.androidData?.device?.name != null -> catalogItem.androidData.device.name ?: "Android устройство"
                     else -> "Запись каталога #${catalogItem.catalogId}"
                 }
 
@@ -139,9 +141,19 @@ fun CatalogItemCard(
 
                 Spacer(modifier = Modifier.height(2.dp))
 
-                // Умное определение подзаголовка
+                // ✅ Серийный номер теперь берётся из корневого объекта
+                catalogItem.serialNumber?.let { sn ->
+                    Text(
+                        text = "S/N: $sn",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
+
+                // Подзаголовок: Инв. номер или Модель
                 val subtitle = when {
-                    catalogItem.asset != null -> "Инв. номер: ${catalogItem.asset.inventoryId}"
+                    catalogItem.asset != null -> "Инв. номер: ${catalogItem.asset.inventoryId ?: "Не указан"}"
                     catalogItem.androidData != null -> "Модель: ${catalogItem.androidData.device?.model ?: "Не указана"}"
                     else -> "ID: ${catalogItem.catalogId}"
                 }
