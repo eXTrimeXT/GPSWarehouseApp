@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.assets_screens.catalog
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,14 +15,21 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.gps.warehouse.data.remote.assets_dto.AndroidDataDto
+import com.gps.warehouse.data.remote.assets_dto.AssetCatalogDto
+import com.gps.warehouse.data.remote.assets_dto.AssetsUserProfileDto // <-- Используем правильный DTO
+import com.gps.warehouse.data.remote.assets_dto.ComponentsInfoDto
 import com.gps.warehouse.data.remote.assets_dto.PcDataDto
+import com.gps.warehouse.data.remote.gps_dto.UserProfileResponse
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.assets_screens.assets.DetailRow
 import com.gps.warehouse.ui.components.MyCustomActionBar
 
+// ==================== 1. РЕАЛЬНЫЙ ЭКРАН ====================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyAssetsScreen(
@@ -60,99 +68,111 @@ fun MyAssetsScreen(
             )
         }
     ) { paddingValues ->
-        when (val state = uiState) {
-            is AssetViewModel.AssetUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-            is AssetViewModel.AssetUiState.MyAssetsLoaded -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Секция данных ПК
-                    pcData?.let { data ->
-                        item {
-                            PcDataCard(pcData = data)
-                        }
-                    }
+        // ✅ Передаем данные в Content-компонент
+        MyAssetsContent(
+            uiState = uiState,
+            userProfile = userProfile, // Теперь типы совпадают: AssetsUserProfileDto?
+            pcData = pcData,
+            onRetry = {
+                userProfile?.userId?.let { viewModel.loadMyAssets(it) }
+                userProfile?.userTabId?.let { viewModel.loadPcData(it) }
+            },
+            onItemClick = { catalogId ->
+                navController.navigate("catalog_details/${catalogId}")
+            },
+            modifier = Modifier.padding(paddingValues)
+        )
+    }
+}
 
-                    // Секция активов пользователя
-                    if (state.assets.isEmpty()) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+// ==================== 2. ЧИСТЫЙ UI КОМПОНЕНТ ====================
+@Composable
+fun MyAssetsContent(
+    uiState: AssetViewModel.AssetUiState,
+    userProfile: AssetsUserProfileDto?, // ✅ Тип должен совпадать с тем, что в ViewModel
+    pcData: PcDataDto?,
+    onRetry: () -> Unit,
+    onItemClick: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    when (val state = uiState) {
+        is AssetViewModel.AssetUiState.Loading -> {
+            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        is AssetViewModel.AssetUiState.MyAssetsLoaded -> {
+            LazyColumn(
+                modifier = modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Секция данных ПК
+                pcData?.let { data ->
+                    item {
+                        PcDataCard(pcData = data)
+                    }
+                }
+
+                // Секция активов пользователя
+                if (state.assets.isEmpty()) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Icon(
-                                        Icons.Default.Badge,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(48.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "У вас пока нет закрепленных активов",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                                Icon(
+                                    Icons.Default.Badge,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "У вас пока нет закрепленных активов",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
-                    } else {
-                        item {
-                            Text(
-                                text = "Закрепленные активы",
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
+                    }
+                } else {
+                    item {
+                        Text(
+                            text = "Закрепленные активы",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
 
-                        items(state.assets) { item ->
-                            CatalogItemCard(
-                                catalogItem = item,
-                                onClick = {
-                                    navController.navigate("catalog_details/${item.catalogId}")
-                                }
-                            )
-                        }
+                    items(state.assets) { item ->
+                        CatalogItemCard(
+                            catalogItem = item,
+                            onClick = { onItemClick(item.catalogId) }
+                        )
                     }
                 }
             }
-            is AssetViewModel.AssetUiState.Error -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = state.message, color = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = {
-                            userProfile?.userId?.let { viewModel.loadMyAssets(it) }
-                            userProfile?.userTabId?.let { viewModel.loadPcData(it) }
-                        }) {
-                            Text("Повторить")
-                        }
+        }
+        is AssetViewModel.AssetUiState.Error -> {
+            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = onRetry) {
+                        Text("Повторить")
                     }
                 }
             }
-            else -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+        }
+        else -> {
+            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
             }
         }
     }
@@ -181,7 +201,6 @@ fun PcDataCard(pcData: PcDataDto) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 DetailRow("Имя пользователя", user.username)
-//                DetailRow("Путь профиля", user.userpath)
                 DetailRow("SID", user.sid)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             }
@@ -369,6 +388,9 @@ fun PcDataCard(pcData: PcDataDto) {
             }
 
             // Программы
+            // 1. Добавляем состояние для отслеживания, развернут список или нет
+            var isProgramsExpanded by remember { mutableStateOf(false) }
+
             pcData.programs?.let { programs ->
                 if (programs.isNotEmpty()) {
                     Text(
@@ -377,23 +399,207 @@ fun PcDataCard(pcData: PcDataDto) {
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    programs.take(10).forEach { program ->
+
+                    // 2. Логика отображения: если развернуто - берем все, иначе - первые 10
+                    val programsToShow = if (isProgramsExpanded) programs else programs.take(10)
+
+                    programsToShow.forEach { program ->
                         Text(
                             text = "• $program",
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(start = 8.dp, top = 2.dp)
                         )
                     }
+
+                    // 3. Кликабельная кнопка для переключения
                     if (programs.size > 10) {
                         Text(
-                            text = "... и еще ${programs.size - 10} программ",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 8.dp, top = 4.dp)
+                            text = if (isProgramsExpanded) "Свернуть" else "... и еще ${programs.size - 10} программ",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary, // Цвет primary подсказывает, что можно кликнуть
+                            modifier = Modifier
+                                .padding(start = 8.dp, top = 4.dp)
+                                .clickable { isProgramsExpanded = !isProgramsExpanded }
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+// ==================== 3. РАБОЧИЕ ПРЕВЬЮ ====================
+@Preview(showBackground = true, name = "My Assets - With Assets")
+@Composable
+fun MyAssetsPreviewWithAssets() {
+    val fakeProfile = UserProfileResponse(
+        id = "1",
+        login = "ivanov_aa",
+        section = "Склад",
+        lastTime = "10:00:00 20.05.2026",
+        lastIp = "192.168.1.100",
+        warehousePermissions = emptyList()
+    )
+
+    val fakeAssets = listOf(
+        AssetCatalogDto(
+            catalogId = 1,
+            assetId = 101,
+            serialNumber = "SN-001",
+            asset = null,
+            androidData = null,
+            owner = null,
+            createdAt = "2026-05-20",
+            ownerId = 1,
+            creator = null
+        ),
+        AssetCatalogDto(
+            catalogId = 2,
+            assetId = null,
+            serialNumber = "SN-002",
+            asset = null,
+            androidData = AndroidDataDto(
+                id = 1,
+                device = null,
+                system = null,
+                hardware = null,
+                network = null,
+                battery = null
+            ),
+            owner = null,
+            createdAt = "2026-05-20",
+            ownerId = null,
+            creator = null
+        )
+    )
+
+    MaterialTheme {
+        Surface {
+            MyAssetsContent(
+                uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(fakeAssets),
+                userProfile = null,
+                pcData = PcDataDto(
+                    id = 1,
+                    userId = 1,
+                    user = null,
+                    network = null,
+                    os = null,
+                    components = null,
+                    officePackage = null,
+                    programs = listOf(
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                        "14",
+                        "15",
+                        "16",
+                        "17",
+                        "18",
+                        "19",
+                        "20",
+                        "21",
+                        "22",
+                        "23",
+                        "24",
+                        "25",
+                    )
+
+                ),
+                onRetry = {},
+                onItemClick = {},
+                modifier = Modifier
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "My Assets - Empty")
+@Composable
+fun MyAssetsPreviewEmpty() {
+    val fakeProfile = UserProfileResponse(
+        id = "1",
+        login = "test_user",
+        section = "IT",
+        lastTime = null,
+        lastIp = null,
+        warehousePermissions = null
+    )
+
+    MaterialTheme {
+        Surface {
+            MyAssetsContent(
+                uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(emptyList()),
+                userProfile = null,
+                pcData = null,
+                onRetry = {},
+                onItemClick = {},
+                modifier = Modifier
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "My Assets - With PC Data")
+@Composable
+fun MyAssetsPreviewWithPcData() {
+    val fakeProfile = UserProfileResponse(
+        id = "1",
+        login = "ivanov_aa",
+        section = "Склад",
+        lastTime = "10:00:00 20.05.2026",
+        lastIp = "192.168.1.100",
+        warehousePermissions = emptyList()
+    )
+
+    // Минимальный PcDataDto для превью
+    val fakePcData = PcDataDto(
+        id = 1,
+        userId = 1,
+        user = null,
+        os = null,
+        network = null,
+        components = null,
+        officePackage = null,
+        programs = emptyList()
+    )
+
+    MaterialTheme {
+        Surface {
+            MyAssetsContent(
+                uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(emptyList()),
+                userProfile = null,
+                pcData = fakePcData,
+                onRetry = {},
+                onItemClick = {},
+                modifier = Modifier
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "My Assets - Error")
+@Composable
+fun MyAssetsPreviewError() {
+    MaterialTheme {
+        Surface {
+            MyAssetsContent(
+                uiState = AssetViewModel.AssetUiState.Error("Ошибка загрузки данных"),
+                userProfile = null,
+                pcData = null,
+                onRetry = {},
+                onItemClick = {},
+                modifier = Modifier
+            )
         }
     }
 }

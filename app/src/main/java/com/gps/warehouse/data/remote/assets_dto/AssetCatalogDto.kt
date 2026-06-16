@@ -12,5 +12,5 @@ data class AssetCatalogDto(
     val owner: UserDto?,
     val creator: UserDto?,
     val asset: AssetDto?,
-    @SerializedName("android_data_obj") val androidData: AndroidDataDto?
+    @SerializedName("android_data") val androidData: AndroidDataDto?
 )
