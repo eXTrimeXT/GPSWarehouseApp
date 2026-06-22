@@ -35,7 +35,7 @@ object AssetNetworkModule {
     fun provideAssetBaseUrl(): String {
         // Укажите здесь реальный базовый URL для API управления активами
         // Если он такой же, как у GPS, можно использовать Constants.BASE_URL
-        return "http://10.168.143.7:8800/api/"
+        return Constants.ASSET_URL
     }
 
     // 5. Создаем AssetApiService, используя предоставленные выше зависимости

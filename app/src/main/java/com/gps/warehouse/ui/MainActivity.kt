@@ -34,6 +34,7 @@ import com.gps.warehouse.ui.assets_screens.assets_types.AssetTypeListScreen
 import com.gps.warehouse.ui.assets_screens.catalog.CatalogDetailsScreen
 import com.gps.warehouse.ui.assets_screens.catalog.CatalogListScreen
 import com.gps.warehouse.ui.assets_screens.catalog.MyAssetsScreen
+import com.gps.warehouse.ui.assets_screens.map.AssetMapScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
 import com.gps.warehouse.ui.home.HomeScreen
@@ -342,6 +343,11 @@ class MainActivity : ComponentActivity() {
                             MyAssetsScreen(
                                 navController = navController
                             )
+                        }
+
+                        // Карта активов
+                        composable("asset_map") {
+                            AssetMapScreen(navController = navController)
                         }
                     }
 

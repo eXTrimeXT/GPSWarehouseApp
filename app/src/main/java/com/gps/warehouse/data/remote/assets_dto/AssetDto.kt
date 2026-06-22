@@ -45,3 +45,36 @@ data class AssetShortDto(
     @SerializedName("manufacturer_id") val manufacturerId: Int?,
     @SerializedName("vendor_id") val vendorId: Int?
 )
+
+// Карта
+data class WorkshopDto(
+    @SerializedName("workshop_id") val workshopId: Int,
+    val name: String,
+    val code: String,
+    val is_active: Boolean,
+    val geometry: GeometryDto?,
+    val workshop_width: Int?,
+    val workshop_height: Int?,
+    val offset_x: Double,
+    val offset_y: Double,
+    val workshop_scale: Double,
+    val color: String
+)
+
+data class GeometryDto(
+    val type: String, // "polygon"
+    val coordinates: List<List<Double>> // [[x, y], [x, y], ...]
+)
+
+data class AssetPositionDto(
+    val id: Int,
+    @SerializedName("asset_id") val assetId: Int,
+    @SerializedName("workshop_id") val workshopId: Int,
+    val x: Double,
+    val y: Double,
+    val rotation: Double,
+    val scale: Double,
+    @SerializedName("is_active") val isActive: Boolean,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("updated_at") val updatedAt: String
+)

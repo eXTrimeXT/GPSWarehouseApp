@@ -107,4 +107,16 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Path("username") username: String
     ): PcDataDto
+
+    // Карта активов
+    // Получение списка цехов для отрисовки карты
+    @GET("workshops/")
+    suspend fun getWorkshops(
+        @Header("Authorization") token: String
+    ): List<WorkshopDto>
+
+    @GET("asset-positions/")
+    suspend fun getAssetPositions(
+        @Header("Authorization") token: String,
+    ): List<AssetPositionDto>
 }

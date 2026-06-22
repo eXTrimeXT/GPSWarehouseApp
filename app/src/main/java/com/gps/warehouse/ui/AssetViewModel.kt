@@ -140,19 +140,6 @@ class AssetViewModel @Inject constructor(
     // ================== Активы ==================
 
     // ================== Типы активов ==================
-//    fun loadAssetTypes() {
-//        viewModelScope.launch {
-//            _uiState.value = AssetUiState.Loading
-//            try {
-//                val token = getTokenOrThrow()
-//                val types = assetApiService.getAssetTypes("Bearer $token")
-//                _uiState.value = AssetUiState.AssetTypesLoaded(types)
-//            } catch (e: Exception) {
-//                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки типов")
-//            }
-//        }
-//    }
-
     fun loadAssetTypes() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading

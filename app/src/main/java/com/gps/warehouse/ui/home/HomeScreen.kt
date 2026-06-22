@@ -301,6 +301,21 @@ fun AssetsTabContent(
                         },
                         assetsCount = othersCount
                     )
+
+                    // Карточка "Карта активов"
+                    AssetTypeCard(
+                        typeInfo = AssetTypeInfo(
+                            key = "asset_map",
+                            displayName = "Карта активов",
+                            icon = Icons.Default.Map,
+                            description = "Интерактивная карта цехов и активов",
+                            enName = null
+                        ),
+                        onClick = {
+                            onNavigate("asset_map")
+                        },
+                        assetsCount = 0
+                    )
                 }
             } ?: run {
                 Box(

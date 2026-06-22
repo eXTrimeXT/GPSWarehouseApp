@@ -16,8 +16,8 @@ android {
         applicationId = "com.gps.warehouse"
         minSdk = 30
         targetSdk = 36
-        versionCode = 5         // 5 -> 6 - Обновление приложения происходит по этому параметру!!!
-        versionName = "1.0.5"   // 1.0.5 -> 1.0.5
+        versionCode = 6         // 6 -> 7 - Обновление приложения происходит по этому параметру!!!
+        versionName = "1.0.6"   // 1.0.6 -> 1.0.7
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -73,6 +73,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.compose.foundation)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
 

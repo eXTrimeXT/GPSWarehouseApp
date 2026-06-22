@@ -20,6 +20,7 @@ datastore = "1.2.1"
 coroutines = "1.10.2"
 workRuntimeKtx = "2.9.0"
 appcompat = "1.7.1"
+foundation = "1.11.3"
 
 
 [libraries]
@@ -51,6 +52,7 @@ retrofit2-retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref =
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 
 [plugins]
