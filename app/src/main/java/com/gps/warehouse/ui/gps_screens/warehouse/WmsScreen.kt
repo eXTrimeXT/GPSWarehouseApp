@@ -4,8 +4,10 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,12 +22,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.WmsItemDto
-import com.gps.warehouse.data.remote.gps_dto.WmsReceiveItem
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
@@ -34,8 +37,6 @@ import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannedData
-import com.gps.warehouse.utils.decodeWmsScanData
-import com.gps.warehouse.utils.isBase64EncodedJson
 
 @Composable
 fun WmsScreen(
@@ -47,11 +48,9 @@ fun WmsScreen(
 
     // Состояния для фильтрации
     var searchQuery by remember { mutableStateOf("") }
-    var selectedStorageFilter by remember { mutableStateOf<String?>(null) }
-
+    var selectedStorageFilterId by remember { mutableStateOf<String?>(null) }
     // Новый фильтр - показывать только с ненулевым количеством
     var showOnlyNonZeroQty by remember { mutableStateOf(false) }
-
     // Состояние раскрытия шторки фильтров
     var isFiltersExpanded by remember { mutableStateOf(false) }
 
@@ -71,77 +70,154 @@ fun WmsScreen(
     // Инициализация сканера при открытии экрана
     LaunchedEffect(Unit) {
         viewModel.loadWmsData()
-        honeywellHelper.init(
-//            onInitialized = { honeywellHelper.enableScanner(true) },
-//            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
-        )
+        viewModel.loadAvailableWarehouses()
+        honeywellHelper.init()
     }
 
-    // Обработка сканирования на экране WMS
+    // СЕРВЕРНЫЙ ПОИСК вместо локального
 //    LaunchedEffect(Unit) {
 //        honeywellHelper.barcodeFlow.collect { scannedData ->
 //            if (scannedData.isNotEmpty()) {
-//                // Парсим данные со сканера
-//                val materialCode = BarcodeParser.parse(scannedData)?.material ?: scannedData
+//                val parsedData: ScannedData? = BarcodeParser.parse(scannedData)
+//                val materialCode = parsedData?.material ?: scannedData.trim()
 //
-//                // Ищем материал в текущем списке
+//                viewModel.searchWmsByMaterial(materialCode)
+//
+//                searchQuery = materialCode
+//
+//                // 2. Ищем материал в текущем загруженном списке
 //                if (uiState is MainViewModel.UiState.WmsLoaded) {
-//                    val foundItem = (uiState as MainViewModel.UiState.WmsLoaded).items.find { it.material == materialCode }
+//                    val allItems = (uiState as MainViewModel.UiState.WmsLoaded).items
+//                    val foundItem = allItems.find { it.material.equals(materialCode, ignoreCase = true) }
 //
 //                    if (foundItem != null) {
-//                        // Материал найден - открываем диалог перемещения
+//                        // Материал найден — сразу открываем диалог перемещения
 //                        itemToMove = foundItem
-//                        moveQty = "" // foundItem.qty.toInt().toString()
+//                        moveQty = if (parsedData != null && parsedData.qty > 0) {
+//                            parsedData.qty.toString()
+//                        } else {
+//                            "1"
+//                        }
 //                        targetStorage = ""
 //                        dialogError = null
 //                        showDialogSuccess = false
 //                        showMoveDialog = true
+//
+//                        // Опционально: вибрация или звук для подтверждения
+//                        // vibrator.vibrate(50)
 //                    } else {
 //                        // Материал не найден в текущем списке
-//                        Toast.makeText(context, "Материал $materialCode не найден в списке", Toast.LENGTH_SHORT).show()
+//                        Toast.makeText(
+//                            context,
+//                            "Материал $materialCode не найден в списке",
+//                            Toast.LENGTH_SHORT
+//                        ).show()
+//
+//                        // Опционально: выполнить серверный поиск как fallback
+//                        // viewModel.searchWmsByMaterial(materialCode)
 //                    }
-//                } else {
-//                    Toast.makeText(context, "Список материалов еще не загружен", Toast.LENGTH_SHORT).show()
 //                }
+//
+//                // Опционально: показать Toast о начале поиска
+//                Toast.makeText(context, "Поиск: $materialCode", Toast.LENGTH_SHORT).show()
 //            }
 //        }
 //    }
 
-    // Обработка сканирования на экране WMS (поддержка 2 форматов QR)
+    // Добавляем переменную для отслеживания последнего сканированного кода
+    var lastScannedCode by remember { mutableStateOf<String?>(null) }
+
+    // Обработчик сканера (отправляет запрос на сервер)
     LaunchedEffect(Unit) {
         honeywellHelper.barcodeFlow.collect { scannedData ->
             if (scannedData.isNotEmpty()) {
-                // BarcodeParser уже распознает оба формата Base64 и возвращает ScannedData
                 val parsedData: ScannedData? = BarcodeParser.parse(scannedData)
-                // Если распарсилось успешно - берем артикул, иначе используем сырую строку
                 val materialCode = parsedData?.material ?: scannedData.trim()
 
-                // Ищем материал в загруженном списке складов
-                if (uiState is MainViewModel.UiState.WmsLoaded) {
-                    val foundItem = (uiState as MainViewModel.UiState.WmsLoaded)
-                        .items.find { it.material == materialCode }
+                // Запоминаем код, чтобы потом проверить результат поиска
+                lastScannedCode = materialCode
 
-                    if (foundItem != null) {
-                        // Материал найден - открываем диалог перемещения
-                        itemToMove = foundItem
-                        // Предзаполняем количество из QR, если оно > 0, иначе оставляем пустым
-                        moveQty = if (parsedData != null && parsedData.qty > 0) {
-                            parsedData.qty.toString()
-                        } else {
-                            ""
-                        }
-                        targetStorage = ""
-                        dialogError = null
-                        showDialogSuccess = false
-                        showMoveDialog = true
-                    } else {
-                        Toast.makeText(context, "Материал $materialCode не найден в списке", Toast.LENGTH_SHORT).show()
-                    }
-                } else {
-                    Toast.makeText(context, "Список материалов еще не загружен", Toast.LENGTH_SHORT).show()
-                }
+                // Запускаем серверный поиск (сбрасывает список на 1 страницу)
+                viewModel.searchWmsByMaterial(materialCode)
             }
         }
+    }
+
+    // Реактивный обработчик: автооткрытие диалога при успешном поиске
+    LaunchedEffect(uiState) {
+        // Проверяем, есть ли активный скан и вернулся ли ответ от сервера
+        if (lastScannedCode != null && uiState is MainViewModel.UiState.WmsLoaded) {
+            // Ищем точное совпадение по артикулу
+            val foundItem = (uiState as MainViewModel.UiState.WmsLoaded).items.find {
+                it.material.equals(lastScannedCode, ignoreCase = true)
+            }
+
+            if (foundItem != null) {
+                // Материал найден — автоматически открываем диалог
+                itemToMove = foundItem
+                moveQty = if (foundItem.qty > 0) foundItem.qty.toInt().toString() else ""
+                targetStorage = ""
+                dialogError = null
+                showDialogSuccess = false
+                showMoveDialog = true
+            } else {
+                // Материал не найден
+                Toast.makeText(context, "Материал $lastScannedCode не найден на складе", Toast.LENGTH_LONG).show()
+            }
+
+            // Обязательно сбрасываем флаг, чтобы не срабатывало повторно при смене состояния
+            lastScannedCode = null
+        }
+
+        // Логика диалога (успех/ошибка/загрузка)
+        when (uiState) {
+            is MainViewModel.UiState.WmsMoveSuccess -> {
+                if (showMoveDialog) {
+                    showDialogSuccess = true
+                    dialogError = null
+                }
+            }
+            is MainViewModel.UiState.Error -> {
+                if (showMoveDialog) {
+                    dialogError = (uiState as MainViewModel.UiState.Error).message
+                    showDialogSuccess = false
+                }
+            }
+            is MainViewModel.UiState.Loading -> {
+                if (showMoveDialog && !showDialogSuccess) {
+                    dialogError = null
+                }
+            }
+            else -> {}
+        }
+    }
+
+    // === LaunchedEffect ДЛЯ СЕРВЕРНОЙ ФИЛЬТРАЦИИ ===
+    // При изменении поиска — перезагружаем данные с сервера
+    LaunchedEffect(searchQuery) {
+        viewModel.updateWmsFilters(
+            storageId = selectedStorageFilterId,
+            searchQuery = searchQuery,
+            hideZeroQty = showOnlyNonZeroQty
+        )
+    }
+
+    // При изменении фильтра склада
+    LaunchedEffect(selectedStorageFilterId) {
+        viewModel.updateWmsFilters(
+            storageId = selectedStorageFilterId,
+            searchQuery = searchQuery,
+            hideZeroQty = showOnlyNonZeroQty
+        )
+    }
+
+    // При изменении фильтра "только с остатком"
+    LaunchedEffect(showOnlyNonZeroQty) {
+        viewModel.updateWmsFilters(
+            storageId = selectedStorageFilterId,
+            searchQuery = searchQuery,
+            hideZeroQty = showOnlyNonZeroQty
+        )
     }
 
     // Освобождение ресурсов сканера при уходе с экрана
@@ -188,8 +264,8 @@ fun WmsScreen(
         uiState = uiState,
         searchQuery = searchQuery,
         onSearchQueryChange = { searchQuery = it },
-        selectedStorageFilter = selectedStorageFilter,
-        onStorageFilterSelected = { selectedStorageFilter = it },
+        selectedStorageFilterId = selectedStorageFilterId,
+        onStorageFilterSelected = { selectedStorageFilterId = it },
         isFiltersExpanded = isFiltersExpanded,
         showDialogSuccess = showDialogSuccess,
         onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
@@ -243,7 +319,13 @@ fun WmsScreen(
         },
         // Передаем параметры нового фильтра
         showOnlyNonZeroQty = showOnlyNonZeroQty,
-        onShowOnlyNonZeroQtyChange = { showOnlyNonZeroQty = it }
+        onShowOnlyNonZeroQtyChange = { showOnlyNonZeroQty = it },
+        onResetFilters = {
+            searchQuery = ""
+            selectedStorageFilterId = null
+            showOnlyNonZeroQty = false
+        },
+        viewModel = viewModel
     )
 }
 
@@ -252,7 +334,7 @@ fun WmsContent(
     uiState: MainViewModel.UiState,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
-    selectedStorageFilter: String?,
+    selectedStorageFilterId: String?,
     onStorageFilterSelected: (String?) -> Unit,
     isFiltersExpanded: Boolean,
     showDialogSuccess: Boolean,
@@ -274,7 +356,9 @@ fun WmsContent(
     onSuccessAcknowledge: () -> Unit,
     // Новые параметры для фильтра по количеству
     showOnlyNonZeroQty: Boolean,
-    onShowOnlyNonZeroQtyChange: (Boolean) -> Unit
+    onShowOnlyNonZeroQtyChange: (Boolean) -> Unit,
+    onResetFilters: () -> Unit,
+    viewModel: MainViewModel
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         MyCustomActionBar(
@@ -287,6 +371,9 @@ fun WmsContent(
             }
         )
 
+        // Получаем список доступных складов из ViewModel
+        val availableWarehouses by viewModel.availableWarehouses.collectAsState()
+
         // === ИСПОЛЬЗУЕМ SEARCHANDFILTERBAR ===
         SearchAndFilterBar(
             searchQuery = searchQuery,
@@ -294,38 +381,29 @@ fun WmsContent(
             isFiltersExpanded = isFiltersExpanded,
             onToggleFilters = onToggleFilters
         ) {
-            // Контент фильтров внутри шторки
-
-            // Фильтр по складу
-            if (uiState is MainViewModel.UiState.WmsLoaded) {
-                val storages = uiState.items
-                    .map { it.storage.trim() }
-                    .filter { it.isNotEmpty() }
-                    .distinct()
-                    .sorted()
-
-                Text("Склад:", style = MaterialTheme.typography.labelMedium)
-
-                // Горизонтальный скролл для складов
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
+            // Фильтр по складу — используем список из профиля
+            Text("Склад: ", style = MaterialTheme.typography.labelMedium)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Чип "Все"
+                FilterChip(
+                    selected = selectedStorageFilterId == null,
+                    onClick = { onStorageFilterSelected(null) },
+                    label = { Text("Все") }
+                )
+                // Чипы из доступных складов профиля
+                availableWarehouses.forEach { storageId ->
                     FilterChip(
-                        selected = selectedStorageFilter == null,
-                        onClick = { onStorageFilterSelected(null) },
-                        label = { Text("Все") }
+                        selected = selectedStorageFilterId == storageId.id,
+                        onClick = { onStorageFilterSelected(storageId.id) },
+                        label = { Text(storageId.name) } // Можно отображать имя, если в профиле есть мапа ID -> Name
                     )
-                    storages.forEach { storage ->
-                        FilterChip(
-                            selected = selectedStorageFilter == storage,
-                            onClick = { onStorageFilterSelected(storage) },
-                            label = { Text(storage) }
-                        )
-                    }
                 }
+            }
 
                 // === НОВЫЙ ФИЛЬТР: Только с остатком ===
                 Row(
@@ -342,6 +420,33 @@ fun WmsContent(
                         onCheckedChange = onShowOnlyNonZeroQtyChange
                     )
                 }
+
+            // КНОПКА СБРОСА ФИЛЬТРОВ
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                TextButton(
+                    onClick = {
+                        // Сбрасываем локальные состояния (сработают LaunchedEffect в WmsScreen)
+                        onResetFilters()
+
+                        // Явно вызываем обновление с пустыми параметрами, чтобы избежать гонки запросов
+                        viewModel.updateWmsFilters(
+                            storageId = null,
+                            searchQuery = "",
+                            hideZeroQty = false
+                        )
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Сбросить фильтры")
+                }
             }
         }
 
@@ -349,29 +454,135 @@ fun WmsContent(
             is MainViewModel.UiState.Loading -> {
                 if (!showMoveDialog) CustomLoadingView()
             }
+
+//            is MainViewModel.UiState.WmsLoaded -> {
+//                val allItemsPage = uiState.items
+//
+//                // Состояние списка для отслеживания скролла
+//                val lazyListState = rememberLazyListState()
+//
+//                // Автозагрузка при прокрутке к концу
+//                LaunchedEffect(lazyListState) {
+//                    snapshotFlow { lazyListState.layoutInfo }
+//                        .collect { layoutInfo ->
+//                            val totalItems = layoutInfo.totalItemsCount
+//                            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index
+//
+//                            // Если дошли до конца и есть ещё страницы — загружаем
+//                            if (lastVisibleItem != null &&
+//                                lastVisibleItem >= totalItems - 1 &&
+//                                !viewModel.isLoadingMore &&
+//                                viewModel.hasMorePages) {
+//                                viewModel.loadMoreWmsData()
+//                            }
+//                        }
+//                }
+//
+//                LazyColumn(
+//                    modifier = Modifier.weight(1f),
+//                    contentPadding = PaddingValues(16.dp),
+//                    verticalArrangement = Arrangement.spacedBy(8.dp),
+//                    state = lazyListState // Привязываем состояние
+//                ) {
+//                    item {
+//                        Spacer(modifier = Modifier.height(8.dp))
+//                        Text(
+//                            text = "Загружено: ${allItemsPage.size} материалов",
+//                            style = MaterialTheme.typography.bodySmall,
+//                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                            modifier = Modifier.align(Alignment.End)
+//                        )
+//                    }
+//
+//                    items(allItemsPage.reversed()) { item ->
+//                        WmsItemCard(item = item, onClick = { onItemClick(item) })
+//                    }
+//
+//                    // Индикатор загрузки внизу
+//                    if (viewModel.isLoadingMore) {
+//                        item {
+//                            Box(
+//                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+//                                contentAlignment = Alignment.Center
+//                            ) {
+//                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+            // В WmsScreen.kt, внутри блока is MainViewModel.UiState.WmsLoaded:
+
             is MainViewModel.UiState.WmsLoaded -> {
-                val allItems = uiState.items
-                val filteredItems = allItems.filter { item ->
-                    val storageMatch = selectedStorageFilter == null || item.storage.trim() == selectedStorageFilter?.trim()
-                    val query = searchQuery.lowercase()
-                    val searchMatch = query.isEmpty() || item.material.lowercase().contains(query) || (item.name.lowercase().contains(query))
-                    // === ЛОГИКА ФИЛЬТРА ПО КОЛИЧЕСТВУ ===
-                    val qtyMatch = !showOnlyNonZeroQty || item.qty > 0
-                    storageMatch && searchMatch && qtyMatch
+                val allItems = uiState.items  // ✅ Все загруженные материалы (локально)
+
+                // Состояние списка для отслеживания скролла
+                val lazyListState = rememberLazyListState()
+
+                // ✅ Автозагрузка при прокрутке к концу
+                LaunchedEffect(lazyListState) {
+                    snapshotFlow { lazyListState.layoutInfo }
+                        .collect { layoutInfo ->
+                            val totalItems = layoutInfo.totalItemsCount
+                            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index
+
+                            // Если дошли до конца и есть ещё страницы — загружаем
+                            if (lastVisibleItem != null &&
+                                lastVisibleItem >= totalItems - 1 &&  // ✅ -1, т.к. индекс с 0
+                                !viewModel.isLoadingMore &&
+                                viewModel.hasMorePages) {
+                                viewModel.loadMoreWmsData()
+                            }
+                        }
                 }
 
-                LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    state = lazyListState
+                ) {
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
+                        // ✅ Текст: Загружено X / Y материалов
                         Text(
-                            text = "Найдено: ${filteredItems.size} из ${allItems.size}",
+                            text = "Загружено: ${allItems.size} / ${viewModel.totalMaterials} материалов",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.align(Alignment.End)
                         )
                     }
-                    items(filteredItems.reversed()) { item ->
+
+                    // items(allItems.reversed()) — отображаем все загруженные материалы
+                    items(allItems.reversed()) { item ->
                         WmsItemCard(item = item, onClick = { onItemClick(item) })
+                    }
+
+                    // Индикатор загрузки внизу
+                    if (viewModel.isLoadingMore) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            }
+                        }
+                    }
+
+                    // Сообщение "Все загружено"
+                    if (!viewModel.hasMorePages && viewModel.totalMaterials > 0) {
+                        item {
+                            Text(
+                                text = "• Все материалы загружены •",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
@@ -658,6 +869,7 @@ fun WmsPreviewLoaded() {
             qty = 4.0,
             sapA = 1,
             storage = "3051",
+            storageId = 1,
             name = "СИГНАЛИЗАЦИОННАЯ ЛАМПА"
         ),
         WmsItemDto(
@@ -670,6 +882,7 @@ fun WmsPreviewLoaded() {
             qty = 10.0,
             sapA = 1,
             storage = "4007",
+            storageId = 2,
             name = "Станция зарядки"
         )
     )
@@ -679,7 +892,7 @@ fun WmsPreviewLoaded() {
                 uiState = MainViewModel.UiState.WmsLoaded(fakeItems),
                 searchQuery = "",
                 onSearchQueryChange = {},
-                selectedStorageFilter = null,
+                selectedStorageFilterId = null,
                 onStorageFilterSelected = {},
                 isFiltersExpanded = false,
                 showDialogSuccess = true,
@@ -700,7 +913,9 @@ fun WmsPreviewLoaded() {
                 onConfirmMove = { _, _, _ -> },
                 onSuccessAcknowledge = {},
                 showOnlyNonZeroQty = true,
-                onShowOnlyNonZeroQtyChange = {}
+                onShowOnlyNonZeroQtyChange = {},
+                onResetFilters = {},
+                viewModel = hiltViewModel()
             )
         }
     }
@@ -720,6 +935,7 @@ fun DialogPreview() {
             qty = 222.0,
             sapA = 111,
             storage = "storage",
+            storageId = 3,
             name = "name"
         ),
         moveQty = "String",

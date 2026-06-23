@@ -83,7 +83,7 @@ class MainViewModel @Inject constructor(
         // ====================== WMS / Склады ======================
         data class WmsLoaded(val items: List<WmsItemDto>) : UiState()
 
-        // Новое состояние для успеха перемещения
+        // Состояние для успеха перемещения
         data class WmsMoveSuccess(val message: String?) : UiState()
 
         // Состояние для складского запроса
@@ -103,8 +103,7 @@ class MainViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
 
     // Свойство для фонового мониторинга сессии
-    private val sessionMonitorScope =
-        CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
+    private val sessionMonitorScope = CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
 
     val uiState = _uiState.asStateFlow()
 
@@ -112,6 +111,28 @@ class MainViewModel @Inject constructor(
     private var currentLogin: String? = null // Сохраняем логин при успешном входе
     var currentInventoryOrder: String? = null
     var currentInventoryWarehouse: String? = null
+
+    // Состояния для пагинации
+    private var wmsCurrentPage = 1
+    private var wmsTotalPages = 1
+    private var totalMaterialsCount = 0
+    var isLoadingMore = false
+//    var hasMorePages = wmsCurrentPage < wmsTotalPages && !isLoadingMore
+    val hasMorePages: Boolean
+        get() = wmsCurrentPage < wmsTotalPages && !isLoadingMore
+
+    // Параметры фильтрации (сохраняются между запросами)
+    private var currentStorageFilterId: String? = null
+    private var currentWmsSearchQuery: String = ""
+    private var currentHideZeroQty: Boolean = false
+
+    private val _availableWarehouses = MutableStateFlow<List<WarehousePermissionDto>>(emptyList())
+    val availableWarehouses: StateFlow<List<WarehousePermissionDto>> = _availableWarehouses.asStateFlow()
+
+    // Публичные геттеры для UI
+    val currentPage: Int get() = wmsCurrentPage
+    val totalPages: Int get() = wmsTotalPages
+    val totalMaterials: Int get() = totalMaterialsCount
 
     var isInventoryActive: Boolean = true
 
@@ -205,28 +226,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-//    fun login(login: String, password: String) {
-//        viewModelScope.launch {
-//            _uiState.value = UiState.Loading
-//            try {
-//                val publicKey = apiService.getPublicKey()
-//                val encryptedPassword = RsaUtils.encryptPassword(password, publicKey)
-//                val response = apiService.login(LoginRequest(login, encryptedPassword))
-//
-//                if (response.status == "success") {
-//                    tokenStorage.saveToken(response.data.token)
-//                    currentToken = response.data.token
-//                    currentLogin = login
-//                    _uiState.value = UiState.LoggedIn(response.data.token)
-//                } else {
-//                    _uiState.value = UiState.Error(response.msg)
-//                }
-//            } catch (e: Exception) {
-//                _uiState.value = UiState.Error(e.message ?: "Unknown error")
-//            }
-//        }
-//    }
-
     fun login(username: String, password: String) {
         viewModelScope.launch {
             try {
@@ -271,19 +270,16 @@ class MainViewModel @Inject constructor(
         }
     }
 
-//    fun loadUserProfile() {
-//        executeRequest(
-//            request = { apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow())) },
-//            onSuccess = { _uiState.value = UiState.ProfileLoaded(it) },
-//            errorMsg = "Не удалось загрузить профиль"
-//        )
-//    }
     fun loadUserProfile() {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {
                 // 1. Загружаем профиль из GPS API
                 val gpsProfile = apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow()))
+                val storages = gpsProfile.warehousePermissions
+                if (storages != null) {
+                    _availableWarehouses.value = storages
+                }
 
                 // 2. Пытаемся загрузить профиль из Assets API (не критично, если не получится)
                 val assetsProfile = try {
@@ -303,6 +299,20 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка загрузки профиля", e)
                 _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить профиль")
+            }
+        }
+    }
+
+    fun loadAvailableWarehouses() {
+        viewModelScope.launch {
+            try {
+                val token = getTokenOrThrow()
+                // Загружаем через GPS API из профиля (не Assets API)
+                val profile = apiService.getUserProfile(GetUserProfileRequest(token))
+                val storages = profile.warehousePermissions ?: emptyList()
+                _availableWarehouses.value = storages.map { it } // или как у вас в DTO
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки складов", e)
             }
         }
     }
@@ -444,19 +454,105 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun loadWmsData() {
-        executeRequest(
-            request = {
-                apiService.getWmsData(GetWmsRequest(getTokenOrThrow()))
-            },
-            onSuccess = { response ->
-                _uiState.value = UiState.WmsLoaded(response.data)
-            },
-//            onSuccess = { items ->
-//                _uiState.value = UiState.WmsLoaded(items)
-//            },
-            errorMsg = "Ошибка загрузки данных складов"
-        )
+
+    // Метод загрузки данных из складов
+    fun loadWmsData(page: Int = 1, append: Boolean = false) {
+        viewModelScope.launch {
+            if (page == 1) {
+                _uiState.value = UiState.Loading
+            } else if (isLoadingMore) return@launch // Защита от двойной загрузки
+
+            isLoadingMore = true
+
+            try {
+                val token = getTokenOrThrow()
+
+                // Формируем запрос с параметрами фильтрации
+                val request = GetWmsRequest(
+                    token = token,
+                    numSap = currentWmsSearchQuery,
+                    nameSap = "",
+                    stloPop = currentStorageFilterId ?: "",
+                    isHideStock = if (currentHideZeroQty) 1 else 0,
+                    page = page,
+                    limit = 20 // явный лимит
+                )
+
+                // Выполняем запрос
+                val response = apiService.getWmsData(request)
+
+                // Проверяем, что данные не null (Retrofit уже обработал HTTP-код)
+                if (response.data.isNotEmpty()) {
+                    val newItems = response.data
+
+                    if (append) {
+                        // Добавляем к существующим (для бесконечного скролла)
+                        val currentList = when (val state = _uiState.value) {
+                            is UiState.WmsLoaded -> (state as UiState.WmsLoaded).items
+                            else -> emptyList()
+                        }
+                        _uiState.value = UiState.WmsLoaded(currentList + newItems)
+                    } else {
+                        // Заменяем список (первая страница или новая фильтрация)
+                        _uiState.value = UiState.WmsLoaded(newItems)
+                    }
+
+                    // Сохраняем информацию о пагинации
+                    wmsCurrentPage = response.page
+                    wmsTotalPages = response.pageQty
+                    totalMaterialsCount = response.materialsCount
+                } else {
+                    // Пустой ответ от сервера
+                    _uiState.value = UiState.Error("Нет данных от сервера")
+                }
+            } catch (e: retrofit2.HttpException) {
+                if (page == 1) {
+                    _uiState.value = UiState.Error("Ошибка сервера: ${e.code()}")
+                }
+            } catch (e: Exception) {
+                if (page == 1) {
+                    _uiState.value = UiState.Error(e.message ?: "Ошибка сети")
+                }
+            } finally {
+                isLoadingMore = false
+            }
+        }
+    }
+
+    // Методы для обновления фильтров с перезагрузкой данных
+    fun updateWmsFilters(
+        storageId: String?,
+        searchQuery: String,
+        hideZeroQty: Boolean
+    ) {
+        currentStorageFilterId = storageId
+        currentWmsSearchQuery = searchQuery
+        currentHideZeroQty = hideZeroQty
+        wmsCurrentPage = 1 // Сбрасываем на первую страницу при изменении фильтров
+        loadWmsData(page = 1, append = false)
+    }
+
+    // Метод для загрузки следующей страницы
+    fun loadMoreWmsData() {
+        if (wmsCurrentPage < wmsTotalPages && !isLoadingMore) {
+            loadWmsData(page = wmsCurrentPage + 1, append = true)
+        }
+    }
+
+    // Метод для серверного поиска по QR (артикул)
+    fun searchWmsByMaterial(materialCode: String) {
+        currentWmsSearchQuery = materialCode
+        wmsCurrentPage = 1
+        loadWmsData(page = 1, append = false)
+    }
+
+    // Сброс состояния
+    fun resetWmsState() {
+        wmsCurrentPage = 1
+        wmsTotalPages = 1
+        currentStorageFilterId = null
+        currentWmsSearchQuery = ""
+        currentHideZeroQty = false
     }
 
     fun loadOrders() {

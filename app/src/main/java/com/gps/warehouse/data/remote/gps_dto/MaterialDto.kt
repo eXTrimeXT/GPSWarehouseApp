@@ -82,9 +82,12 @@ data class GetWarehouseMaterialsRequest(
 // Запрос для получения данных WMS
 data class GetWmsRequest(
     val token: String,
-    @SerializedName("num_sap") val numSap: String = "",
-    @SerializedName("name_sap") val nameSap: String = "",
-    @SerializedName("is_hide_stock") val isHideStock: Int = 0
+    @SerializedName("num_sap") val numSap: String = "",         // Поиск по артикулу
+    @SerializedName("name_sap") val nameSap: String = "",       // Поиск по названию
+    @SerializedName("stlo_pop") val stloPop: String = "",       // Фильтр по id склада *
+    @SerializedName("is_hide_stock") val isHideStock: Int = 0,  // Скрыть нулевые остатки
+    @SerializedName("page") val page: Int = 1,                  // Номер страницы
+    @SerializedName("limit") val limit: Int = 20                // Явный лимит 20 записей
 )
 
 // Ответ от API getwms (один элемент списка)
@@ -98,6 +101,7 @@ data class WmsItemDto(
     val qty: Double,            // Количество
     @SerializedName("sap_a") val sapA: Int,
     val storage: String,        // Склад
+    @SerializedName("storage_id") val storageId: Int?, // id склада
     val name: String            // Наименование
 ) : Serializable
 
