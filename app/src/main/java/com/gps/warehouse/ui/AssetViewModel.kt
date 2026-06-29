@@ -82,8 +82,8 @@ class AssetViewModel @Inject constructor(
     private val _catalogUiState = MutableStateFlow<CatalogUiState>(CatalogUiState.Idle)
     val catalogUiState: StateFlow<CatalogUiState> = _catalogUiState.asStateFlow()
 
-    private val _pcData = MutableStateFlow<PcDataDto?>(null)
-    val pcData: StateFlow<PcDataDto?> = _pcData.asStateFlow()
+    private val _pcData = MutableStateFlow<List<PcDataDto?>>(emptyList())
+    val pcData: StateFlow<List<PcDataDto?>> = _pcData.asStateFlow()
 
     fun loadUserProfile() {
         viewModelScope.launch {
@@ -270,7 +270,7 @@ class AssetViewModel @Inject constructor(
             try {
                 val token = getTokenOrThrow()
                 val pcData = assetApiService.getPcData("Bearer $token", username)
-                _pcData.value = pcData
+                _pcData.value = pcData  // Переделать LIST !!!
                 // НЕ меняем _uiState, чтобы не перезаписать состояние MyAssetsLoaded
             } catch (e: Exception) {
                 android.util.Log.e("AssetViewModel", "Ошибка загрузки данных ПК: ${e.message}")

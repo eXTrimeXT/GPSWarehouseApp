@@ -112,14 +112,22 @@ class MainViewModel @Inject constructor(
     var currentInventoryOrder: String? = null
     var currentInventoryWarehouse: String? = null
 
-    // Состояния для пагинации
+    // ================== Пагинация ==================
     private var wmsCurrentPage = 1
     private var wmsTotalPages = 1
     private var totalMaterialsCount = 0
-    var isLoadingMore = false
-//    var hasMorePages = wmsCurrentPage < wmsTotalPages && !isLoadingMore
-    val hasMorePages: Boolean
-        get() = wmsCurrentPage < wmsTotalPages && !isLoadingMore
+
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    // Реактивное свойство для UI
+    val canLoadMore: Boolean get() = wmsCurrentPage < wmsTotalPages && !_isLoadingMore.value
+    val totalMaterials: Int get() = totalMaterialsCount
+
+    // Публичные геттеры для UI
+    val currentPage: Int get() = wmsCurrentPage
+    val totalPages: Int get() = wmsTotalPages
+// ================================================
 
     // Параметры фильтрации (сохраняются между запросами)
     private var currentStorageFilterId: String? = null
@@ -129,11 +137,7 @@ class MainViewModel @Inject constructor(
     private val _availableWarehouses = MutableStateFlow<List<WarehousePermissionDto>>(emptyList())
     val availableWarehouses: StateFlow<List<WarehousePermissionDto>> = _availableWarehouses.asStateFlow()
 
-    // Публичные геттеры для UI
-    val currentPage: Int get() = wmsCurrentPage
-    val totalPages: Int get() = wmsTotalPages
-    val totalMaterials: Int get() = totalMaterialsCount
-
+    // Флаг для инвентаризации
     var isInventoryActive: Boolean = true
 
     // Поток для темы
@@ -241,7 +245,11 @@ class MainViewModel @Inject constructor(
 
                 // 3. Регистрируем этот токен в Assets API
                 // Assets API создаст сессию в Redis и будет принимать этот токен
-                assetApiService.registerToken(RegisterTokenRequest(gpsToken))
+                try {
+                    assetApiService.registerToken(RegisterTokenRequest(gpsToken))
+                }catch (e: Exception){
+                    Log.e("MainViewModel", "Ошибка входа в Assets: ${e.message}", e)
+                }
 
                 // 4. Сохраняем ОДИН токен для обоих API
                 tokenStorage.saveToken(gpsToken)
@@ -460,14 +468,12 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             if (page == 1) {
                 _uiState.value = UiState.Loading
-            } else if (isLoadingMore) return@launch // Защита от двойной загрузки
+            } else if (_isLoadingMore.value) return@launch // Защита от дублей
 
-            isLoadingMore = true
+            _isLoadingMore.value = true // ✅ Старт загрузки
 
             try {
                 val token = getTokenOrThrow()
-
-                // Формируем запрос с параметрами фильтрации
                 val request = GetWmsRequest(
                     token = token,
                     numSap = currentWmsSearchQuery,
@@ -475,47 +481,42 @@ class MainViewModel @Inject constructor(
                     stloPop = currentStorageFilterId ?: "",
                     isHideStock = if (currentHideZeroQty) 1 else 0,
                     page = page,
-                    limit = 20 // явный лимит
+                    limit = 20
                 )
 
-                // Выполняем запрос
                 val response = apiService.getWmsData(request)
 
-                // Проверяем, что данные не null (Retrofit уже обработал HTTP-код)
                 if (response.data.isNotEmpty()) {
                     val newItems = response.data
-
                     if (append) {
-                        // Добавляем к существующим (для бесконечного скролла)
                         val currentList = when (val state = _uiState.value) {
-                            is UiState.WmsLoaded -> (state as UiState.WmsLoaded).items
+                            is UiState.WmsLoaded -> state.items
                             else -> emptyList()
                         }
                         _uiState.value = UiState.WmsLoaded(currentList + newItems)
                     } else {
-                        // Заменяем список (первая страница или новая фильтрация)
                         _uiState.value = UiState.WmsLoaded(newItems)
                     }
-
-                    // Сохраняем информацию о пагинации
+                    // ✅ Обновляем состояние пагинации
                     wmsCurrentPage = response.page
                     wmsTotalPages = response.pageQty
                     totalMaterialsCount = response.materialsCount
-                } else {
-                    // Пустой ответ от сервера
+                } else if (page == 1) {
                     _uiState.value = UiState.Error("Нет данных от сервера")
                 }
             } catch (e: retrofit2.HttpException) {
-                if (page == 1) {
-                    _uiState.value = UiState.Error("Ошибка сервера: ${e.code()}")
-                }
+                if (page == 1) _uiState.value = UiState.Error("Ошибка сервера: ${e.code()}")
             } catch (e: Exception) {
-                if (page == 1) {
-                    _uiState.value = UiState.Error(e.message ?: "Ошибка сети")
-                }
+                if (page == 1) _uiState.value = UiState.Error(e.message ?: "Ошибка сети")
             } finally {
-                isLoadingMore = false
+                _isLoadingMore.value = false // ✅ Сброс флага в любом случае
             }
+        }
+    }
+
+    fun loadMoreWmsData() {
+        if (canLoadMore) {
+            loadWmsData(page = wmsCurrentPage + 1, append = true)
         }
     }
 
@@ -530,13 +531,6 @@ class MainViewModel @Inject constructor(
         currentHideZeroQty = hideZeroQty
         wmsCurrentPage = 1 // Сбрасываем на первую страницу при изменении фильтров
         loadWmsData(page = 1, append = false)
-    }
-
-    // Метод для загрузки следующей страницы
-    fun loadMoreWmsData() {
-        if (wmsCurrentPage < wmsTotalPages && !isLoadingMore) {
-            loadWmsData(page = wmsCurrentPage + 1, append = true)
-        }
     }
 
     // Метод для серверного поиска по QR (артикул)

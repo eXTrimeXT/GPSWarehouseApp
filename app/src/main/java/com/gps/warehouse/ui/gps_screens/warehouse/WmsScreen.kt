@@ -37,6 +37,9 @@ import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannedData
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun WmsScreen(
@@ -74,56 +77,6 @@ fun WmsScreen(
         honeywellHelper.init()
     }
 
-    // СЕРВЕРНЫЙ ПОИСК вместо локального
-//    LaunchedEffect(Unit) {
-//        honeywellHelper.barcodeFlow.collect { scannedData ->
-//            if (scannedData.isNotEmpty()) {
-//                val parsedData: ScannedData? = BarcodeParser.parse(scannedData)
-//                val materialCode = parsedData?.material ?: scannedData.trim()
-//
-//                viewModel.searchWmsByMaterial(materialCode)
-//
-//                searchQuery = materialCode
-//
-//                // 2. Ищем материал в текущем загруженном списке
-//                if (uiState is MainViewModel.UiState.WmsLoaded) {
-//                    val allItems = (uiState as MainViewModel.UiState.WmsLoaded).items
-//                    val foundItem = allItems.find { it.material.equals(materialCode, ignoreCase = true) }
-//
-//                    if (foundItem != null) {
-//                        // Материал найден — сразу открываем диалог перемещения
-//                        itemToMove = foundItem
-//                        moveQty = if (parsedData != null && parsedData.qty > 0) {
-//                            parsedData.qty.toString()
-//                        } else {
-//                            "1"
-//                        }
-//                        targetStorage = ""
-//                        dialogError = null
-//                        showDialogSuccess = false
-//                        showMoveDialog = true
-//
-//                        // Опционально: вибрация или звук для подтверждения
-//                        // vibrator.vibrate(50)
-//                    } else {
-//                        // Материал не найден в текущем списке
-//                        Toast.makeText(
-//                            context,
-//                            "Материал $materialCode не найден в списке",
-//                            Toast.LENGTH_SHORT
-//                        ).show()
-//
-//                        // Опционально: выполнить серверный поиск как fallback
-//                        // viewModel.searchWmsByMaterial(materialCode)
-//                    }
-//                }
-//
-//                // Опционально: показать Toast о начале поиска
-//                Toast.makeText(context, "Поиск: $materialCode", Toast.LENGTH_SHORT).show()
-//            }
-//        }
-//    }
-
     // Добавляем переменную для отслеживания последнего сканированного кода
     var lastScannedCode by remember { mutableStateOf<String?>(null) }
 
@@ -155,6 +108,7 @@ fun WmsScreen(
             if (foundItem != null) {
                 // Материал найден — автоматически открываем диалог
                 itemToMove = foundItem
+                searchQuery = lastScannedCode.toString()
                 moveQty = if (foundItem.qty > 0) foundItem.qty.toInt().toString() else ""
                 targetStorage = ""
                 dialogError = null
@@ -231,7 +185,7 @@ fun WmsScreen(
     // Обработка состояний UI для управления диалогом
     LaunchedEffect(uiState) {
         when (uiState) {
-            // 1. Успех перемещения
+            // Успех перемещения
             is MainViewModel.UiState.WmsMoveSuccess -> {
                 if (showMoveDialog) {
                     // Показываем экран успеха внутри диалога
@@ -241,7 +195,7 @@ fun WmsScreen(
                 }
             }
 
-            // 2. Ошибка при перемещении
+            // Ошибка при перемещении
             is MainViewModel.UiState.Error -> {
                 if (showMoveDialog) {
                     dialogError = (uiState as MainViewModel.UiState.Error).message
@@ -249,7 +203,7 @@ fun WmsScreen(
                 }
             }
 
-            // 3. Загрузка (сброс ошибки перед новым запросом)
+            // Загрузка (сброс ошибки перед новым запросом)
             is MainViewModel.UiState.Loading -> {
                 if (showMoveDialog && !showDialogSuccess) {
                     dialogError = null
@@ -455,86 +409,34 @@ fun WmsContent(
                 if (!showMoveDialog) CustomLoadingView()
             }
 
-//            is MainViewModel.UiState.WmsLoaded -> {
-//                val allItemsPage = uiState.items
-//
-//                // Состояние списка для отслеживания скролла
-//                val lazyListState = rememberLazyListState()
-//
-//                // Автозагрузка при прокрутке к концу
-//                LaunchedEffect(lazyListState) {
-//                    snapshotFlow { lazyListState.layoutInfo }
-//                        .collect { layoutInfo ->
-//                            val totalItems = layoutInfo.totalItemsCount
-//                            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index
-//
-//                            // Если дошли до конца и есть ещё страницы — загружаем
-//                            if (lastVisibleItem != null &&
-//                                lastVisibleItem >= totalItems - 1 &&
-//                                !viewModel.isLoadingMore &&
-//                                viewModel.hasMorePages) {
-//                                viewModel.loadMoreWmsData()
-//                            }
-//                        }
-//                }
-//
-//                LazyColumn(
-//                    modifier = Modifier.weight(1f),
-//                    contentPadding = PaddingValues(16.dp),
-//                    verticalArrangement = Arrangement.spacedBy(8.dp),
-//                    state = lazyListState // Привязываем состояние
-//                ) {
-//                    item {
-//                        Spacer(modifier = Modifier.height(8.dp))
-//                        Text(
-//                            text = "Загружено: ${allItemsPage.size} материалов",
-//                            style = MaterialTheme.typography.bodySmall,
-//                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                            modifier = Modifier.align(Alignment.End)
-//                        )
-//                    }
-//
-//                    items(allItemsPage.reversed()) { item ->
-//                        WmsItemCard(item = item, onClick = { onItemClick(item) })
-//                    }
-//
-//                    // Индикатор загрузки внизу
-//                    if (viewModel.isLoadingMore) {
-//                        item {
-//                            Box(
-//                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-//                                contentAlignment = Alignment.Center
-//                            ) {
-//                                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-            // В WmsScreen.kt, внутри блока is MainViewModel.UiState.WmsLoaded:
-
             is MainViewModel.UiState.WmsLoaded -> {
-                val allItems = uiState.items  // ✅ Все загруженные материалы (локально)
-
-                // Состояние списка для отслеживания скролла
+                val allItems = uiState.items
+                val isLoadingMore by viewModel.isLoadingMore.collectAsState() // Реактивный флаг
                 val lazyListState = rememberLazyListState()
 
-                // ✅ Автозагрузка при прокрутке к концу
+                // Умная автозагрузка: срабатывает за X элементов до конца списка
                 LaunchedEffect(lazyListState) {
                     snapshotFlow { lazyListState.layoutInfo }
-                        .collect { layoutInfo ->
-                            val totalItems = layoutInfo.totalItemsCount
-                            val lastVisibleItem = layoutInfo.visibleItemsInfo.lastOrNull()?.index
-
-                            // Если дошли до конца и есть ещё страницы — загружаем
-                            if (lastVisibleItem != null &&
-                                lastVisibleItem >= totalItems - 1 &&  // ✅ -1, т.к. индекс с 0
-                                !viewModel.isLoadingMore &&
-                                viewModel.hasMorePages) {
+                        .map { info ->
+                            val lastVisibleIndex = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+                            lastVisibleIndex >= info.totalItemsCount - 15
+                        }
+                        .distinctUntilChanged()
+                        .filter { it } // Пропускаем только true
+                        .collect {
+                            if (viewModel.canLoadMore && !isLoadingMore) {
                                 viewModel.loadMoreWmsData()
                             }
                         }
                 }
+
+                // Заголовок количества
+                Text(
+                    text = "Загружено: ${allItems.size} / ${viewModel.totalMaterials} материалов",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.Start)
+                )
 
                 LazyColumn(
                     modifier = Modifier.weight(1f),
@@ -542,27 +444,18 @@ fun WmsContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     state = lazyListState
                 ) {
-                    item {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        // ✅ Текст: Загружено X / Y материалов
-                        Text(
-                            text = "Загружено: ${allItems.size} / ${viewModel.totalMaterials} материалов",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.align(Alignment.End)
-                        )
-                    }
-
-                    // items(allItems.reversed()) — отображаем все загруженные материалы
-                    items(allItems.reversed()) { item ->
+                    // Элементы списка
+                    items(allItems) { item ->
                         WmsItemCard(item = item, onClick = { onItemClick(item) })
                     }
 
-                    // Индикатор загрузки внизу
-                    if (viewModel.isLoadingMore) {
+                    // Индикатор загрузки (футер)
+                    if (isLoadingMore) {
                         item {
                             Box(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp))
@@ -570,8 +463,8 @@ fun WmsContent(
                         }
                     }
 
-                    // Сообщение "Все загружено"
-                    if (!viewModel.hasMorePages && viewModel.totalMaterials > 0) {
+                    // Сообщение "Всё загружено"
+                    if (!viewModel.canLoadMore && allItems.isNotEmpty()) {
                         item {
                             Text(
                                 text = "• Все материалы загружены •",
@@ -715,7 +608,7 @@ fun MoveMaterialDialog(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            // 1. Артикул + Позиция (в одну строку)
+                            // Артикул + Позиция (в одну строку)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = itemToMove.material,
@@ -741,7 +634,7 @@ fun MoveMaterialDialog(
 
                             Spacer(modifier = Modifier.height(2.dp))
 
-                            // 2. Наименование (занимает всю ширину, но компактно)
+                            // Наименование (занимает всю ширину, но компактно)
                             Text(
                                 text = itemToMove.name,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -752,7 +645,7 @@ fun MoveMaterialDialog(
 
                             Spacer(modifier = Modifier.height(6.dp))
 
-                            // 3. Склад + Остаток (в одну строку, акцент на количестве)
+                            // Склад + Остаток (в одну строку, акцент на количестве)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = "Склад: ${itemToMove.storage}",

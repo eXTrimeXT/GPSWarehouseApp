@@ -102,11 +102,11 @@ interface AssetApiService {
     ): AssetsUserProfileDto
 
     // Данные ПК пользователя
-    @GET("pc-data/{username}")
+    @GET("pc-data/")
     suspend fun getPcData(
         @Header("Authorization") token: String,
-        @Path("username") username: String
-    ): PcDataDto
+        @Query("username") username: String,
+    ): List<PcDataDto>
 
     // Карта активов
     // Получение списка цехов для отрисовки карты

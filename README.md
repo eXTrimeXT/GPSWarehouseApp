@@ -239,6 +239,17 @@ com.gps.warehouse/
     - Включите **"Отладку по USB"** в настройках разработчика на устройстве.
     - Нажмите кнопку **Run** (Shift+F10) в Android Studio.
 
+
+#### Для Zebra
+Для правильной работы сканера на Zebra необходимо настроить профиль DataWedge
+1. Создать новый профиль в DataWedge
+2. В Associated apps указать приложение с пакетом `com.gps.warehouse.ui.MainActivity`
+3. Включить Barcode Input и Hardware Trigger
+4. Включить и настроить Intent Input
+5. Intent action: `com.gps.warehouse.SCAN_RESULT`
+6. Intent category оставить пустым
+7. Intent delivery: выбрать Broadcast intent
+
 ---
 
 ## API Endpoints

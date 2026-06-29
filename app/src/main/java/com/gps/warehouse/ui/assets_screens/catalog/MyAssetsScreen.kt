@@ -90,7 +90,7 @@ fun MyAssetsScreen(
 fun MyAssetsContent(
     uiState: AssetViewModel.AssetUiState,
     userProfile: AssetsUserProfileDto?, // ✅ Тип должен совпадать с тем, что в ViewModel
-    pcData: PcDataDto?,
+    pcData: List<PcDataDto?>,
     onRetry: () -> Unit,
     onItemClick: (Int) -> Unit,
     modifier: Modifier = Modifier
@@ -108,11 +108,16 @@ fun MyAssetsContent(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Секция данных ПК
-                pcData?.let { data ->
+                pcData.forEach { data ->
                     item {
-                        PcDataCard(pcData = data)
+                        data?.let { PcDataCard(it) }
                     }
                 }
+//                pcData.let { data ->
+//                    item {
+//                        PcDataCard(pcData = data)
+//                    }
+//                }
 
                 // Секция активов пользователя
                 if (state.assets.isEmpty()) {
@@ -416,7 +421,7 @@ fun PcDataCard(pcData: PcDataDto) {
                         Text(
                             text = if (isProgramsExpanded) "Свернуть" else "... и еще ${programs.size - 10} программ",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary, // Цвет primary подсказывает, что можно кликнуть
+                            color = MaterialTheme.colorScheme.primary, // Цвет подсказывает, что можно кликнуть
                             modifier = Modifier
                                 .padding(start = 8.dp, top = 4.dp)
                                 .clickable { isProgramsExpanded = !isProgramsExpanded }
@@ -478,43 +483,43 @@ fun MyAssetsPreviewWithAssets() {
             MyAssetsContent(
                 uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(fakeAssets),
                 userProfile = null,
-                pcData = PcDataDto(
-                    id = 1,
-                    userId = 1,
-                    user = null,
-                    network = null,
-                    os = null,
-                    components = null,
-                    officePackage = null,
-                    programs = listOf(
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
-                        "13",
-                        "14",
-                        "15",
-                        "16",
-                        "17",
-                        "18",
-                        "19",
-                        "20",
-                        "21",
-                        "22",
-                        "23",
-                        "24",
-                        "25",
-                    )
-
-                ),
+                pcData = emptyList(),
+//                pcData = PcDataDto(
+//                    id = 1,
+//                    userId = 1,
+//                    user = null,
+//                    network = null,
+//                    os = null,
+//                    components = null,
+//                    officePackage = null,
+//                    programs = listOf(
+//                        "1",
+//                        "2",
+//                        "3",
+//                        "4",
+//                        "5",
+//                        "6",
+//                        "7",
+//                        "8",
+//                        "9",
+//                        "10",
+//                        "11",
+//                        "12",
+//                        "13",
+//                        "14",
+//                        "15",
+//                        "16",
+//                        "17",
+//                        "18",
+//                        "19",
+//                        "20",
+//                        "21",
+//                        "22",
+//                        "23",
+//                        "24",
+//                        "25",
+//                    )
+//                ),
                 onRetry = {},
                 onItemClick = {},
                 modifier = Modifier
@@ -540,7 +545,7 @@ fun MyAssetsPreviewEmpty() {
             MyAssetsContent(
                 uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(emptyList()),
                 userProfile = null,
-                pcData = null,
+                pcData = emptyList(),
                 onRetry = {},
                 onItemClick = {},
                 modifier = Modifier
@@ -578,7 +583,7 @@ fun MyAssetsPreviewWithPcData() {
             MyAssetsContent(
                 uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(emptyList()),
                 userProfile = null,
-                pcData = fakePcData,
+                pcData = listOf(fakePcData),
                 onRetry = {},
                 onItemClick = {},
                 modifier = Modifier
@@ -595,7 +600,7 @@ fun MyAssetsPreviewError() {
             MyAssetsContent(
                 uiState = AssetViewModel.AssetUiState.Error("Ошибка загрузки данных"),
                 userProfile = null,
-                pcData = null,
+                pcData = emptyList(),
                 onRetry = {},
                 onItemClick = {},
                 modifier = Modifier
