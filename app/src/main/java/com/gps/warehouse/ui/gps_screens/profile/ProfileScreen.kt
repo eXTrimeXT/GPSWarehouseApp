@@ -179,9 +179,9 @@ fun ProfileContent(
                     }
 
                     // Права на типы активов
+                    if (!profile.gpsPermissions.isNullOrEmpty())
                     CollapsiblePermissionCard(
                         assetsAdmin = profile.assetsIsAdmin,
-//                        assetsAdmin = true,
                         permissions = profile.gpsPermissions
                     )
 
