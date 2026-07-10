@@ -34,7 +34,7 @@ import com.gps.warehouse.ui.assets_screens.assets.getAvailableAssetTypes
 enum class HomeTab(val title: String, val icon: ImageVector) {
     ORDERS("Заказы", Icons.AutoMirrored.Filled.ListAlt),
     WAREHOUSE("Склад", Icons.Default.Warehouse),
-    ASSETS("Активы", Icons.Default.AutoAwesomeMotion),
+//    ASSETS("Активы", Icons.Default.AutoAwesomeMotion),
     SETTINGS("Настройки", Icons.Default.Settings),
 }
 
@@ -138,14 +138,14 @@ fun HomeScreenContent(
                 )
             }
             // Вкладка "Активы"
-            2 -> {
-                AssetsTabContent(
-                    assetViewModel = assetViewModel,
-                    onNavigate = onNavigate
-                )
-            }
+//            2 -> {
+//                AssetsTabContent(
+//                    assetViewModel = assetViewModel,
+//                    onNavigate = onNavigate
+//                )
+//            }
             // Вкладка "Настройки"
-            3 -> {
+            2 -> {
                 MenuButton(
                     title = "Профиль",
                     subtitle = "Информация о пользователе",

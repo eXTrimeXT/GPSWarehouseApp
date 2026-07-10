@@ -6,6 +6,7 @@ data class AssetsUserProfileDto(
     @SerializedName("user_tab_id") val userTabId: String?,
     val owner: String?,
     @SerializedName("user_en_name") val userEnName: String?,
+    @SerializedName("assets_admin") val assetsAdmin: Boolean,
     val permissions: Map<String, PermissionDto>?,
     @SerializedName("user_position") val userPosition: String?,
     @SerializedName("department_id") val departmentId: Int?,

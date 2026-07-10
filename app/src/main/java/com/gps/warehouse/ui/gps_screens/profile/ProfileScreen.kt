@@ -179,7 +179,10 @@ fun ProfileContent(
 
                     // Права на типы активов
                     if (!assetsProfile?.permissions.isNullOrEmpty()) {
-                        CollapsiblePermissionCard(permissions = assetsProfile.permissions)
+                        CollapsiblePermissionCard(
+                            assetsAdmin = assetsProfile.assetsAdmin,
+                            permissions = assetsProfile.permissions
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
@@ -195,7 +198,7 @@ fun ProfileContent(
                         ),
                         shape = MaterialTheme.shapes.medium
                     ) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Выйти из системы", fontWeight = FontWeight.SemiBold)
                     }
@@ -209,6 +212,46 @@ fun ProfileContent(
                 )
             }
             else -> { CustomLoadingView() }
+        }
+    }
+}
+
+@Composable
+fun AssetsAdminCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.AdminPanelSettings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Администратор активов",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Полный доступ к активам",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
     }
 }
@@ -337,10 +380,15 @@ fun CollapsibleWarehouseCard(permissions: List<WarehousePermissionDto>) {
     }
 }
 
-
 @Composable
-fun CollapsiblePermissionCard(permissions: Map<String, PermissionDto>) {
+fun CollapsiblePermissionCard(assetsAdmin: Boolean, permissions: Map<String, PermissionDto>) {
     var isExpanded by remember { mutableStateOf(false) }
+
+    // Статус администратора активов
+//    if (assetsAdmin){
+//        AssetsAdminCard()
+//        Spacer(modifier = Modifier.height(16.dp))
+//    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -383,6 +431,12 @@ fun CollapsiblePermissionCard(permissions: Map<String, PermissionDto>) {
 
             // Контент, который показывается только при развернутом состоянии
             if (isExpanded) {
+                // Статус администратора активов
+                if (assetsAdmin){
+                    Spacer(modifier = Modifier.height(12.dp))
+                    AssetsAdminCard()
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))

@@ -7,6 +7,7 @@ data class UserDto(
     @SerializedName("user_tab_id") val userTabId: String?,
     val owner: String,
     @SerializedName("user_en_name") val userEnName: String?,
+//    @SerializedName("assets_admin") val assetsAdmin: Boolean,
     val permissions: Map<String, Map<String, Boolean>>?,
     @SerializedName("user_position") val userPosition: String?,
     @SerializedName("department_id") val departmentId: Int?,

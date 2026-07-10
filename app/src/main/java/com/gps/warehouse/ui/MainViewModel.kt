@@ -369,7 +369,9 @@ class MainViewModel @Inject constructor(
             if (parts.size >= 2) {
                 // Декодируем Payload (вторую часть)
                 val payload = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP))
+                Log.i("PAYLOAD:", payload)
                 val json = JSONObject(payload)
+                Log.i("JSON:", json.toString())
                 json.optString("login", null)
             } else {
                 null
@@ -470,7 +472,7 @@ class MainViewModel @Inject constructor(
                 _uiState.value = UiState.Loading
             } else if (_isLoadingMore.value) return@launch // Защита от дублей
 
-            _isLoadingMore.value = true // ✅ Старт загрузки
+            _isLoadingMore.value = true // Старт загрузки
 
             try {
                 val token = getTokenOrThrow()
@@ -497,7 +499,7 @@ class MainViewModel @Inject constructor(
                     } else {
                         _uiState.value = UiState.WmsLoaded(newItems)
                     }
-                    // ✅ Обновляем состояние пагинации
+                    // Обновляем состояние пагинации
                     wmsCurrentPage = response.page
                     wmsTotalPages = response.pageQty
                     totalMaterialsCount = response.materialsCount
@@ -509,7 +511,7 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (page == 1) _uiState.value = UiState.Error(e.message ?: "Ошибка сети")
             } finally {
-                _isLoadingMore.value = false // ✅ Сброс флага в любом случае
+                _isLoadingMore.value = false // Сброс флага в любом случае
             }
         }
     }
@@ -929,7 +931,7 @@ class MainViewModel @Inject constructor(
             _uiState.value = UiState.Loading
             try {
                 val token = getTokenOrThrow()
-                val request = WmsReceiveRequest(materialsData = materials)
+                val request = WmsReceiveRequest(token = token, materialsData = materials)
 
                 // Получаем "сырой" ответ
                 val responseBody = apiService.receiveWmsMaterials(request)
