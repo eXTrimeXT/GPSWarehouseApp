@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.InstallMobile
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.*
@@ -19,6 +21,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.UpdateDialog
+import com.gps.warehouse.ui.home.HomeTab
+import com.gps.warehouse.utils.AppPreferences
 import com.gps.warehouse.utils.Constants
 import com.gps.warehouse.utils.UpdateManager
 import kotlinx.coroutines.launch
@@ -36,9 +40,6 @@ fun SettingsScreen(navController: NavHostController) {
     var remoteVersion by remember { mutableStateOf<UpdateManager.VersionInfo?>(null) }
     var showUpdateDialog by remember { mutableStateOf(false) }
 
-    // Проверяем при запуске, есть ли уже скачанный файл в кэше
-    var isApkReady by remember { mutableStateOf(updateManager.isApkDownloaded()) }
-
     val (currentVersionCode, currentVersionName) = remember {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         info.versionCode to (info.versionName ?: "1.0.0")
@@ -54,6 +55,58 @@ fun SettingsScreen(navController: NavHostController) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // ================== НАСТРОЙКА ВКЛАДКИ ПО УМОЛЧАНИЮ ==================
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Интерфейс", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Вкладка, открываемая при запуске", style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(12.dp))
+
+                    var expanded by remember { mutableStateOf(false) }
+                    var savedTabIndex by remember { mutableIntStateOf(AppPreferences.getDefaultTab(context)) }
+
+                    Box {
+                        OutlinedButton(
+                            onClick = { expanded = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = HomeTab.entries[savedTabIndex].title,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                        }
+
+                        DropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            HomeTab.entries.forEachIndexed { index, tab ->
+                                DropdownMenuItem(
+                                    text = { Text(tab.title) },
+                                    onClick = {
+                                        // Сохраняем выбор в SharedPreferences
+                                        savedTabIndex = index
+                                        AppPreferences.setDefaultTab(context, index)
+                                        expanded = false
+                                    },
+                                    leadingIcon = {
+                                        if (savedTabIndex == index) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Кнопка проверки обновлений
             Button(
                 onClick = {
@@ -114,25 +167,6 @@ fun SettingsScreen(navController: NavHostController) {
                 }
             }
 
-            // КНОПКА УСТАНОВКИ (появляется только после успешного скачивания)
-            if (isApkReady) {
-                Button(
-                    onClick = {
-                        val success = updateManager.installUpdate()
-                        if (!success) {
-                            errorMessage =
-                                "Ошибка запуска установщика. Проверьте разрешение на установку приложений."
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
-                ) {
-                    Icon(Icons.Default.InstallMobile, null, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Установить обновление")
-                }
-            }
-
             // Ошибка
             errorMessage?.let { msg ->
                 Text(
@@ -142,7 +176,7 @@ fun SettingsScreen(navController: NavHostController) {
                 )
             }
 
-            // Карточка с информацией
+            // Карточка с информацией (О приложении)
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("О приложении", style = MaterialTheme.typography.titleMedium)
@@ -193,7 +227,7 @@ fun SettingsScreen(navController: NavHostController) {
                         )
                         isDownloading = false
                         if (success) {
-                            isApkReady = true // Показываем кнопку "Установить"
+                            /* ничего не делает потому что запускается системный установщик */
                         } else {
                             errorMessage = "Ошибка загрузки APK. Попробуйте позже."
                         }

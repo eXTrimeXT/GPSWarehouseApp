@@ -91,7 +91,7 @@ class MainActivity : ComponentActivity() {
                 } catch (e: Exception) { /* ignore */ }
             }
 
-            // Проверка обновлений после успешного логина (вместо старого кода)
+            // Проверка обновлений после успешного логина
             fun checkForAppUpdate() {
                 scope.launch {
                     val remote = updateManager.checkForUpdates(Constants.BASE_URL_UPDATE)
@@ -360,12 +360,12 @@ class MainActivity : ComponentActivity() {
                                 scope.launch {
                                     val success = updateManager.downloadUpdate(
                                         baseUrl = Constants.BASE_URL_UPDATE,
-                                        onProgress = { /* опционально: показать уведомление */ }
+                                        onProgress = { /* Прогресс теперь отображается только в системном Notification */ }
                                     )
                                     if (success) {
                                         android.widget.Toast.makeText(
                                             this@MainActivity,
-                                            "Обновление загружено! Установите в Настройках.",
+                                            "Обновление загружено! Запуск установки...",
                                             android.widget.Toast.LENGTH_LONG
                                         ).show()
                                     } else {

@@ -1,7 +1,5 @@
 package com.gps.warehouse.ui.home
 
-import android.os.Build
-import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -29,6 +28,7 @@ import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.assets_screens.assets.AssetTypeCard
 import com.gps.warehouse.ui.assets_screens.assets.AssetTypeInfo
 import com.gps.warehouse.ui.assets_screens.assets.getAvailableAssetTypes
+import com.gps.warehouse.utils.AppPreferences
 
 // Перечисление вкладок нижней навигации
 enum class HomeTab(val title: String, val icon: ImageVector) {
@@ -43,8 +43,17 @@ fun HomeScreen(
     navController: NavHostController,
     assetViewModel: AssetViewModel
 ) {
-    var selectedTabIndex by rememberSaveable { mutableIntStateOf(0) } // 0 = Заказы (по умолчанию)
     val tabs = HomeTab.entries.toTypedArray()
+
+    val context = LocalContext.current
+    var selectedTabIndex by rememberSaveable {
+        mutableIntStateOf(AppPreferences.getDefaultTab(context))
+    }
+
+    LaunchedEffect(Unit) {
+        selectedTabIndex = AppPreferences.getDefaultTab(context)
+    }
+
 
     Scaffold(
         bottomBar = {

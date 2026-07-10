@@ -1,8 +1,12 @@
 package com.gps.warehouse.utils
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,6 +20,10 @@ class UpdateManager(private val context: Context) {
     private val TAG = "UpdateManager"
     private val apkFileName = "app_update.apk"
 
+    // Параметры для уведомления
+    private val channelId = "app_update_channel"
+    private val notificationId = 1001
+
     // Файл всегда хранится во внутренней памяти приложения
     val cachedApkFile = File(context.cacheDir, apkFileName)
 
@@ -25,6 +33,19 @@ class UpdateManager(private val context: Context) {
         val versionCode: Int,
         val versionName: String
     )
+
+    // Создание канала уведомлений (обязательно для Android 8+)
+    private fun createNotificationChannel() {
+        val channel = NotificationChannel(
+            channelId,
+            "Обновления приложения",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Уведомления о прогрессе скачивания обновлений"
+        }
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(channel)
+    }
 
     // 1. Проверка наличия обновлений на сервере
     suspend fun checkForUpdates(baseUrl: String): VersionInfo? = withContext(Dispatchers.IO) {
@@ -65,6 +86,7 @@ class UpdateManager(private val context: Context) {
             val apkUrl = "$baseUrl/download/apk"
             downloadApk(apkUrl, onProgress)
             onProgress(100)
+            installApk(cachedApkFile)
             true
         } catch (e: Exception) {
             Log.e(TAG, "Download failed", e)
@@ -92,6 +114,20 @@ class UpdateManager(private val context: Context) {
 
     // Вспомогательный метод скачивания
     private fun downloadApk(url: String, onProgress: (Int) -> Unit = {}): File {
+        createNotificationChannel()
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Инициализируем уведомление
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.stat_sys_download) // Системная иконка скачивания
+            .setContentTitle("Скачивание обновления")
+            .setContentText("0%")
+            .setOngoing(true) // Нельзя смахнуть во время скачивания
+            .setProgress(100, 0, false)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+
+        notificationManager.notify(notificationId, builder.build())
+
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.apply {
             requestMethod = "GET"
@@ -128,12 +164,24 @@ class UpdateManager(private val context: Context) {
                             onProgress(progress)
                             lastProgress = progress
                             lastProgressUpdate = now
+
+                            // === ОБНОВЛЯЕМ ПРОГРЕСС В УВЕДОМЛЕНИИ ===
+                            builder.setProgress(100, progress, false)
+                                .setContentText("$progress%")
+                            notificationManager.notify(notificationId, builder.build())
                         }
                     }
                 }
             }
         }
         connection.disconnect()
+
+        // === УВЕДОМЛЕНИЕ О ЗАВЕРШЕНИИ ===
+        builder.setContentText("Скачивание завершено. Запуск установки...")
+            .setProgress(0, 0, false)
+            .setOngoing(false)
+        notificationManager.notify(notificationId, builder.build())
+
         return cachedApkFile
     }
 
