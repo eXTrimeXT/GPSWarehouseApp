@@ -88,7 +88,7 @@ fun WmsReceiveScreen(
                                 matNumOrder = orderNumberToUse,
                                 matQtyScan = scanResult.matQtyScan,
                                 checkQuality = true,
-                                Expi = ""
+                                Expi = "" // Дата пустая при сканировании
                             )
                             receiveItems = receiveItems + newItem
                         }
@@ -136,7 +136,7 @@ fun WmsReceiveScreen(
                         matNumOrder = finalOrder,
                         matQtyScan = qtyInt,
                         checkQuality = qual,
-                        Expi = exp
+                        Expi = exp // Сохраняем дату (или пустую строку)
                     )
                     receiveItems = if (editingIndex != null) {
                         receiveItems.toMutableList().apply { set(editingIndex!!, newItem) }
@@ -335,12 +335,29 @@ fun WmsReceiveScreenContent(
             uiState !is MainViewModel.UiState.Error
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
+
+                // === ЛОГИКА ДЛЯ КНОПКИ ===
+                // Проверяем, есть ли элементы И заполнены ли даты у всех элементов
+                val isReadyToComplete = receiveItems.isNotEmpty() &&
+                        receiveItems.all { it.Expi.isNotBlank() }
+
                 Button(
                     onClick = onReceiveClick,
-                    enabled = receiveItems.isNotEmpty(),
+                    enabled = isReadyToComplete, // Кнопка активна только если все даты заполнены
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Завершить приемку (${receiveItems.sumOf { it.matQtyScan }} шт.)")
+                    if (!isReadyToComplete) {
+                        // Если не готово, показываем предупреждение (опционально) или просто иконку замка
+                        Icon(
+                            Icons.Default.DateRange,
+                            contentDescription = "Требуются даты",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    val textDone = "Завершить приемку (${receiveItems.sumOf { it.matQtyScan }} шт.)"
+                    val textNoDone = "Заполните даты срока годности для всех материалов"
+                    Text(if (receiveItems.isNotEmpty() && !isReadyToComplete) textNoDone else textDone)
                 }
             }
         }
@@ -349,7 +366,7 @@ fun WmsReceiveScreenContent(
             is MainViewModel.UiState.Loading -> CustomLoadingView()
             is MainViewModel.UiState.Error -> ErrorStateView(
                 message = uiState.message,
-                onRetry = { null },
+                onRetry = null,
                 modifier = Modifier.weight(1f)
             )
             else -> {
@@ -386,7 +403,7 @@ fun RenderReceiveList(
         ) {
             itemsIndexed(
                 items = items,
-                key = { index, item -> "${item.matNumScan}_${item.matQtyScan}_$index" }
+                key = { index, item -> "${item.matNumScan} ${item.matQtyScan} $index" }
             ) { index, item ->
                 Card(
                     Modifier.fillMaxWidth(),
@@ -422,7 +439,6 @@ fun RenderReceiveList(
                                 Checkbox(checked = item.checkQuality, onCheckedChange = { onToggleQuality(index) })
                                 Text("Качество", style = MaterialTheme.typography.bodySmall)
                             }
-
                             // Поле даты срока годности с иконкой календаря (кликабельное)
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -433,17 +449,22 @@ fun RenderReceiveList(
                                 Icon(
                                     Icons.Default.CalendarToday,
                                     contentDescription = "Выбрать дату",
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    // Если дата не заполнена, иконка серая (предупреждение)
+                                    tint = if (item.Expi.isNotBlank())
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = if (item.Expi.isNotBlank()) item.Expi else "Выбрать дату",
+                                    text = if (item.Expi.isNotBlank()) item.Expi else "Выбрать дату!",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (item.Expi.isNotBlank())
                                         MaterialTheme.colorScheme.primary
                                     else
-                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                        MaterialTheme.colorScheme.error,
+                                    fontWeight = if (item.Expi.isNotBlank()) FontWeight.Normal else FontWeight.Bold
                                 )
                             }
                         }
@@ -454,7 +475,7 @@ fun RenderReceiveList(
     }
 }
 
-// ====================== 4. ДИАЛОГ РЕДАКТИРОВАНИЯ ======================
+// ====================== 4. ДИАЛОГ РЕДАКТИРОВАНИЯ (ОБНОВЛЕННЫЙ РАЗМЕР И ШРИФТЫ) ======================
 @Composable
 fun EditReceiveItemDialog(
     material: String,
@@ -470,7 +491,6 @@ fun EditReceiveItemDialog(
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val scrollState = rememberScrollState()
-
     var materialField by remember { mutableStateOf(TextFieldValue(material, TextRange(material.length))) }
     var qtyField by remember { mutableStateOf(TextFieldValue(qty, TextRange(qty.length))) }
     var orderField by remember { mutableStateOf(TextFieldValue(orderNumber, TextRange(orderNumber.length))) }
@@ -484,70 +504,106 @@ fun EditReceiveItemDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (isEditing) "Редактирование" else "Новый материал", fontWeight = FontWeight.SemiBold) },
+        // Делаем диалог шире (95% ширины экрана, но не во весь экран)
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .padding(horizontal = 8.dp),
+
+        // Увеличиваем заголовок
+        title = {
+            Text(
+                text = if (isEditing) "Редактирование" else "Новый материал",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+
         text = {
-            Column(Modifier
-                .verticalScroll(scrollState)
-                .padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(scrollState)
+                    .padding(vertical = 16.dp), // Добавляем вертикальные отступы для высоты
+                verticalArrangement = Arrangement.spacedBy(20.dp) // Увеличиваем расстояние между полями
+            ) {
                 OutlinedTextField(
                     value = materialField,
                     onValueChange = { materialField = it.copy(selection = TextRange(it.text.length)) },
-                    label = { Text("Артикул") },
+                    // Увеличиваем шрифт Label
+                    label = { Text("Артикул", style = MaterialTheme.typography.bodyLarge) },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    // Увеличиваем шрифт вводимого текста
+                    textStyle = MaterialTheme.typography.titleMedium
                 )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
                         value = qtyField,
                         onValueChange = { if (it.text.all { it.isDigit() } && it.text.length <= 5) qtyField = it.copy(selection = TextRange(it.text.length)) },
-                        label = { Text("Кол-во") },
-                        modifier = Modifier.weight(0.4f),
+                        label = { Text("Кол-во", style = MaterialTheme.typography.bodyLarge) },
+                        modifier = Modifier.weight(0.6f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true
+                        singleLine = true,
+                        textStyle = MaterialTheme.typography.titleMedium
                     )
                     OutlinedTextField(
                         value = orderField,
                         onValueChange = { orderField = it.copy(selection = TextRange(it.text.length)) },
-                        label = { Text("Заказ") },
+                        label = { Text("Заказ", style = MaterialTheme.typography.bodyLarge) },
                         modifier = Modifier
                             .weight(0.6f)
                             .clickable {
                                 clipboard.setText(AnnotatedString(orderField.text))
-                                Toast.makeText(
-                                    context,
-                                    "Номер заказа скопирован",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(context, "Номер заказа скопирован", Toast.LENGTH_SHORT).show()
                             },
                         singleLine = true,
                         readOnly = isEditing,
-                        enabled = true
+                        enabled = true,
+                        textStyle = MaterialTheme.typography.titleMedium
                     )
                 }
-                Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant.copy(0.3f), shape = MaterialTheme.shapes.small) {
-                    Row(Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = qualityChecked, onCheckedChange = { qualityChecked = it }, modifier = Modifier.size(20.dp))
-                            Text("Качество", style = MaterialTheme.typography.bodySmall)
+
+                // Блок качества и даты
+                Surface(
+                    Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(0.3f),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Качество
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = qualityChecked,
+                                onCheckedChange = { qualityChecked = it },
+                                modifier = Modifier.size(24.dp) // Чекбокс чуть больше
+                            )
+                            Text("Качество", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 8.dp))
                         }
-                        // Поле выбора даты с иконкой календаря
+
+                        // Дата
                         Row(
-                            Modifier.weight(1f),
+                            Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Icon(
                                 Icons.Default.CalendarToday,
                                 contentDescription = "Выбрать дату",
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                             Text(
-                                text = if (expiField.isNotBlank()) expiField else "Выбрать",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (expiField.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = "Срок годности: ${expiField.ifBlank { "Не выбрано" }}",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = if (expiField.isNotBlank())
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.error,
                                 modifier = Modifier.clickable { onDateClick() }
                             )
                         }
@@ -557,11 +613,13 @@ fun EditReceiveItemDialog(
         },
         confirmButton = {
             Button(onClick = { onConfirm(materialField.text, qtyField.text, orderField.text, qualityChecked, expiField) }) {
-                Text("Сохранить")
+                Text("Сохранить", style = MaterialTheme.typography.titleSmall)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(onClick = onDismiss) {
+                Text("Отмена", style = MaterialTheme.typography.titleSmall)
+            }
         }
     )
 }
@@ -592,13 +650,54 @@ fun WmsReceivePreviewItems() {
             WmsReceiveScreenContent(
                 receiveItems = listOf(
                     WmsReceiveItem("LA0610402138", "4200011646", 5, true, "10.07.2026"),
-                    WmsReceiveItem("LA0610501327", "4200011646", 3, false, "")
+                    WmsReceiveItem("LA0610501327", "4200011646", 3, false, " ") // Дата пустая -> Кнопка будет disabled
                 ),
                 orderNumber = "4200011646",
                 onEditClick = {}, onRemoveItem = {}, onToggleQuality = {},
                 onExpiDateClick = { _, _ -> },
                 onAddManualClick = {}, uiState = MainViewModel.UiState.Idle,
                 onReceiveClick = {}, onBackClick = {}
+            )
+        }
+    }
+}
+
+// ====================== 6. ПРЕВЬЮ ДЛЯ ДИАЛОГА ======================
+@Preview(showBackground = true, name = "Edit Dialog - New Item")
+@Composable
+fun EditReceiveItemDialogPreview_New() {
+    MaterialTheme {
+        Surface {
+            EditReceiveItemDialog(
+                material = "",
+                qty = "1",
+                orderNumber = "4200011646",
+                quality = true,
+                expi = "",
+                isEditing = false,
+                onDismiss = {},
+                onConfirm = { _, _, _, _, _ -> },
+                onDateClick = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Edit Dialog - Editing Item")
+@Composable
+fun EditReceiveItemDialogPreview_Editing() {
+    MaterialTheme {
+        Surface {
+            EditReceiveItemDialog(
+                material = "LA0610402138",
+                qty = "5",
+                orderNumber = "4200011646",
+                quality = true,
+                expi = "10.07.2026", // ✅ Дата уже выбрана
+                isEditing = true,
+                onDismiss = {},
+                onConfirm = { _, _, _, _, _ -> },
+                onDateClick = {}
             )
         }
     }

@@ -432,7 +432,6 @@ fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: List<GpsPermis
                     AssetsAdminCard()
                     Spacer(modifier = Modifier.height(12.dp))
                 } else {
-                    HorizontalDivider()
                     Spacer(modifier = Modifier.height(8.dp))
 
                     AnimatedVisibility(visible = isExpanded) {
@@ -506,6 +505,7 @@ fun PermissionBadge(label: String, granted: Boolean) {
             fontWeight = FontWeight.Medium,
             color = if (granted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
         )
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
