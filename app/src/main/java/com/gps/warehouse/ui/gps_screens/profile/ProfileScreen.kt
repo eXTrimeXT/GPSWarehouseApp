@@ -15,9 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.gps.warehouse.data.remote.gps_dto.PermissionDto
+import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
+import com.gps.warehouse.data.remote.gps_dto.UserProfileResponse
 import com.gps.warehouse.data.remote.gps_dto.WarehousePermissionDto
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
@@ -177,12 +179,11 @@ fun ProfileContent(
                     }
 
                     // Права на типы активов
-//                    if (!profile.permissions.isNullOrEmpty()){
-                    Log.e("permissions", "${profile.assets_is_admin} | ${profile.permissions}")
-                        CollapsiblePermissionCard(
-                            assetsAdmin = profile.assets_is_admin,
-                            permissions = profile.permissions
-                        )
+                    CollapsiblePermissionCard(
+                        assetsAdmin = profile.assetsIsAdmin,
+//                        assetsAdmin = true,
+                        permissions = profile.gpsPermissions
+                    )
 
                     Spacer(modifier = Modifier.weight(1f))
 
@@ -300,7 +301,9 @@ fun CollapsibleWarehouseCard(permissions: List<WarehousePermissionDto>) {
             isExpanded = !isExpanded
         }
     ) {
-        Column(modifier = Modifier.padding(16.dp).animateContentSize()) {
+        Column(modifier = Modifier
+            .padding(16.dp)
+            .animateContentSize()) {
             // Заголовок карточки (всегда виден)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -379,14 +382,8 @@ fun CollapsibleWarehouseCard(permissions: List<WarehousePermissionDto>) {
 }
 
 @Composable
-fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: Map<String, PermissionDto>?) {
+fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: List<GpsPermissionDto>?) {
     var isExpanded by remember { mutableStateOf(false) }
-
-    // Статус администратора активов
-//    if (assetsAdmin){
-//        AssetsAdminCard()
-//        Spacer(modifier = Modifier.height(16.dp))
-//    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -430,19 +427,19 @@ fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: Map<String, Pe
             // Контент, который показывается только при развернутом состоянии
             if (isExpanded) {
                 // Статус администратора активов
-                if (assetsAdmin == true){
+                if (assetsAdmin == true) {
                     Spacer(modifier = Modifier.height(12.dp))
                     AssetsAdminCard()
-                }
+                    Spacer(modifier = Modifier.height(12.dp))
+                } else {
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(8.dp))
-
-                AnimatedVisibility(visible = isExpanded) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        permissions?.forEach { (groupName, permission) ->
-                            PermissionGroupCard(groupName, permission)
+                    AnimatedVisibility(visible = isExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            permissions?.forEach { (groupName, permission) ->
+                                PermissionGroupCard(groupName, permission)
+                            }
                         }
                     }
                 }
@@ -452,7 +449,7 @@ fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: Map<String, Pe
 }
 
 @Composable
-fun PermissionGroupCard(groupName: String, permission: PermissionDto) {
+fun PermissionGroupCard(groupName: String, permission: Boolean) {
     val displayName = getPermissionDisplayName(groupName)
     val icon = getPermissionIcon(groupName)
 
@@ -486,8 +483,8 @@ fun PermissionGroupCard(groupName: String, permission: PermissionDto) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                PermissionBadge("Чтение", permission.read)
-                PermissionBadge("Запись", permission.write)
+                PermissionBadge("Чтение", permission)
+                PermissionBadge("Запись", permission)
             }
         }
     }
@@ -546,45 +543,46 @@ fun getPermissionIcon(key: String): ImageVector {
 
 
 // --- ПРЕВЬЮ ---
-//@Preview(showBackground = true, name = "Profile - Loaded")
-//@Composable
-//fun ProfilePreviewLoaded() {
-//    val testProfile = UserProfileResponse(
-//        id = "91",
-//        login = "ivanov_aa",
-//        section = "Складская логистика",
-//        lastTime = "14:33:23 27.04.2026",
-//        lastIp = "192.168.1.105",
-//        warehousePermissions = listOf(
-//            WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
-//            WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0"),
-//            WarehousePermissionDto(id = "3", name = "Архив", isLeader = "0", isVirtual = "1")
-//        ),
-//        permissions = mapOf()
-//    )
-//    MaterialTheme {
-//        Surface {
-//            ProfileContent(
-//                uiState = MainViewModel.UiState.ProfileLoaded(testProfile),
-//                onLogoutClick = {},
-//                onBackClick = {},
-//                onRetryClick = {}
-//            )
-//        }
-//    }
-//}
+@Preview(showBackground = true, name = "Profile - Loaded")
+@Composable
+fun ProfilePreviewLoaded() {
+    val testProfile = UserProfileResponse(
+        id = "91",
+        login = "ivanov_aa",
+        section = "Складская логистика",
+        lastTime = "14:33:23 27.04.2026",
+        lastIp = "192.168.1.105",
+        warehousePermissions = listOf(
+            WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
+            WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0"),
+            WarehousePermissionDto(id = "3", name = "Архив", isLeader = "0", isVirtual = "1")
+        ),
+        assetsIsAdmin = true,
+        gpsPermissions = emptyList()
+    )
+    MaterialTheme {
+        Surface {
+            ProfileContent(
+                uiState = MainViewModel.UiState.ProfileLoaded(testProfile),
+                onLogoutClick = {},
+                onBackClick = {},
+                onRetryClick = {}
+            )
+        }
+    }
+}
 
-//@Preview(showBackground = true, name = "Profile - Error")
-//@Composable
-//fun ProfilePreviewError() {
-//    MaterialTheme {
-//        Surface {
-//            ProfileContent(
-//                uiState = MainViewModel.UiState.Error("Сервер недоступен"),
-//                onLogoutClick = {},
-//                onBackClick = {},
-//                onRetryClick = {}
-//            )
-//        }
-//    }
-//}
+@Preview(showBackground = true, name = "Profile - Error")
+@Composable
+fun ProfilePreviewError() {
+    MaterialTheme {
+        Surface {
+            ProfileContent(
+                uiState = MainViewModel.UiState.Error("Сервер недоступен"),
+                onLogoutClick = {},
+                onBackClick = {},
+                onRetryClick = {}
+            )
+        }
+    }
+}
