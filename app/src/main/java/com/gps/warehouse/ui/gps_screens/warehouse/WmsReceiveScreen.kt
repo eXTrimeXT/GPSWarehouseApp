@@ -32,91 +32,71 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.decodeWmsScanData
 import com.gps.warehouse.utils.isBase64EncodedJson
+import java.text.SimpleDateFormat
+import java.util.*
 
-// 1. Реальный экран
+// ====================== 1. ЭКРАН ======================
 @Composable
 fun WmsReceiveScreen(
     navController: NavHostController,
     viewModel: MainViewModel,
-    orderNumber: String = "" // Опциональный, если скан содержит order
+    orderNumber: String = ""
 ) {
     var receiveItems by remember { mutableStateOf<List<WmsReceiveItem>>(emptyList()) }
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
-    // Состояние для диалога редактирования/добавления
+    // Состояния диалога редактирования
     var showDialog by remember { mutableStateOf(false) }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
     var dialogOrderNumber by remember { mutableStateOf(orderNumber) }
-
-    // Поля диалога
     var dialogMaterial by remember { mutableStateOf("") }
     var dialogQty by remember { mutableStateOf("1") }
     var dialogQuality by remember { mutableStateOf(true) }
-    var dialogExpi by remember { mutableStateOf(true) }
+    var dialogExpi by remember { mutableStateOf("") }
 
-    // Хелпер для сканера Honeywell
+    // НОВОЕ: Состояния для DatePicker в СПИСКЕ
+    var showListDatePicker by remember { mutableStateOf(false) }
+    var listDatePickerIndex by remember { mutableStateOf<Int?>(null) }
+    var listDatePickerInitialDate by remember { mutableStateOf<Long?>(null) }
+
+    // Состояния для DatePicker в ДИАЛОГЕ
+    var showEditDatePicker by remember { mutableStateOf(false) }
+    var editDatePickerInitialDate by remember { mutableStateOf<Long?>(null) }
+
     val honeywellHelper = remember { ScannerManager(context) }
 
-    // Слушаем поток сканера
+    // Слушаем сканер
     LaunchedEffect(Unit) {
         honeywellHelper.barcodeFlow.collect { scannedData ->
             if (scannedData.isNotEmpty()) {
                 val trimmedData = scannedData.trim()
-
-                // Проверяем, является ли данные Base64-JSON
                 if (isBase64EncodedJson(trimmedData)) {
-                    // Декодируем новый формат
                     val scanResult = decodeWmsScanData(trimmedData)
-
                     if (scanResult != null) {
                         if (showDialog) {
-                            // Если диалог открыт — заполняем поле артикула
                             dialogMaterial = scanResult.matNumScan
                         } else {
-                            // Создаем элемент с данными из скана
                             val orderNumberToUse =
                                 if (scanResult.matNumOrder == orderNumber || orderNumber.isEmpty()) {
                                     scanResult.matNumOrder
                                 } else {
                                     orderNumber
                                 }
-
                             val newItem = WmsReceiveItem(
                                 matNumScan = scanResult.matNumScan,
                                 matNumOrder = orderNumberToUse,
                                 matQtyScan = scanResult.matQtyScan,
                                 checkQuality = true,
-                                checkExpi = true
+                                Expi = ""
                             )
                             receiveItems = receiveItems + newItem
                         }
                     } else {
-                        Toast.makeText(
-                            context,
-                            "Ошибка распознавания данных скана!",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast.makeText(context, "Ошибка распознавания данных скана!", Toast.LENGTH_SHORT).show()
                     }
                 } else {
-                    // Старый формат: используем BarcodeParser
-//                    val parsedData: ScannedData? = BarcodeParser.parse(trimmedData)
-//                    if (parsedData != null) {
-//                        if (showDialog) {
-//                            dialogMaterial = parsedData.material
-//                        } else {
-//                            val newItem = WmsReceiveItem(
-//                                matNumScan = parsedData.material,
-//                                matNumOrder = orderNumber,
-//                                matQtyScan = parsedData.qty,
-//                                checkQuality = true,
-//                                checkExpi = true
-//                            )
-//                            receiveItems = receiveItems + newItem
-//                        }
-//                    } else {
-                        Toast.makeText(context, "Неизвестный формат QR кода!", Toast.LENGTH_SHORT).show()
-//                    }
+                    Toast.makeText(context, "Неизвестный формат QR кода!", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -137,40 +117,98 @@ fun WmsReceiveScreen(
         }
     }
 
-    // === ДИАЛОГ РЕДАКТИРОВАНИЯ/ДОБАВЛЕНИЯ ===
+    // === ДИАЛОГ РЕДАКТИРОВАНИЯ ===
     if (showDialog) {
         EditReceiveItemDialog(
             material = dialogMaterial,
             qty = dialogQty,
-            orderNumber = dialogOrderNumber, // Передаем номер заказа в диалог
+            orderNumber = dialogOrderNumber,
             quality = dialogQuality,
             expi = dialogExpi,
             isEditing = editingIndex != null,
             onDismiss = { showDialog = false },
             onConfirm = { mat, qty, ord, qual, exp ->
                 val qtyInt = qty.toIntOrNull() ?: 1
-                // Если в диалоге заказ не указан, берем номер текущего экрана
-                val finalOrder = if (ord.isNotBlank()) ord else orderNumber
-
+                val finalOrder = ord.ifBlank { orderNumber }
                 if (qtyInt > 0 && mat.isNotBlank() && finalOrder.isNotBlank()) {
                     val newItem = WmsReceiveItem(
                         matNumScan = mat,
-                        matNumOrder = finalOrder, // Применяем итоговый номер
+                        matNumOrder = finalOrder,
                         matQtyScan = qtyInt,
                         checkQuality = qual,
-                        checkExpi = exp
+                        Expi = exp
                     )
                     receiveItems = if (editingIndex != null) {
-                        receiveItems.toMutableList().apply {
-                            set(editingIndex!!, newItem)
-                        }
+                        receiveItems.toMutableList().apply { set(editingIndex!!, newItem) }
                     } else {
                         receiveItems + newItem
                     }
                     showDialog = false
                 }
+            },
+            onDateClick = {
+                editDatePickerInitialDate = parseDate(dialogExpi)?.time
+                showEditDatePicker = true
             }
         )
+    }
+
+    // DatePicker для ДИАЛОГА редактирования
+    if (showEditDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = editDatePickerInitialDate ?: System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEditDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        dialogExpi = formatDate(millis)
+                    }
+                    showEditDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDatePicker = false }) { Text("Отмена") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    // DatePicker для СПИСКА (по клику на дату в карточке)
+    if (showListDatePicker && listDatePickerIndex != null) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = listDatePickerInitialDate ?: System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = {
+                showListDatePicker = false
+                listDatePickerIndex = null
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val formattedDate = formatDate(millis)
+                        receiveItems = receiveItems.toMutableList().apply {
+                            listDatePickerIndex?.let { idx ->
+                                set(idx, get(idx).copy(Expi = formattedDate))
+                            }
+                        }
+                    }
+                    showListDatePicker = false
+                    listDatePickerIndex = null
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showListDatePicker = false
+                    listDatePickerIndex = null
+                }) { Text("Отмена") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 
     // === ДИАЛОГ УСПЕХА ПРИЕМКИ ===
@@ -207,9 +245,9 @@ fun WmsReceiveScreen(
             val item = receiveItems[index]
             dialogMaterial = item.matNumScan
             dialogQty = item.matQtyScan.toString()
-            dialogOrderNumber = item.matNumOrder // Заполняем при редактировании
+            dialogOrderNumber = item.matNumOrder
             dialogQuality = item.checkQuality
-            dialogExpi = item.checkExpi
+            dialogExpi = item.Expi
             editingIndex = index
             showDialog = true
         },
@@ -221,17 +259,18 @@ fun WmsReceiveScreen(
                 set(index, get(index).copy(checkQuality = !get(index).checkQuality))
             }
         },
-        onToggleExpi = { index ->
-            receiveItems = receiveItems.toMutableList().apply {
-                set(index, get(index).copy(checkExpi = !get(index).checkExpi))
-            }
+        // Колбэк для открытия DatePicker из списка
+        onExpiDateClick = { index, currentExpi ->
+            listDatePickerIndex = index
+            listDatePickerInitialDate = parseDate(currentExpi)?.time
+            showListDatePicker = true
         },
         onAddManualClick = {
             dialogMaterial = ""
             dialogQty = "1"
-            dialogOrderNumber = orderNumber.ifEmpty { "" } // Автозаполнение при добавлении
+            dialogOrderNumber = orderNumber.ifEmpty { "" }
             dialogQuality = true
-            dialogExpi = true
+            dialogExpi = ""
             editingIndex = null
             showDialog = true
         },
@@ -247,7 +286,22 @@ fun WmsReceiveScreen(
     )
 }
 
-// 2. Чистый UI компонент
+// Вспомогательные функции для работы с датой
+private fun parseDate(dateString: String): Date? {
+    return try {
+        if (dateString.isBlank()) return null
+        val formatter = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+        formatter.parse(dateString)
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun formatDate(timestamp: Long): String {
+    return SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(timestamp))
+}
+
+// ====================== 2. ЧИСТЫЙ UI КОМПОНЕНТ ======================
 @Composable
 fun WmsReceiveScreenContent(
     receiveItems: List<WmsReceiveItem>,
@@ -255,7 +309,7 @@ fun WmsReceiveScreenContent(
     onEditClick: (Int) -> Unit,
     onRemoveItem: (Int) -> Unit,
     onToggleQuality: (Int) -> Unit,
-    onToggleExpi: (Int) -> Unit,
+    onExpiDateClick: (Int, String) -> Unit, // Новый колбэк для даты
     onAddManualClick: () -> Unit,
     uiState: MainViewModel.UiState,
     onReceiveClick: () -> Unit,
@@ -276,7 +330,6 @@ fun WmsReceiveScreenContent(
             }
         )
 
-        // Кнопка "Завершить приемку" (видна только если не Loading/Error/Success)
         if (uiState !is MainViewModel.UiState.WmsReceiveSuccess &&
             uiState !is MainViewModel.UiState.Loading &&
             uiState !is MainViewModel.UiState.Error
@@ -292,48 +345,34 @@ fun WmsReceiveScreenContent(
             }
         }
 
-        // Основной контент
         when (uiState) {
-            is MainViewModel.UiState.Loading -> {
-                CustomLoadingView()
-            }
-            is MainViewModel.UiState.Error -> {
-                ErrorStateView(
-                    message = uiState.message,
-                    onRetry = null,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            is MainViewModel.UiState.WmsReceiveSuccess -> {
-                RenderReceiveList(
-                    items = receiveItems,
-                    onEditClick = onEditClick,
-                    onRemoveItem = onRemoveItem,
-                    onToggleQuality = onToggleQuality,
-                    onToggleExpi = onToggleExpi
-                )
-            }
+            is MainViewModel.UiState.Loading -> CustomLoadingView()
+            is MainViewModel.UiState.Error -> ErrorStateView(
+                message = uiState.message,
+                onRetry = { null },
+                modifier = Modifier.weight(1f)
+            )
             else -> {
                 RenderReceiveList(
                     items = receiveItems,
                     onEditClick = onEditClick,
                     onRemoveItem = onRemoveItem,
                     onToggleQuality = onToggleQuality,
-                    onToggleExpi = onToggleExpi
+                    onExpiDateClick = onExpiDateClick // Передаем колбэк
                 )
             }
         }
     }
 }
 
-// 📦 Список материалов (ИСПРАВЛЕНО: itemsIndexed вместо indexOfFirst)
+// ====================== 3. СПИСОК МАТЕРИАЛОВ ======================
 @Composable
 fun RenderReceiveList(
     items: List<WmsReceiveItem>,
     onEditClick: (Int) -> Unit,
     onRemoveItem: (Int) -> Unit,
     onToggleQuality: (Int) -> Unit,
-    onToggleExpi: (Int) -> Unit
+    onExpiDateClick: (Int, String) -> Unit // Колбэк для клика по дате
 ) {
     if (items.isEmpty()) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -354,6 +393,7 @@ fun RenderReceiveList(
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
                     Column(Modifier.padding(12.dp)) {
+                        // Верхняя строка: заказ, материал, кнопки
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("Заказ: ${item.matNumOrder}", style = MaterialTheme.typography.bodyLarge)
@@ -368,14 +408,43 @@ fun RenderReceiveList(
                             }
                         }
                         Spacer(Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+
+                        // Нижняя строка: чекбоксы + дата
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            // Чекбокс качества
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
                                 Checkbox(checked = item.checkQuality, onCheckedChange = { onToggleQuality(index) })
                                 Text("Качество", style = MaterialTheme.typography.bodySmall)
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                Checkbox(checked = item.checkExpi, onCheckedChange = { onToggleExpi(index) })
-                                Text("Срок годности", style = MaterialTheme.typography.bodySmall)
+
+                            // Поле даты срока годности с иконкой календаря (кликабельное)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { onExpiDateClick(index, item.Expi) }
+                            ) {
+                                Icon(
+                                    Icons.Default.CalendarToday,
+                                    contentDescription = "Выбрать дату",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = if (item.Expi.isNotBlank()) item.Expi else "Выбрать дату",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (item.Expi.isNotBlank())
+                                        MaterialTheme.colorScheme.primary
+                                    else
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     }
@@ -385,17 +454,18 @@ fun RenderReceiveList(
     }
 }
 
-// Диалог ввода (ИСПРАВЛЕНО: 5 параметров + копирование заказа)
+// ====================== 4. ДИАЛОГ РЕДАКТИРОВАНИЯ ======================
 @Composable
 fun EditReceiveItemDialog(
     material: String,
     qty: String,
     orderNumber: String,
     quality: Boolean,
-    expi: Boolean,
+    expi: String,
     isEditing: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (material: String, qty: String, order: String, quality: Boolean, expi: Boolean) -> Unit
+    onConfirm: (String, String, String, Boolean, String) -> Unit,
+    onDateClick: () -> Unit // Колбэк для открытия DatePicker
 ) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
@@ -405,17 +475,20 @@ fun EditReceiveItemDialog(
     var qtyField by remember { mutableStateOf(TextFieldValue(qty, TextRange(qty.length))) }
     var orderField by remember { mutableStateOf(TextFieldValue(orderNumber, TextRange(orderNumber.length))) }
     var qualityChecked by remember { mutableStateOf(quality) }
-    var expiChecked by remember { mutableStateOf(expi) }
+    var expiField by remember { mutableStateOf(expi) }
 
     LaunchedEffect(material) { materialField = TextFieldValue(material, TextRange(material.length)) }
     LaunchedEffect(qty) { qtyField = TextFieldValue(qty, TextRange(qty.length)) }
     LaunchedEffect(orderNumber) { orderField = TextFieldValue(orderNumber, TextRange(orderNumber.length)) }
+    LaunchedEffect(expi) { expiField = expi }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isEditing) "Редактирование" else "Новый материал", fontWeight = FontWeight.SemiBold) },
         text = {
-            Column(Modifier.verticalScroll(scrollState).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier
+                .verticalScroll(scrollState)
+                .padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
                     value = materialField,
                     onValueChange = { materialField = it.copy(selection = TextRange(it.text.length)) },
@@ -426,7 +499,7 @@ fun EditReceiveItemDialog(
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = qtyField,
-                        onValueChange = { if (it.text.all { c -> c.isDigit() } && it.text.length <= 5) qtyField = it.copy(selection = TextRange(it.text.length)) },
+                        onValueChange = { if (it.text.all { it.isDigit() } && it.text.length <= 5) qtyField = it.copy(selection = TextRange(it.text.length)) },
                         label = { Text("Кол-во") },
                         modifier = Modifier.weight(0.4f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -436,31 +509,56 @@ fun EditReceiveItemDialog(
                         value = orderField,
                         onValueChange = { orderField = it.copy(selection = TextRange(it.text.length)) },
                         label = { Text("Заказ") },
-                        modifier = Modifier.weight(0.6f).clickable {
-                            clipboard.setText(AnnotatedString(orderField.text))
-                            Toast.makeText(context, "Номер заказа скопирован", Toast.LENGTH_SHORT).show()
-                        },
+                        modifier = Modifier
+                            .weight(0.6f)
+                            .clickable {
+                                clipboard.setText(AnnotatedString(orderField.text))
+                                Toast.makeText(
+                                    context,
+                                    "Номер заказа скопирован",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            },
                         singleLine = true,
                         readOnly = isEditing,
-                        enabled = true // Важно для работы clickable
+                        enabled = true
                     )
                 }
                 Surface(Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceVariant.copy(0.3f), shape = MaterialTheme.shapes.small) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = qualityChecked, onCheckedChange = { qualityChecked = it }, modifier = Modifier.size(20.dp))
                             Text("Качество", style = MaterialTheme.typography.bodySmall)
                         }
-                        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = expiChecked, onCheckedChange = { expiChecked = it }, modifier = Modifier.size(20.dp))
-                            Text("Срок", style = MaterialTheme.typography.bodySmall)
+                        // Поле выбора даты с иконкой календаря
+                        Row(
+                            Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.CalendarToday,
+                                contentDescription = "Выбрать дату",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = if (expiField.isNotBlank()) expiField else "Выбрать",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (expiField.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clickable { onDateClick() }
+                            )
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(materialField.text, qtyField.text, orderField.text, qualityChecked, expiChecked) }) { Text("Сохранить") }
+            Button(onClick = { onConfirm(materialField.text, qtyField.text, orderField.text, qualityChecked, expiField) }) {
+                Text("Сохранить")
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Отмена") }
@@ -468,247 +566,7 @@ fun EditReceiveItemDialog(
     )
 }
 
-//@Composable
-//fun RenderReceiveList(
-//    items: List<WmsReceiveItem>,
-//    onEditClick: (Int) -> Unit,
-//    onRemoveItem: (Int) -> Unit,
-//    onToggleQuality: (Int) -> Unit,
-//    onToggleExpi: (Int) -> Unit
-//) {
-//    if (items.isEmpty()) {
-//        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-//            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-//                Text(
-//                    text = "Список пуст.\nОтсканируйте QR или добавьте вручную.",
-//                    color = MaterialTheme.colorScheme.onSurfaceVariant
-//                )
-//            }
-//        }
-//    } else {
-//        LazyColumn(
-//            modifier = Modifier.fillMaxWidth(),
-//            verticalArrangement = Arrangement.spacedBy(8.dp),
-//            contentPadding = PaddingValues(16.dp)
-//        ) {
-//            items(items) { item ->
-//                val index = items.indexOfFirst { it.matNumScan == item.matNumScan && it.matQtyScan == item.matQtyScan }
-//                Card(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-//                ) {
-//                    Column(modifier = Modifier.padding(12.dp)) {
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            Column(modifier = Modifier.weight(1f)) {
-//                                Text(item.matNumScan, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
-//                                Text("Количество факт: ${item.matQtyScan}", style = MaterialTheme.typography.bodyMedium)
-//                            }
-//                            IconButton(onClick = { onEditClick(index) }) {
-//                                Icon(Icons.Default.Edit, "Редактировать", tint = MaterialTheme.colorScheme.primary)
-//                            }
-//                            IconButton(onClick = { onRemoveItem(index) }) {
-//                                Icon(Icons.Default.Delete, "Удалить", tint = MaterialTheme.colorScheme.error)
-//                            }
-//                        }
-//                        Spacer(Modifier.height(8.dp))
-//                        Row(verticalAlignment = Alignment.CenterVertically) {
-//                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-//                                Checkbox(checked = item.checkQuality, onCheckedChange = { onToggleQuality(index) })
-//                                Text("Качество", style = MaterialTheme.typography.bodySmall)
-//                            }
-//                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-//                                Checkbox(checked = item.checkExpi, onCheckedChange = { onToggleExpi(index) })
-//                                Text("Срок годности", style = MaterialTheme.typography.bodySmall)
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}
-
-//@Composable
-//fun EditReceiveItemDialog(
-//    material: String,
-//    qty: String,
-//    orderNumber: String,
-//    quality: Boolean,
-//    expi: Boolean,
-//    isEditing: Boolean,
-//    onDismiss: () -> Unit,
-//    onConfirm: (String, String, String, Boolean, Boolean) -> Unit
-//) {
-//    val context = LocalContext.current
-//    val clipboardManager = LocalClipboardManager.current
-//    val scrollState = rememberScrollState()
-//
-//    var materialFieldValue by remember {
-//        mutableStateOf(TextFieldValue(text = material, selection = TextRange(material.length)))
-//    }
-//    var qtyFieldValue by remember {
-//        mutableStateOf(TextFieldValue(text = qty, selection = TextRange(qty.length)))
-//    }
-//    var orderFieldValue by remember {
-//        mutableStateOf(TextFieldValue(text = orderNumber, selection = TextRange(orderNumber.length)))
-//    }
-//    var qualityChecked by remember { mutableStateOf(quality) }
-//    var expiChecked by remember { mutableStateOf(expi) }
-//
-//    LaunchedEffect(material) {
-//        materialFieldValue = TextFieldValue(text = material, selection = TextRange(material.length))
-//    }
-//    LaunchedEffect(qty) {
-//        qtyFieldValue = TextFieldValue(text = qty, selection = TextRange(qty.length))
-//    }
-//    LaunchedEffect(orderNumber) {
-//        orderFieldValue = TextFieldValue(text = orderNumber, selection = TextRange(orderNumber.length))
-//    }
-//
-//    AlertDialog(
-//        onDismissRequest = onDismiss,
-//        title = {
-//            Text(
-//                if (isEditing) "Редактирование" else "Новый материал",
-//                fontWeight = FontWeight.SemiBold
-//            )
-//        },
-//        text = {
-//            Column(
-//                modifier = Modifier
-//                    .verticalScroll(scrollState)
-//                    .padding(top = 8.dp),
-//                verticalArrangement = Arrangement.spacedBy(12.dp)
-//            ) {
-//                // Артикул
-//                OutlinedTextField(
-//                    value = materialFieldValue,
-//                    onValueChange = { newValue ->
-//                        materialFieldValue = newValue.copy(selection = TextRange(newValue.text.length))
-//                    },
-//                    label = { Text("Артикул") },
-//                    modifier = Modifier.fillMaxWidth(),
-//                    singleLine = true,
-//                    textStyle = MaterialTheme.typography.bodyMedium,
-//                    maxLines = 1
-//                )
-//
-//                // Количество и Заказ в одну строку (компактно)
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-//                ) {
-//                    OutlinedTextField(
-//                        value = qtyFieldValue,
-//                        onValueChange = { newValue ->
-//                            if (newValue.text.all { it.isDigit() } && newValue.text.length <= 5) {
-//                                qtyFieldValue = newValue.copy(selection = TextRange(newValue.text.length))
-//                            }
-//                        },
-//                        label = { Text("Кол-во") },
-//                        modifier = Modifier.weight(0.4f),
-//                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-//                        singleLine = true,
-//                        textStyle = MaterialTheme.typography.bodyMedium
-//                    )
-//
-//                    // Поле номера заказа: ReadOnly + Clickable для копирования
-//                    OutlinedTextField(
-//                        value = orderFieldValue,
-//                        onValueChange = { newValue ->
-//                            if (newValue.text.all { it.isLetterOrDigit() || it == '-' || it == '_' } && newValue.text.length <= 20) {
-//                                orderFieldValue = newValue.copy(selection = TextRange(newValue.text.length))
-//                            }
-//                        },
-//                        label = { Text("Заказ") },
-//                        modifier = Modifier
-//                            .weight(0.6f)
-//                            .clickable {
-//                                clipboardManager.setText(AnnotatedString(orderFieldValue.text))
-//                                Toast.makeText(context, "Номер заказа скопирован", Toast.LENGTH_SHORT).show()
-//                            },
-//                        singleLine = true,
-//                        readOnly = isEditing,
-//                        enabled = !isEditing,
-//                        textStyle = MaterialTheme.typography.bodyMedium,
-//                        colors = OutlinedTextFieldDefaults.colors(
-//                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-//                            unfocusedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-//                        )
-//                    )
-//                }
-//
-//                // Чекбоксы в одну компактную строку
-//                Surface(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-//                    shape = MaterialTheme.shapes.small
-//                ) {
-//                    Row(
-//                        modifier = Modifier
-//                            .fillMaxWidth()
-//                            .padding(horizontal = 12.dp, vertical = 8.dp),
-//                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-//                        verticalAlignment = Alignment.CenterVertically
-//                    ) {
-//                        Row(
-//                            modifier = Modifier.weight(1f),
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            Checkbox(
-//                                checked = qualityChecked,
-//                                onCheckedChange = { qualityChecked = it },
-//                                modifier = Modifier.size(20.dp)
-//                            )
-//                            Spacer(modifier = Modifier.padding(5.dp))
-//                            Text("Качество", style = MaterialTheme.typography.bodySmall)
-//                        }
-//                        Row(
-//                            modifier = Modifier.weight(1f),
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            Checkbox(
-//                                checked = expiChecked,
-//                                onCheckedChange = { expiChecked = it },
-//                                modifier = Modifier.size(20.dp)
-//                            )
-//                            Spacer(modifier = Modifier.padding(5.dp))
-//                            Text("Срок", style = MaterialTheme.typography.bodySmall)
-//                        }
-//                    }
-//                }
-//            }
-//        },
-//        confirmButton = {
-//            Button(
-//                onClick = {
-//                    onConfirm(
-//                        materialFieldValue.text,
-//                        qtyFieldValue.text,
-//                        orderFieldValue.text,
-//                        qualityChecked,
-//                        expiChecked
-//                    )
-//                },
-//                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
-//            ) {
-//                Text("Сохранить")
-//            }
-//        },
-//        dismissButton = {
-//            TextButton(
-//                onClick = onDismiss,
-//                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
-//            ) {
-//                Text("Отмена")
-//            }
-//        }
-//    )
-//}
-
-
-
-// --- ПРЕВЬЮ ---
+// ====================== 5. ПРЕВЬЮ ======================
 @Preview(showBackground = true, name = "WmsReceive - Empty")
 @Composable
 fun WmsReceivePreviewEmpty() {
@@ -717,7 +575,8 @@ fun WmsReceivePreviewEmpty() {
             WmsReceiveScreenContent(
                 receiveItems = emptyList(),
                 orderNumber = "4200011646",
-                onEditClick = {}, onRemoveItem = {}, onToggleQuality = {}, onToggleExpi = {},
+                onEditClick = {}, onRemoveItem = {}, onToggleQuality = {},
+                onExpiDateClick = { _, _ -> },
                 onAddManualClick = {}, uiState = MainViewModel.UiState.Idle,
                 onReceiveClick = {}, onBackClick = {}
             )
@@ -732,11 +591,12 @@ fun WmsReceivePreviewItems() {
         Surface {
             WmsReceiveScreenContent(
                 receiveItems = listOf(
-                    WmsReceiveItem("LA0610402138", "4200011646", 5, true, true),
-                    WmsReceiveItem("LA0610501327", "4200011646", 3, false, true)
+                    WmsReceiveItem("LA0610402138", "4200011646", 5, true, "10.07.2026"),
+                    WmsReceiveItem("LA0610501327", "4200011646", 3, false, "")
                 ),
                 orderNumber = "4200011646",
-                onEditClick = {}, onRemoveItem = {}, onToggleQuality = {}, onToggleExpi = {},
+                onEditClick = {}, onRemoveItem = {}, onToggleQuality = {},
+                onExpiDateClick = { _, _ -> },
                 onAddManualClick = {}, uiState = MainViewModel.UiState.Idle,
                 onReceiveClick = {}, onBackClick = {}
             )
