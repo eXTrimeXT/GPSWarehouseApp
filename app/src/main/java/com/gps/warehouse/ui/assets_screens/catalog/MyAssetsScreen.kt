@@ -68,7 +68,7 @@ fun MyAssetsScreen(
             )
         }
     ) { paddingValues ->
-        // ✅ Передаем данные в Content-компонент
+        // Передаем данные в Content-компонент
         MyAssetsContent(
             uiState = uiState,
             userProfile = userProfile, // Теперь типы совпадают: AssetsUserProfileDto?
@@ -89,7 +89,7 @@ fun MyAssetsScreen(
 @Composable
 fun MyAssetsContent(
     uiState: AssetViewModel.AssetUiState,
-    userProfile: AssetsUserProfileDto?, // ✅ Тип должен совпадать с тем, что в ViewModel
+    userProfile: AssetsUserProfileDto?, // Тип должен совпадать с тем, что в ViewModel
     pcData: List<PcDataDto?>,
     onRetry: () -> Unit,
     onItemClick: (Int) -> Unit,
@@ -437,14 +437,14 @@ fun PcDataCard(pcData: PcDataDto) {
 @Preview(showBackground = true, name = "My Assets - With Assets")
 @Composable
 fun MyAssetsPreviewWithAssets() {
-    val fakeProfile = UserProfileResponse(
-        id = "1",
-        login = "ivanov_aa",
-        section = "Склад",
-        lastTime = "10:00:00 20.05.2026",
-        lastIp = "192.168.1.100",
-        warehousePermissions = emptyList()
-    )
+//    val fakeProfile = UserProfileResponse(
+//        id = "1",
+//        login = "ivanov_aa",
+//        section = "Склад",
+//        lastTime = "10:00:00 20.05.2026",
+//        lastIp = "192.168.1.100",
+//        warehousePermissions = emptyList()
+//    )
 
     val fakeAssets = listOf(
         AssetCatalogDto(
@@ -531,14 +531,14 @@ fun MyAssetsPreviewWithAssets() {
 @Preview(showBackground = true, name = "My Assets - Empty")
 @Composable
 fun MyAssetsPreviewEmpty() {
-    val fakeProfile = UserProfileResponse(
-        id = "1",
-        login = "test_user",
-        section = "IT",
-        lastTime = null,
-        lastIp = null,
-        warehousePermissions = null
-    )
+//    val fakeProfile = UserProfileResponse(
+//        id = "1",
+//        login = "test_user",
+//        section = "IT",
+//        lastTime = null,
+//        lastIp = null,
+//        warehousePermissions = null
+//    )
 
     MaterialTheme {
         Surface {
@@ -557,14 +557,14 @@ fun MyAssetsPreviewEmpty() {
 @Preview(showBackground = true, name = "My Assets - With PC Data")
 @Composable
 fun MyAssetsPreviewWithPcData() {
-    val fakeProfile = UserProfileResponse(
-        id = "1",
-        login = "ivanov_aa",
-        section = "Склад",
-        lastTime = "10:00:00 20.05.2026",
-        lastIp = "192.168.1.100",
-        warehousePermissions = emptyList()
-    )
+//    val fakeProfile = UserProfileResponse(
+//        id = "1",
+//        login = "ivanov_aa",
+//        section = "Склад",
+//        lastTime = "10:00:00 20.05.2026",
+//        lastIp = "192.168.1.100",
+//        warehousePermissions = emptyList()
+//    )
 
     // Минимальный PcDataDto для превью
     val fakePcData = PcDataDto(

@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.gps_screens.profile
 
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
@@ -14,11 +15,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.gps.warehouse.data.remote.assets_dto.PermissionDto
-import com.gps.warehouse.data.remote.gps_dto.UserProfileResponse
+import com.gps.warehouse.data.remote.gps_dto.PermissionDto
 import com.gps.warehouse.data.remote.gps_dto.WarehousePermissionDto
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
@@ -103,7 +102,7 @@ fun ProfileContent(
             is MainViewModel.UiState.Loading -> { CustomLoadingView() }
             is MainViewModel.UiState.ProfileLoaded -> {
                 val profile = uiState.profile
-                val assetsProfile = uiState.assetsProfile
+//                val assetsProfile = uiState.assetsProfile
 
                 // Основной контент с прокруткой
                 Column(
@@ -178,13 +177,12 @@ fun ProfileContent(
                     }
 
                     // Права на типы активов
-                    if (!assetsProfile?.permissions.isNullOrEmpty()) {
+//                    if (!profile.permissions.isNullOrEmpty()){
+                    Log.e("permissions", "${profile.assets_is_admin} | ${profile.permissions}")
                         CollapsiblePermissionCard(
-                            assetsAdmin = assetsProfile.assetsAdmin,
-                            permissions = assetsProfile.permissions
+                            assetsAdmin = profile.assets_is_admin,
+                            permissions = profile.permissions
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
 
                     Spacer(modifier = Modifier.weight(1f))
 
@@ -381,7 +379,7 @@ fun CollapsibleWarehouseCard(permissions: List<WarehousePermissionDto>) {
 }
 
 @Composable
-fun CollapsiblePermissionCard(assetsAdmin: Boolean, permissions: Map<String, PermissionDto>) {
+fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: Map<String, PermissionDto>?) {
     var isExpanded by remember { mutableStateOf(false) }
 
     // Статус администратора активов
@@ -416,7 +414,7 @@ fun CollapsiblePermissionCard(assetsAdmin: Boolean, permissions: Map<String, Per
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Права доступа (${permissions.size})",
+                        "Права доступа",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -432,7 +430,7 @@ fun CollapsiblePermissionCard(assetsAdmin: Boolean, permissions: Map<String, Per
             // Контент, который показывается только при развернутом состоянии
             if (isExpanded) {
                 // Статус администратора активов
-                if (assetsAdmin){
+                if (assetsAdmin == true){
                     Spacer(modifier = Modifier.height(12.dp))
                     AssetsAdminCard()
                 }
@@ -443,7 +441,7 @@ fun CollapsiblePermissionCard(assetsAdmin: Boolean, permissions: Map<String, Per
 
                 AnimatedVisibility(visible = isExpanded) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        permissions.forEach { (groupName, permission) ->
+                        permissions?.forEach { (groupName, permission) ->
                             PermissionGroupCard(groupName, permission)
                         }
                     }
@@ -548,32 +546,33 @@ fun getPermissionIcon(key: String): ImageVector {
 
 
 // --- ПРЕВЬЮ ---
-@Preview(showBackground = true, name = "Profile - Loaded")
-@Composable
-fun ProfilePreviewLoaded() {
-    val testProfile = UserProfileResponse(
-        id = "91",
-        login = "ivanov_aa",
-        section = "Складская логистика",
-        lastTime = "14:33:23 27.04.2026",
-        lastIp = "192.168.1.105",
-        warehousePermissions = listOf(
-            WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
-            WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0"),
-            WarehousePermissionDto(id = "3", name = "Архив", isLeader = "0", isVirtual = "1")
-        )
-    )
-    MaterialTheme {
-        Surface {
-            ProfileContent(
-                uiState = MainViewModel.UiState.ProfileLoaded(testProfile),
-                onLogoutClick = {},
-                onBackClick = {},
-                onRetryClick = {}
-            )
-        }
-    }
-}
+//@Preview(showBackground = true, name = "Profile - Loaded")
+//@Composable
+//fun ProfilePreviewLoaded() {
+//    val testProfile = UserProfileResponse(
+//        id = "91",
+//        login = "ivanov_aa",
+//        section = "Складская логистика",
+//        lastTime = "14:33:23 27.04.2026",
+//        lastIp = "192.168.1.105",
+//        warehousePermissions = listOf(
+//            WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
+//            WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0"),
+//            WarehousePermissionDto(id = "3", name = "Архив", isLeader = "0", isVirtual = "1")
+//        ),
+//        permissions = mapOf()
+//    )
+//    MaterialTheme {
+//        Surface {
+//            ProfileContent(
+//                uiState = MainViewModel.UiState.ProfileLoaded(testProfile),
+//                onLogoutClick = {},
+//                onBackClick = {},
+//                onRetryClick = {}
+//            )
+//        }
+//    }
+//}
 
 //@Preview(showBackground = true, name = "Profile - Error")
 //@Composable
