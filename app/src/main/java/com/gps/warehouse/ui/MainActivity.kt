@@ -23,6 +23,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
+import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
+import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
+import com.gps.warehouse.ui.assets_screens.MyPcsScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
 import com.gps.warehouse.ui.home.HomeScreen
@@ -223,6 +227,43 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("settings") {
                             SettingsScreen(navController = navController)
+                        }
+
+                        // ================== МОИ АКТИВЫ ==================
+                        composable("my_assets_list") {
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            MyAssetsScreen(
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("my_asset_details/{assetId}") { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            MyAssetDetailScreen(
+                                assetId = assetId,
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("my_pcs") {
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            MyPcsScreen(
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("my_pc_details/{pcId}") { backStackEntry ->
+                            val pcId = backStackEntry.arguments?.getString("pcId")?.toIntOrNull() ?: 0
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            MyPcDetailsScreen(
+                                pcId = pcId,
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
                         }
                     }
 

@@ -14,6 +14,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -35,6 +36,7 @@ object GpsNetworkModule {
      */
     @Provides
     @Singleton
+    @Named("gps-test")
     fun provideOkHttpClient(): OkHttpClient {
         // Настраиваем интерцептор для логирования всего тела запроса и ответа.
         // Уровень BODY полезен при разработке, но в продакшене лучше использовать NONE или HEADERS.
@@ -73,7 +75,8 @@ object GpsNetworkModule {
      */
     @Provides
     @Singleton
-    fun provideRetrofit(client: OkHttpClient, gson: Gson): Retrofit {
+    @Named("gps-test")
+    fun provideRetrofit(@Named("gps-test") client: OkHttpClient, gson: Gson): Retrofit {
         return Retrofit.Builder()
             .baseUrl(Constants.BASE_URL)    // Базовый URL API, взятый из Constants
             .client(client)                 // Используем настроенный OkHttpClient
@@ -92,7 +95,7 @@ object GpsNetworkModule {
      */
     @Provides
     @Singleton
-    fun provideApiService(retrofit: Retrofit): GPSApiService {
+    fun provideApiService(@Named("gps-test") retrofit: Retrofit): GPSApiService {
         return retrofit.create(GPSApiService::class.java)
     }
 }

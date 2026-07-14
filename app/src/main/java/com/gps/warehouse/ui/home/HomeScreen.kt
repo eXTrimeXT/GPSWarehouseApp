@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.utils.AppPreferences
 
 // Перечисление вкладок нижней навигации
@@ -36,7 +37,6 @@ enum class HomeTab(val title: String, val icon: ImageVector) {
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-//    assetViewModel: AssetViewModel
 ) {
     val tabs = HomeTab.entries.toTypedArray()
 
@@ -68,7 +68,6 @@ fun HomeScreen(
             modifier = Modifier.padding(paddingValues),
             selectedTabIndex = selectedTabIndex,
             onNavigate = { route -> navController.navigate(route) },
-//            assetViewModel = assetViewModel
         )
     }
 }
@@ -78,7 +77,6 @@ fun HomeScreenContent(
     modifier: Modifier = Modifier,
     selectedTabIndex: Int,
     onNavigate: (String) -> Unit,
-//    assetViewModel: AssetViewModel? = null
 ) {
     Column(
         modifier = modifier
@@ -143,10 +141,18 @@ fun HomeScreenContent(
             }
             // Вкладка "Активы"
             2 -> {
-//                AssetsTabContent(
-//                    assetViewModel = assetViewModel,
-//                    onNavigate = onNavigate
-//                )
+                MenuButton(
+                    title = "Мои активы",
+                    subtitle = "Список оборудования, закрепленного за вами",
+                    icon = Icons.Default.AutoAwesomeMosaic,
+                    onClick = { onNavigate("my_assets_list") }
+                )
+                MenuButton(
+                    title = "Мои ПК",
+                    subtitle = "Закрепленные компьютеры и их конфигурация",
+                    icon = Icons.Default.Computer,
+                    onClick = { onNavigate("my_pcs") }
+                )
             }
             // Вкладка "Настройки"
             3 -> {
