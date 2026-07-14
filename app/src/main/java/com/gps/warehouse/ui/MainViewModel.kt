@@ -5,9 +5,7 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.TokenStorage
-import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.GPSApiService
-import com.gps.warehouse.data.remote.assets_dto.RegisterTokenRequest
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
@@ -31,7 +29,6 @@ import kotlin.system.exitProcess
 class MainViewModel @Inject constructor(
     private val tokenStorage: TokenStorage,
     private val apiService: GPSApiService,
-    private val assetApiService: AssetApiService,
 ) : ViewModel() {
 
     sealed class UiState {
@@ -239,15 +236,7 @@ class MainViewModel @Inject constructor(
                 val gpsResponse = apiService.login(LoginRequest(username, encryptedPassword))
                 val gpsToken = gpsResponse.data.token
 
-                // 3. Регистрируем этот токен в Assets API
-                // Assets API создаст сессию в Redis и будет принимать этот токен
-                try {
-                    assetApiService.registerToken(RegisterTokenRequest(gpsToken))
-                }catch (e: Exception){
-                    Log.e("MainViewModel", "Ошибка входа в Assets: ${e.message}", e)
-                }
-
-                // 4. Сохраняем ОДИН токен для обоих API
+                // 3. Сохраняем токен для API
                 tokenStorage.saveToken(gpsToken)
                 currentToken = gpsToken
                 currentLogin = username

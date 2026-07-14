@@ -23,18 +23,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.gps.warehouse.ui.assets_screens.assets.AssetDetailsScreen
-import com.gps.warehouse.ui.assets_screens.assets.AssetListScreen
-import com.gps.warehouse.ui.assets_screens.assets.AssetsByTypeScreen
-import com.gps.warehouse.ui.assets_screens.assets_classes.AssetClassDetailsScreen
-import com.gps.warehouse.ui.assets_screens.assets_classes.AssetClassListScreen
-import com.gps.warehouse.ui.assets_screens.assets_models.AssetModelDetailsScreen
-import com.gps.warehouse.ui.assets_screens.assets_models.AssetModelListScreen
-import com.gps.warehouse.ui.assets_screens.assets_types.AssetTypeListScreen
-import com.gps.warehouse.ui.assets_screens.catalog.CatalogDetailsScreen
-import com.gps.warehouse.ui.assets_screens.catalog.CatalogListScreen
-import com.gps.warehouse.ui.assets_screens.catalog.MyAssetsScreen
-import com.gps.warehouse.ui.assets_screens.map.AssetMapScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
 import com.gps.warehouse.ui.home.HomeScreen
@@ -143,12 +131,11 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("home") {
-                            val assetViewModel: AssetViewModel = hiltViewModel()
+//                            val assetViewModel: AssetViewModel = hiltViewModel()
                             HomeScreen(
                                 navController = navController,
-                                assetViewModel = assetViewModel
+//                                assetViewModel = assetViewModel
                             )
-
                         }
                         composable("orders") {
                             OrdersScreen(
@@ -236,118 +223,6 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("settings") {
                             SettingsScreen(navController = navController)
-                        }
-
-
-                        // ================== АКТИВЫ ==================
-                        // Типы активов
-                        composable("asset_types") {
-                            AssetTypeListScreen(
-                                navController = navController
-                            )
-                        }
-
-                        // Классы
-                        composable("asset_classes") {
-                            AssetClassListScreen(
-                                navController = navController
-                            )
-                        }
-
-                        composable("asset_class_details/{classId}") { backStackEntry ->
-                            val classId = backStackEntry.arguments?.getString("classId")?.toIntOrNull() ?: 0
-                            AssetClassDetailsScreen(
-                                classId = classId,
-                                navController = navController
-                            )
-                        }
-
-                        // Модели
-                        composable("asset_models") {
-                            AssetModelListScreen(
-                                navController = navController
-                            )
-                        }
-
-                        composable("asset_model_details/{modelId}") { backStackEntry ->
-                            val modelId = backStackEntry.arguments?.getString("modelId")?.toIntOrNull() ?: 0
-                            AssetModelDetailsScreen(
-                                modelId = modelId,
-                                navController = navController
-                            )
-                        }
-
-                        // Список активов
-                        composable("assets") {
-                            val assetViewModel: AssetViewModel = hiltViewModel()  // ← Отдельный ViewModel!
-                            AssetListScreen(
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
-
-                        composable("asset_details/{assetId}") { backStackEntry ->
-                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            AssetDetailsScreen(
-                                assetId = assetId,
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
-
-                        composable("assets") {
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            AssetListScreen(
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
-
-                        composable("assets_by_type/{typeDomain}") { backStackEntry ->
-                            val typeDomain = backStackEntry.arguments?.getString("typeDomain") ?: ""
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            AssetsByTypeScreen(
-                                typeDomain = typeDomain,
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
-
-                        composable("asset_details/{assetId}") { backStackEntry ->
-                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            AssetDetailsScreen(
-                                assetId = assetId,
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
-
-                        // Каталог активов (связь актива и пользователя)
-                        composable("catalog") {
-                            CatalogListScreen(
-                                navController = navController
-                            )
-                        }
-
-                        composable("catalog_details/{catalogId}") { backStackEntry ->
-                            val catalogId = backStackEntry.arguments?.getString("catalogId")?.toIntOrNull() ?: 0
-                            CatalogDetailsScreen(
-                                catalogId = catalogId,
-                                navController = navController
-                            )
-                        }
-
-                        composable("my_assets") {
-                            MyAssetsScreen(
-                                navController = navController
-                            )
-                        }
-
-                        // Карта активов
-                        composable("asset_map") {
-                            AssetMapScreen(navController = navController)
                         }
                     }
 

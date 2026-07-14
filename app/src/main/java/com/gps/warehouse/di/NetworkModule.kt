@@ -30,7 +30,7 @@ object NetworkModule {
      * OkHttpClient отвечает за выполнение HTTP-запросов.
      * Здесь мы настраиваем:
      * 1. Логирование запросов и ответов (для отладки).
-     * 2. Таймауты соединения и чтения.
+     * 2. Тайм-ауты соединения и чтения.
      * 3. CookieJar для автоматического управления куки.
      */
     @Provides
@@ -47,8 +47,8 @@ object NetworkModule {
 
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)            // Добавляем логгер
-            .connectTimeout(30, TimeUnit.SECONDS)   // Таймаут на установление соединения
-            .readTimeout(30, TimeUnit.SECONDS)      // Таймаут на чтение данных
+            .connectTimeout(30, TimeUnit.SECONDS)   // Тайм-аут на установление соединения
+            .readTimeout(30, TimeUnit.SECONDS)      // Тайм-аут на чтение данных
             .cookieJar(cookieJar)                          // Устанавливаем менеджер куки
             .build()
     }
