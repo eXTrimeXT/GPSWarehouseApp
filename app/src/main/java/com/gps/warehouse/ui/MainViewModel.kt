@@ -25,6 +25,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+import kotlin.system.exitProcess
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -121,11 +122,7 @@ class MainViewModel @Inject constructor(
     // Реактивное свойство для UI
     val canLoadMore: Boolean get() = wmsCurrentPage < wmsTotalPages && !_isLoadingMore.value
     val totalMaterials: Int get() = totalMaterialsCount
-
-    // Публичные геттеры для UI
-    val currentPage: Int get() = wmsCurrentPage
-    val totalPages: Int get() = wmsTotalPages
-// ================================================
+    // ================================================
 
     // Параметры фильтрации (сохраняются между запросами)
     private var currentStorageFilterId: String? = null
@@ -155,13 +152,13 @@ class MainViewModel @Inject constructor(
         // Запускаем периодическую проверку сессии при инициализации
         startSessionMonitoring()
     }
-
-    // Метод для смены темы
-    fun updateThemeMode(mode: AppThemeMode) {
-        viewModelScope.launch {
-            tokenStorage.saveThemeMode(mode)
-        }
-    }
+//
+//    // Метод для смены темы
+//    fun updateThemeMode(mode: AppThemeMode) {
+//        viewModelScope.launch {
+//            tokenStorage.saveThemeMode(mode)
+//        }
+//    }
 
     /**
      * Запускает фоновую задачу, которая каждые N минут проверяет,
@@ -183,6 +180,7 @@ class MainViewModel @Inject constructor(
                             "Сессия истекла по таймауту. Выполняется автоматический выход."
                         )
                         logout()
+                        exitProcess(1)
                         // После logout() состояние изменится на Idle,
                         // UI должен обработать это и перенаправить на LoginScreen
                         break // Выходим из цикла мониторинга после логаута
@@ -327,11 +325,6 @@ class MainViewModel @Inject constructor(
                 val response = apiService.moveWms(request)
                 Log.d("MainViewModel", "response.status ${response.status}")
                 if (response.status == "success" || response.status == "ok") {
-                    // Обновляем данные WMS или запросов, если нужно
-//                    loadWmsRequests()
-                    // Перезагружаем список материалов WMS, чтобы обновить остатки
-//                    loadWmsData()
-//                    _uiState.value = UiState.Packed(response.message ?: "Перемещение успешно")
                     _uiState.value =
                         UiState.WmsMoveSuccess(response.message ?: "Перемещение успешно")
                 } else {
@@ -448,7 +441,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-
     // Метод загрузки данных из складов
     fun loadWmsData(page: Int = 1, append: Boolean = false) {
         viewModelScope.launch {
@@ -527,13 +519,13 @@ class MainViewModel @Inject constructor(
     }
 
     // Сброс состояния
-    fun resetWmsState() {
-        wmsCurrentPage = 1
-        wmsTotalPages = 1
-        currentStorageFilterId = null
-        currentWmsSearchQuery = ""
-        currentHideZeroQty = false
-    }
+//    fun resetWmsState() {
+//        wmsCurrentPage = 1
+//        wmsTotalPages = 1
+//        currentStorageFilterId = null
+//        currentWmsSearchQuery = ""
+//        currentHideZeroQty = false
+//    }
 
     fun loadOrders() {
         loadOrdersGeneric(type = "status", isArchive = false)
@@ -729,75 +721,75 @@ class MainViewModel @Inject constructor(
      * Обновляет количество материала в локальном списке материалов заказа.
      * Используется при редактировании перед отправкой на сервер.
      */
-    fun updateMaterialQuantity(materialArticle: String, newQty: Int) {
-        val currentState = _uiState.value
-        if (currentState is UiState.MaterialsLoaded) {
-            val updatedMaterials = currentState.materials.map {
-                if (it.material == materialArticle) {
-                    it.copy(qty = newQty.toString())
-                } else {
-                    it
-                }
-            }
-            _uiState.value = UiState.MaterialsLoaded(updatedMaterials)
-        }
-    }
+//    fun updateMaterialQuantity(materialArticle: String, newQty: Int) {
+//        val currentState = _uiState.value
+//        if (currentState is UiState.MaterialsLoaded) {
+//            val updatedMaterials = currentState.materials.map {
+//                if (it.material == materialArticle) {
+//                    it.copy(qty = newQty.toString())
+//                } else {
+//                    it
+//                }
+//            }
+//            _uiState.value = UiState.MaterialsLoaded(updatedMaterials)
+//        }
+//    }
 
     /**
      * Добавляет новый материал в список или обновляет существующий.
      * Если материал есть: увеличивает qty и ОБНОВЛЯЕТ scannedCode.
      */
-    fun addOrUpdateMaterialInOrder(
-        material: String,
-        name: String?,
-        qty: Int,
-        code: String? = null
-    ) {
-        val currentState = _uiState.value
-        if (currentState is UiState.MaterialsLoaded) {
-            val existingIndex = currentState.materials.indexOfFirst { it.material == material }
-
-            if (existingIndex != -1) {
-                // Материал уже есть.
-                // 1. Увеличиваем количество.
-                // 2. Обновляем scannedCode, так как мы отсканировали новую упаковку этого товара.
-                val currentMat = currentState.materials[existingIndex]
-                val newQty = (currentMat.qty.toIntOrNull() ?: 0) + qty
-
-                val updatedMaterials = currentState.materials.toMutableList()
-                updatedMaterials[existingIndex] = currentMat.copy(
-                    qty = newQty.toString(),
-                    scannedCode = code
-                        ?: currentMat.scannedCode // Если код пришел, ставим его, иначе оставляем старый
-                )
-
-                _uiState.value = UiState.MaterialsLoaded(updatedMaterials)
-            } else {
-                // Материала нет, добавляем новый
-                val newDto = MaterialDto(
-                    id = System.currentTimeMillis().toString(),
-                    material = material,
-                    qty = qty.toString(),
-                    name = name,
-                    status = "new",
-                    scannedCode = code
-                )
-                val updatedList = currentState.materials + newDto
-                _uiState.value = UiState.MaterialsLoaded(updatedList)
-            }
-        }
-    }
+//    fun addOrUpdateMaterialInOrder(
+//        material: String,
+//        name: String?,
+//        qty: Int,
+//        code: String? = null
+//    ) {
+//        val currentState = _uiState.value
+//        if (currentState is UiState.MaterialsLoaded) {
+//            val existingIndex = currentState.materials.indexOfFirst { it.material == material }
+//
+//            if (existingIndex != -1) {
+//                // Материал уже есть.
+//                // 1. Увеличиваем количество.
+//                // 2. Обновляем scannedCode, так как мы отсканировали новую упаковку этого товара.
+//                val currentMat = currentState.materials[existingIndex]
+//                val newQty = (currentMat.qty.toIntOrNull() ?: 0) + qty
+//
+//                val updatedMaterials = currentState.materials.toMutableList()
+//                updatedMaterials[existingIndex] = currentMat.copy(
+//                    qty = newQty.toString(),
+//                    scannedCode = code
+//                        ?: currentMat.scannedCode // Если код пришел, ставим его, иначе оставляем старый
+//                )
+//
+//                _uiState.value = UiState.MaterialsLoaded(updatedMaterials)
+//            } else {
+//                // Материала нет, добавляем новый
+//                val newDto = MaterialDto(
+//                    id = System.currentTimeMillis().toString(),
+//                    material = material,
+//                    qty = qty.toString(),
+//                    name = name,
+//                    status = "new",
+//                    scannedCode = code
+//                )
+//                val updatedList = currentState.materials + newDto
+//                _uiState.value = UiState.MaterialsLoaded(updatedList)
+//            }
+//        }
+//    }
 
     /**
      * Удаляет материал из списка по артикулу.
      */
-    fun removeMaterialFromOrder(materialArticle: String) {
-        val currentState = _uiState.value
-        if (currentState is UiState.MaterialsLoaded) {
-            val updatedMaterials = currentState.materials.filter { it.material != materialArticle }
-            _uiState.value = UiState.MaterialsLoaded(updatedMaterials)
-        }
-    }
+//    fun removeMaterialFromOrder(materialArticle: String) {
+//        val currentState = _uiState.value
+//        if (currentState is UiState.MaterialsLoaded) {
+//            val updatedMaterials = currentState.materials.filter { it.material != materialArticle }
+//            _uiState.value = UiState.MaterialsLoaded(updatedMaterials)
+//        }
+//    }
 
     // --- Конец логики управления списком ---
 
@@ -837,37 +829,37 @@ class MainViewModel @Inject constructor(
     }
 
     // Упаковать материал (отправить на сервер)
-    fun packMaterialByDto(materialDto: MaterialDto) {
-        val code = materialDto.scannedCode
-        if (code.isNullOrBlank()) {
-            _uiState.value =
-                UiState.Error("Необходимо отсканировать штрихкод для материала ${materialDto.material}")
-            return
-        }
-
-        val qty = materialDto.qty.toIntOrNull() ?: 1
-
-        executeRequest(
-            request = {
-                apiService.packMaterial(
-                    PackMaterialRequest(
-                        getTokenOrThrow(),
-                        materialDto.material,
-                        qty,
-                        code
-                    )
-                )
-            },
-            onSuccess = { response ->
-                if (response.status == "success") {
-                    _uiState.value = UiState.Packed(response.message)
-                } else {
-                    _uiState.value = UiState.Error(response.message)
-                }
-            },
-            errorMsg = "Ошибка упаковки"
-        )
-    }
+//    fun packMaterialByDto(materialDto: MaterialDto) {
+//        val code = materialDto.scannedCode
+//        if (code.isNullOrBlank()) {
+//            _uiState.value =
+//                UiState.Error("Необходимо отсканировать штрихкод для материала ${materialDto.material}")
+//            return
+//        }
+//
+//        val qty = materialDto.qty.toIntOrNull() ?: 1
+//
+//        executeRequest(
+//            request = {
+//                apiService.packMaterial(
+//                    PackMaterialRequest(
+//                        getTokenOrThrow(),
+//                        materialDto.material,
+//                        qty,
+//                        code
+//                    )
+//                )
+//            },
+//            onSuccess = { response ->
+//                if (response.status == "success") {
+//                    _uiState.value = UiState.Packed(response.message)
+//                } else {
+//                    _uiState.value = UiState.Error(response.message)
+//                }
+//            },
+//            errorMsg = "Ошибка упаковки"
+//        )
+//    }
 
     fun createOrder(materials: List<Pair<String, Int>>) {
         viewModelScope.launch {

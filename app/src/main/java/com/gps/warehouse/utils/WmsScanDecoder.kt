@@ -9,7 +9,8 @@ import org.json.JSONObject
 data class WmsScanResult(
     val matNumScan: String,      // Номер материала
     val matQtyScan: Int,         // Количество
-    val matNumOrder: String      // Номер заказа
+    val matNumOrder: String,     // Номер заказа
+    val matPosition: String      // Позиция заказа из SAP
 )
 
 /**
@@ -31,7 +32,8 @@ fun decodeWmsScanData(base64String: String): WmsScanResult? {
         WmsScanResult(
             matNumScan = json.getString("mat_num_scan"),
             matQtyScan = json.optString("mat_qty_scan", "1").toIntOrNull() ?: 1,
-            matNumOrder = json.getString("mat_num_order")
+            matNumOrder = json.getString("mat_num_order"),
+            matPosition = json.getString("mat_position"),
         )
     } catch (e: Exception) {
         // Логирование для отладки
