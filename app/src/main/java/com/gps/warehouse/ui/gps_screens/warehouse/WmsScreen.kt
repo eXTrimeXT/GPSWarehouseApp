@@ -349,7 +349,7 @@ fun WmsContent(
                     onClick = { onStorageFilterSelected(null) },
                     label = { Text("Все") }
                 )
-                // Чипы из доступных складов профиля
+                // Чипсы из доступных складов профиля
                 availableWarehouses.forEach { storageId ->
                     FilterChip(
                         selected = selectedStorageFilterId == storageId.id,

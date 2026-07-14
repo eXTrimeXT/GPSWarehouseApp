@@ -23,3 +23,4 @@ object AppPreferences {
         prefs.edit { putInt(KEY_DEFAULT_TAB, index) }
     }
 }
+

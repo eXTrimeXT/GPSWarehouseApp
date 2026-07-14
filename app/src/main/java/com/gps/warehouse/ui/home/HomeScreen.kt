@@ -45,11 +45,6 @@ fun HomeScreen(
         mutableIntStateOf(AppPreferences.getDefaultTab(context))
     }
 
-    LaunchedEffect(Unit) {
-        selectedTabIndex = AppPreferences.getDefaultTab(context)
-    }
-
-
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -135,6 +130,12 @@ fun HomeScreenContent(
                 MenuButton(
                     title = "Приемка",
                     subtitle = "Приемка материалов по заказу",
+                    icon = Icons.Default.AssignmentReturned,
+                    onClick = { onNavigate("wms_receive") }
+                )
+                MenuButton(
+                    title = "Списание материалов",
+                    subtitle = "",
                     icon = Icons.Default.AssignmentReturned,
                     onClick = { onNavigate("wms_receive") }
                 )
