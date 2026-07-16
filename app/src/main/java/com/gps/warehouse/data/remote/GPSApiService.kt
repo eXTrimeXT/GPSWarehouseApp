@@ -110,4 +110,8 @@ interface GPSApiService {
         "Origin: http://gps-test.hmmr.ru"
     )
     suspend fun acceptWmsRequest(@Body request: WmsRequestAction): WmsRequestActionResponse
+
+     // Списание материалов со склада
+    @POST("wms_write_off")
+    suspend fun writeOffMaterials(@Body request: WmsWriteOffRequest): ResponseBody
 }
