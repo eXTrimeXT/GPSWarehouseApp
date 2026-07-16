@@ -1,16 +1,21 @@
 package com.gps.warehouse.utils
 
 import android.util.Base64
+import android.util.Log
 import org.json.JSONObject
 
 /**
  * Результат декодирования скана для приемки WMS
  */
-data class WmsScanResult(
+data class WmsReceiveScan(
     val matNumScan: String,      // Номер материала
     val matQtyScan: Int,         // Количество
     val matNumOrder: String,     // Номер заказа
     val matPosition: String      // Позиция заказа из SAP
+)
+
+data class WmsWriteOffScan(
+    val matNumScan: String,      // Номер материала
 )
 
 /**
@@ -18,7 +23,7 @@ data class WmsScanResult(
  * @param base64String Строка в формате Base64 с JSON внутри
  * @return WmsScanResult или null при ошибке
  */
-fun decodeWmsScanData(base64String: String): WmsScanResult? {
+fun decodeWmsReceiveScreen(base64String: String): WmsReceiveScan? {
     return try {
         // Декодируем Base64 в строку
         val jsonString = String(
@@ -28,8 +33,9 @@ fun decodeWmsScanData(base64String: String): WmsScanResult? {
 
         // Парсим JSON
         val json = JSONObject(jsonString)
+        Log.d("decodeWmsReceiveScreen", json.toString())
 
-        WmsScanResult(
+        WmsReceiveScan(
             matNumScan = json.getString("mat_num_scan"),
             matQtyScan = json.optString("mat_qty_scan", "1").toIntOrNull() ?: 1,
             matNumOrder = json.getString("mat_num_order"),
@@ -37,7 +43,29 @@ fun decodeWmsScanData(base64String: String): WmsScanResult? {
         )
     } catch (e: Exception) {
         // Логирование для отладки
-        android.util.Log.e("WmsScanDecoder", "Ошибка декодирования: $base64String", e)
+        Log.e("decodeWmsReceiveScreen", "Ошибка декодирования: $base64String", e)
+        null
+    }
+}
+
+fun decodeWmsWriteOffScreen(base64String: String): WmsWriteOffScan? {
+    return try {
+        // Декодируем Base64 в строку
+        val jsonString = String(
+            Base64.decode(base64String.trim(), Base64.NO_WRAP),
+            Charsets.UTF_8
+        )
+
+        // Парсим JSON
+        val json = JSONObject(jsonString)
+        Log.d("decodeWmsWriteOffScreen", json.toString())
+
+        WmsWriteOffScan(
+            matNumScan = json.getString("mat_num_scan"),
+        )
+    } catch (e: Exception) {
+        // Логирование для отладки
+        Log.e("decodeWmsWriteOffScreen", "Ошибка декодирования: $base64String", e)
         null
     }
 }

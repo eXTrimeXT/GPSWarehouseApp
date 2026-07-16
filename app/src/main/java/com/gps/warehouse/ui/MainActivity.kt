@@ -44,6 +44,7 @@ import com.gps.warehouse.ui.gps_screens.warehouse.WarehouseMaterialsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsReceiveScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsRequestsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsScreen
+import com.gps.warehouse.ui.gps_screens.warehouse.WmsWriteOffScreen
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants
 import com.gps.warehouse.utils.UpdateManager
@@ -213,6 +214,12 @@ class MainActivity : ComponentActivity() {
                                 viewModel = viewModel
                             )
                         }
+                        composable("wms_write_off") {
+                            WmsWriteOffScreen(
+                                navController = navController,
+                                viewModel = viewModel
+                            )
+                        }
                         composable("archive") {
                             ArchiveScreen(
                                 navController = navController,
@@ -228,6 +235,8 @@ class MainActivity : ComponentActivity() {
                         composable("settings") {
                             SettingsScreen(navController = navController)
                         }
+
+
 
                         // ================== МОИ АКТИВЫ ==================
                         composable("my_assets_list") {

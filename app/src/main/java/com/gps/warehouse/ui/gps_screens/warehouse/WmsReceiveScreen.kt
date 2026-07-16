@@ -31,7 +31,7 @@ import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.ScannerManager
-import com.gps.warehouse.utils.decodeWmsScanData
+import com.gps.warehouse.utils.decodeWmsReceiveScreen
 import com.gps.warehouse.utils.isBase64EncodedJson
 import java.text.SimpleDateFormat
 import java.util.*
@@ -76,7 +76,7 @@ fun WmsReceiveScreen(
             if (scannedData.isNotEmpty()) {
                 val trimmedData = scannedData.trim()
                 if (isBase64EncodedJson(trimmedData)) {
-                    val scanResult = decodeWmsScanData(trimmedData)
+                    val scanResult = decodeWmsReceiveScreen(trimmedData)
                     Log.d(TAG, scanResult.toString())
                     if (scanResult != null) {
                         if (showDialog) {

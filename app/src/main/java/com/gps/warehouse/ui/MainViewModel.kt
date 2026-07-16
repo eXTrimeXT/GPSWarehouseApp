@@ -88,7 +88,9 @@ class MainViewModel @Inject constructor(
 
         // ====================== Приемка WMS ======================
         data class WmsReceiveSuccess(val message: String) : UiState()
-        // =======================================================
+        // ====================== Списание материалов WMS ======================
+        data class WmsWriteOffSuccess(val message: String) : UiState()
+        // ========================================================================
 
         // ====================== Складские запросы: действия ======================
         data class WmsRequestCancelled(val message: String) : UiState()
@@ -508,13 +510,13 @@ class MainViewModel @Inject constructor(
     }
 
     // Сброс состояния
-//    fun resetWmsState() {
-//        wmsCurrentPage = 1
-//        wmsTotalPages = 1
-//        currentStorageFilterId = null
-//        currentWmsSearchQuery = ""
-//        currentHideZeroQty = false
-//    }
+    fun resetWmsState() {
+        wmsCurrentPage = 1
+        wmsTotalPages = 1
+        currentStorageFilterId = null
+        currentWmsSearchQuery = ""
+        currentHideZeroQty = false
+    }
 
     fun loadOrders() {
         loadOrdersGeneric(type = "status", isArchive = false)
@@ -537,6 +539,77 @@ class MainViewModel @Inject constructor(
         )
     }
 
+
+    // В MainViewModel.kt добавить:
+
+    /**
+     * Отправляет данные о списанных материалах на сервер
+     */
+    fun writeOffWmsMaterials(materials: List<WmsWriteOffItem>) {
+        viewModelScope.launch {
+            _uiState.value = UiState.Loading
+            try {
+                val token = getTokenOrThrow()
+                val request = WmsWriteOffRequest(token = token, materialsData = materials)
+
+                // Получаем "сырой" ответ
+                val responseBody = apiService.writeOffMaterials(request)
+                val responseString = responseBody.string().trim()
+
+                Log.d("MainViewModel", "WMS WriteOff raw response: $responseString")
+
+                // === ОБРАБОТКА ОТВЕТА ===
+
+                // 1. Проверяем на простые текстовые успехи
+                if (responseString.equals("ok", ignoreCase = true) ||
+                    responseString.equals("success", ignoreCase = true)) {
+                    _uiState.value = UiState.WmsWriteOffSuccess("Списание успешно завершено")
+                    return@launch
+                }
+
+                // 2. Пытаемся распарсить как JSON
+                if (responseString.startsWith("{")) {
+                    try {
+                        val json = org.json.JSONObject(responseString)
+                        val status = json.optString("status", "")
+                        val message = json.optString("message", json.optString("msg", ""))
+
+                        if (status.equals("success", ignoreCase = true) || status.equals("ok", ignoreCase = true)) {
+                            _uiState.value = UiState.WmsWriteOffSuccess(message.ifEmpty { "Списание успешно завершено" })
+                        } else {
+                            _uiState.value = UiState.Error(message.ifEmpty { "Ошибка сервера" })
+                        }
+                    } catch (e: org.json.JSONException) {
+                        _uiState.value = UiState.Error("Ошибка парсинга ответа сервера")
+                    }
+                } else {
+                    // Это plain text. Проверяем, не ошибка ли это
+                    val errorMsg = if (responseString.contains("SQLSTATE", ignoreCase = true) ||
+                        responseString.contains("error", ignoreCase = true) ||
+                        responseString.contains("exception", ignoreCase = true)) {
+                        "Ошибка сервера: ${responseString.take(150)}"
+                    } else {
+                        _uiState.value = UiState.WmsWriteOffSuccess(responseString.ifEmpty { "Списание успешно завершено" })
+                        return@launch
+                    }
+                    _uiState.value = UiState.Error(errorMsg)
+                }
+
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка списания WMS: $e")
+                _uiState.value = UiState.Error(e.message ?: "Ошибка сети или сервера")
+            }
+        }
+    }
+
+    /**
+     * Сбрасывает состояние после успешного списания
+     */
+    fun resetWriteOffState() {
+        if (_uiState.value is UiState.WmsWriteOffSuccess) {
+            _uiState.value = UiState.Idle
+        }
+    }
 
     /**
      * Обновление количества материала (type=change)

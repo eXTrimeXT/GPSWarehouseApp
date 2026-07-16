@@ -20,7 +20,8 @@ datastore = "1.2.1"
 coroutines = "1.10.2"
 workRuntimeKtx = "2.9.0"
 appcompat = "1.7.1"
-foundation = "1.11.3"
+foundation = "1.11.4"
+carUiLib = "2.6.0"
 
 
 [libraries]
@@ -53,6 +54,7 @@ androidx-datastore-preferences = { module = "androidx.datastore:datastore-prefer
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+car-ui-lib = { group = "com.android.car.ui", name = "car-ui-lib", version.ref = "carUiLib" }
 
 
 [plugins]

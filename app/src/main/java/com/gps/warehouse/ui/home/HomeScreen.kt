@@ -134,10 +134,10 @@ fun HomeScreenContent(
                     onClick = { onNavigate("wms_receive") }
                 )
                 MenuButton(
-                    title = "Списание материалов",
-                    subtitle = "",
-                    icon = Icons.Default.AssignmentReturned,
-                    onClick = { onNavigate("wms_receive") }
+                    title = "Списание",
+                    subtitle = "Списание материалов со склада",
+                    icon = Icons.Default.DeleteForever,
+                    onClick = { onNavigate("wms_write_off") }
                 )
             }
             // Вкладка "Активы"
