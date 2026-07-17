@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -93,6 +94,7 @@ fun WmsWriteOffScreen(
                 if (isBase64EncodedJson(trimmedData)) {
                     // JSON-скан: всегда в артикул, независимо от фокуса
                     val scanResult = decodeWmsWriteOffScreen(trimmedData)
+                    Log.d(TAG, scanResult.toString())
                     if (scanResult != null) {
                         if (showDialog) {
                             dialogMaterial = scanResult.matNumScan
@@ -434,7 +436,7 @@ fun EditWriteOffItemDialog(
         }
     }
 
-    // Высота диалога (ограничение 70% экрана)
+    // Высота диалога (ограничение 60% экрана)
     val configuration = LocalConfiguration.current
     val maxDialogHeight = (configuration.screenHeightDp * 0.59).dp
 
@@ -458,7 +460,7 @@ fun EditWriteOffItemDialog(
                         .verticalScroll(scrollState)
                         .padding(vertical = 16.dp)
                         .padding(end = 16.dp), // Увеличенный отступ, чтобы поля не перекрывались скроллбаром
-                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Артикул
                     OutlinedTextField(
@@ -467,7 +469,7 @@ fun EditWriteOffItemDialog(
                             materialField = it.copy(selection = TextRange(it.text.length))
                         },
                         label = {
-                            androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                                 Text("Артикул", style = MaterialTheme.typography.bodyLarge)
                                 Text(
                                     " *",
@@ -514,11 +516,11 @@ fun EditWriteOffItemDialog(
                             color = MaterialTheme.colorScheme.error
                         )
                     } else {
-                        androidx.compose.foundation.layout.Row(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             availableStorages.forEach { stor ->
                                 FilterChip(
@@ -540,7 +542,7 @@ fun EditWriteOffItemDialog(
                             costCenterField = it.copy(selection = TextRange(it.text.length))
                         },
                         label = {
-                            androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("МВЗ", style = MaterialTheme.typography.bodyLarge)
                                 Text(
                                     " *",

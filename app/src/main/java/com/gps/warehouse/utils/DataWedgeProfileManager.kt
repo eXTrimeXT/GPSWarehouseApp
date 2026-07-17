@@ -177,7 +177,8 @@ object DataWedgeProfileManager {
 
             val pluginConfigList = arrayListOf(
                 createBarcodeInputPlugin(),
-                createIntentOutputPlugin()
+                createIntentOutputPlugin(),
+                createKeystrokeOutputPlugin()
             )
             putParcelableArrayList("PLUGIN_CONFIG", pluginConfigList)
         }
@@ -232,6 +233,28 @@ object DataWedgeProfileManager {
                 putString("intent_category", SCAN_INTENT_CATEGORY)
                 putString("intent_delivery", "2") // 2 = Broadcast intent
                 putString("intent_use_content_provider", "false")
+            }
+            putBundle("PARAM_LIST", paramList)
+        }
+    }
+
+    /**
+     * Плагин для отключения Keystroke output.
+     * Это предотвращает эмуляцию клавиатуры при сканировании на Zebra,
+     * которая приводила к "дописыванию" текста в активное поле вместо замены.
+     */
+    private fun createKeystrokeOutputPlugin(): Bundle {
+        return Bundle().apply {
+            putString("PLUGIN_NAME", "KEYSTROKE")
+            putString("RESET_CONFIG", "true")
+
+            val paramList = Bundle().apply {
+                // отключаем эмуляцию клавиатуры
+                putString("keystroke_output_enabled", "false")
+                // На всякий случай сбрасываем связанные параметры
+                putString("keystroke_action_char", "")
+                putString("keystroke_delay_extendedascii", "0")
+                putString("keystroke_delay_specialchars", "0")
             }
             putBundle("PARAM_LIST", paramList)
         }
