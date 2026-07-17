@@ -58,11 +58,82 @@ fun AssetsByTypeScreen(
         )
     }
 
+    // Передаем все данные и колбэки в отдельный UI-компонент для возможности превью
+    AssetsByTypeScreenContent(
+        assetTypeName = assetTypeName,
+        uiState = uiState,
+        searchQuery = searchQuery,
+        onSearchQueryChange = { searchQuery = it; currentPage = 1 },
+        isFiltersExpanded = isFiltersExpanded,
+        onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
+        inventoryId = inventoryId,
+        onInventoryIdChange = { inventoryId = it; currentPage = 1 },
+        serialNumber = serialNumber,
+        onSerialNumberChange = { serialNumber = it; currentPage = 1 },
+        assetStatus = assetStatus,
+        onAssetStatusChange = { assetStatus = it; currentPage = 1 },
+        modelId = modelId,
+        onModelIdChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { modelId = it; currentPage = 1 } },
+        parentId = parentId,
+        onParentIdChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { parentId = it; currentPage = 1 } },
+        locationId = locationId,
+        onLocationIdChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { locationId = it; currentPage = 1 } },
+        onResetFilters = {
+            searchQuery = ""
+            inventoryId = ""
+            serialNumber = ""
+            assetStatus = null
+            modelId = ""
+            parentId = ""
+            locationId = ""
+            currentPage = 1
+        },
+        onRetry = {
+            currentPage = 1
+            viewModel.loadAssetsByFilters(page = 1, assetTypeId = assetTypeId)
+        },
+        onLoadMore = { currentPage++ },
+        onAssetClick = { assetId -> navController.navigate("asset_details/$assetId") },
+        onBackClick = { navController.popBackStack() }
+    )
+}
+
+// ============================================================================
+// UI КОМПОНЕНТ ЭКРАНА (Можно превьюить!)
+// ============================================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AssetsByTypeScreenContent(
+    assetTypeName: String,
+    uiState: AssetViewModel.AssetUiState,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    isFiltersExpanded: Boolean,
+    onToggleFilters: () -> Unit,
+    inventoryId: String,
+    onInventoryIdChange: (String) -> Unit,
+    serialNumber: String,
+    onSerialNumberChange: (String) -> Unit,
+    assetStatus: String?,
+    onAssetStatusChange: (String?) -> Unit,
+    modelId: String,
+    onModelIdChange: (String) -> Unit,
+    parentId: String,
+    onParentIdChange: (String) -> Unit,
+    locationId: String,
+    onLocationIdChange: (String) -> Unit,
+    onResetFilters: () -> Unit,
+    onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
+    onAssetClick: (Int) -> Unit,
+    onBackClick: () -> Unit
+) {
     Scaffold(
         topBar = {
             MyCustomActionBar(
                 text = assetTypeName,
-                onBackClick = { navController.popBackStack() }
+                onBackClick = onBackClick
             )
         }
     ) { paddingValues ->
@@ -70,12 +141,12 @@ fun AssetsByTypeScreen(
             // Поисковая строка с кнопкой фильтров
             OutlinedTextField(
                 value = searchQuery,
-                onValueChange = { searchQuery = it; currentPage = 1 },
+                onValueChange = onSearchQueryChange,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 placeholder = { Text("Поиск по названию") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
-                    IconButton(onClick = { isFiltersExpanded = !isFiltersExpanded }) {
+                    IconButton(onClick = onToggleFilters) {
                         Icon(
                             imageVector = if (isFiltersExpanded) Icons.Default.ExpandLess else Icons.Default.FilterList,
                             contentDescription = "Фильтры"
@@ -94,14 +165,14 @@ fun AssetsByTypeScreen(
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         OutlinedTextField(
                             value = inventoryId,
-                            onValueChange = { inventoryId = it; currentPage = 1 },
+                            onValueChange = onInventoryIdChange,
                             label = { Text("Инвентарный номер") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
                         OutlinedTextField(
                             value = serialNumber,
-                            onValueChange = { serialNumber = it; currentPage = 1 },
+                            onValueChange = onSerialNumberChange,
                             label = { Text("Серийный номер") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
@@ -128,12 +199,12 @@ fun AssetsByTypeScreen(
                             ) {
                                 DropdownMenuItem(
                                     text = { Text("Любой статус") },
-                                    onClick = { assetStatus = null; statusExpanded = false; currentPage = 1 }
+                                    onClick = { onAssetStatusChange(null); statusExpanded = false }
                                 )
                                 statuses.forEach { status ->
                                     DropdownMenuItem(
                                         text = { Text(status) },
-                                        onClick = { assetStatus = status; statusExpanded = false; currentPage = 1 }
+                                        onClick = { onAssetStatusChange(status); statusExpanded = false }
                                     )
                                 }
                             }
@@ -141,7 +212,7 @@ fun AssetsByTypeScreen(
 
                         OutlinedTextField(
                             value = modelId,
-                            onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { modelId = it; currentPage = 1 } },
+                            onValueChange = onModelIdChange,
                             label = { Text("ID модели") },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -149,7 +220,7 @@ fun AssetsByTypeScreen(
                         )
                         OutlinedTextField(
                             value = parentId,
-                            onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { parentId = it; currentPage = 1 } },
+                            onValueChange = onParentIdChange,
                             label = { Text("ID родителя") },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -157,7 +228,7 @@ fun AssetsByTypeScreen(
                         )
                         OutlinedTextField(
                             value = locationId,
-                            onValueChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { locationId = it; currentPage = 1 } },
+                            onValueChange = onLocationIdChange,
                             label = { Text("ID локации") },
                             modifier = Modifier.fillMaxWidth(),
                             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -165,16 +236,7 @@ fun AssetsByTypeScreen(
                         )
 
                         Button(
-                            onClick = {
-                                searchQuery = ""
-                                inventoryId = ""
-                                serialNumber = ""
-                                assetStatus = null
-                                modelId = ""
-                                parentId = ""
-                                locationId = ""
-                                currentPage = 1
-                            },
+                            onClick = onResetFilters,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text("Сбросить фильтры")
@@ -184,14 +246,14 @@ fun AssetsByTypeScreen(
             }
 
             // Контент списка
-            when (val state = uiState) {
+            when (uiState) {
                 is AssetViewModel.AssetUiState.Loading -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
                 is AssetViewModel.AssetUiState.AssetsLoadedPaginated -> {
-                    val assets = state.assets
+                    val assets = uiState.assets
                     if (assets.isEmpty()) {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -209,14 +271,14 @@ fun AssetsByTypeScreen(
                             items(assets) { asset ->
                                 AssetCardPaginated(
                                     asset = asset,
-                                    onClick = { navController.navigate("asset_details/${asset.assetId}") }
+                                    onClick = { onAssetClick(asset.assetId) }
                                 )
                             }
                             // Кнопка пагинации
-                            if (state.hasNext) {
+                            if (uiState.hasNext) {
                                 item {
                                     Button(
-                                        onClick = { currentPage++ },
+                                        onClick = onLoadMore,
                                         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                                         enabled = uiState !is AssetViewModel.AssetUiState.Loading
                                     ) {
@@ -230,9 +292,9 @@ fun AssetsByTypeScreen(
                 is AssetViewModel.AssetUiState.Error -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = state.message, color = MaterialTheme.colorScheme.error)
+                            Text(text = uiState.message, color = MaterialTheme.colorScheme.error)
                             Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = { currentPage = 1 }) { Text("Повторить") }
+                            Button(onClick = onRetry) { Text("Повторить") }
                         }
                     }
                 }
@@ -324,7 +386,163 @@ fun AssetCardPaginated(
 }
 
 // ============================================================================
-// PREVIEW ФУНКЦИИ И MOCK ДАННЫЕ
+// PREVIEW ФУНКЦИИ ДЛЯ ВСЕГО ЭКРАНА
+// ============================================================================
+
+@Preview(showBackground = true, name = "Экран: Загрузка")
+@Composable
+fun AssetsByTypeScreenContentPreview_Loading() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            AssetsByTypeScreenContent(
+                assetTypeName = "Компьютеры",
+                uiState = AssetViewModel.AssetUiState.Loading,
+                searchQuery = "",
+                onSearchQueryChange = {},
+                isFiltersExpanded = false,
+                onToggleFilters = {},
+                inventoryId = "",
+                onInventoryIdChange = {},
+                serialNumber = "",
+                onSerialNumberChange = {},
+                assetStatus = null,
+                onAssetStatusChange = {},
+                modelId = "",
+                onModelIdChange = {},
+                parentId = "",
+                onParentIdChange = {},
+                locationId = "",
+                onLocationIdChange = {},
+                onResetFilters = {},
+                onRetry = {},
+                onLoadMore = {},
+                onAssetClick = {},
+                onBackClick = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Экран: Список активов")
+@Composable
+fun AssetsByTypeScreenContentPreview_Loaded() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            AssetsByTypeScreenContent(
+                assetTypeName = "Компьютеры",
+                uiState = AssetViewModel.AssetUiState.AssetsLoadedPaginated(
+                    assets = listOf(getSampleFullAssetResponseDto(), getSampleScrappedAssetResponseDto()),
+                    total = 2,
+                    page = 1,
+                    pageSize = 50,
+                    totalPages = 1,
+                    hasNext = false,
+                    hasPrevious = false
+                ),
+                searchQuery = "",
+                onSearchQueryChange = {},
+                isFiltersExpanded = false,
+                onToggleFilters = {},
+                inventoryId = "",
+                onInventoryIdChange = {},
+                serialNumber = "",
+                onSerialNumberChange = {},
+                assetStatus = null,
+                onAssetStatusChange = {},
+                modelId = "",
+                onModelIdChange = {},
+                parentId = "",
+                onParentIdChange = {},
+                locationId = "",
+                onLocationIdChange = {},
+                onResetFilters = {},
+                onRetry = {},
+                onLoadMore = {},
+                onAssetClick = {},
+                onBackClick = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Экран: Пустой список (с открытыми фильтрами)")
+@Composable
+fun AssetsByTypeScreenContentPreview_Empty() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            AssetsByTypeScreenContent(
+                assetTypeName = "Компьютеры",
+                uiState = AssetViewModel.AssetUiState.AssetsLoadedPaginated(
+                    assets = emptyList(),
+                    total = 0,
+                    page = 1,
+                    pageSize = 50,
+                    totalPages = 0,
+                    hasNext = false,
+                    hasPrevious = false
+                ),
+                searchQuery = "Несуществующий актив",
+                onSearchQueryChange = {},
+                isFiltersExpanded = true, // Показываем открытые фильтры
+                onToggleFilters = {},
+                inventoryId = "TEST-999",
+                onInventoryIdChange = {},
+                serialNumber = "",
+                onSerialNumberChange = {},
+                assetStatus = "Списан",
+                onAssetStatusChange = {},
+                modelId = "",
+                onModelIdChange = {},
+                parentId = "",
+                onParentIdChange = {},
+                locationId = "",
+                onLocationIdChange = {},
+                onResetFilters = {},
+                onRetry = {},
+                onLoadMore = {},
+                onAssetClick = {},
+                onBackClick = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Экран: Ошибка")
+@Composable
+fun AssetsByTypeScreenContentPreview_Error() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            AssetsByTypeScreenContent(
+                assetTypeName = "Компьютеры",
+                uiState = AssetViewModel.AssetUiState.Error("Ошибка сети: проверьте подключение к интернету"),
+                searchQuery = "",
+                onSearchQueryChange = {},
+                isFiltersExpanded = false,
+                onToggleFilters = {},
+                inventoryId = "",
+                onInventoryIdChange = {},
+                serialNumber = "",
+                onSerialNumberChange = {},
+                assetStatus = null,
+                onAssetStatusChange = {},
+                modelId = "",
+                onModelIdChange = {},
+                parentId = "",
+                onParentIdChange = {},
+                locationId = "",
+                onLocationIdChange = {},
+                onResetFilters = {},
+                onRetry = {},
+                onLoadMore = {},
+                onAssetClick = {},
+                onBackClick = {}
+            )
+        }
+    }
+}
+
+// ============================================================================
+// PREVIEW ФУНКЦИИ ДЛЯ КАРТОЧКИ
 // ============================================================================
 
 @Preview(showBackground = true, name = "Карточка актива (Полная)")

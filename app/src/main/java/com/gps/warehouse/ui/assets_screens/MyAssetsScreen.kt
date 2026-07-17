@@ -26,7 +26,7 @@ fun MyAssetsScreen(
     navController: NavHostController,
     viewModel: AssetViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState() 
 
     LaunchedEffect(Unit) {
         viewModel.loadMyAssets()
