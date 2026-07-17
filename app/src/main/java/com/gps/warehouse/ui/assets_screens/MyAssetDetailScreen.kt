@@ -298,7 +298,7 @@ fun MyAssetCardPreview_Minimal_Detail() {
 // MOCK ДАННЫЕ
 // ============================================================================
 
-private fun getSampleFullMyAssetDto(): MyAssetDto {
+fun getSampleFullMyAssetDto(): MyAssetDto {
     return MyAssetDto(
         assetId = 2,
         name = "Ноутбук",

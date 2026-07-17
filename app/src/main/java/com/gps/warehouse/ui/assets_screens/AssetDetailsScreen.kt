@@ -7,10 +7,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.gps.warehouse.data.remote.assets_dto.AssetParentResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetUserResponseDto
+import com.gps.warehouse.data.remote.assets_dto.LocationResponseDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
 
@@ -72,7 +76,7 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 1. Основная информация
+        // Основная информация
         Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Основная информация", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
@@ -87,7 +91,7 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
             }
         }
 
-        // 2. Даты и создание
+        // Даты и создание
         Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Информация о создании", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
@@ -101,7 +105,7 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
             }
         }
 
-        // 3. Локация (если есть)
+        // Локация (если есть)
         asset.location?.let { loc ->
             Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -113,7 +117,7 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
             }
         }
 
-        // 4. Пользователи (если есть)
+        // Пользователи (если есть)
         if (!asset.users.isNullOrEmpty()) {
             Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -129,7 +133,7 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
             }
         }
 
-        // 5. Родительский актив (если есть)
+        // Родительский актив (если есть)
         asset.parent?.let { parent ->
             Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -144,4 +148,141 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
             }
         }
     }
+}
+
+
+// ============================================================================
+// PREVIEW ФУНКЦИИ И MOCK ДАННЫЕ
+// ============================================================================
+
+@Preview(showBackground = true, name = "Детали актива (Полные)")
+@Composable
+fun AssetDetailsContentPreview_Full() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            AssetDetailsContent(
+                asset = getSampleFullAssetResponseDto(),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Детали актива (Минимальные)")
+@Composable
+fun AssetDetailsContentPreview_Minimal() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            AssetDetailsContent(
+                asset = getSampleMinimalAssetResponseDto(),
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
+}
+
+// ============================================================================
+// MOCK ДАННЫЕ
+// ============================================================================
+
+private fun getSampleFullAssetResponseDto(): AssetResponseDto {
+    return AssetResponseDto(
+        assetId = 1,
+        name = "Ноутбук Lenovo ThinkPad X1",
+        inventoryId = "INV-2024-00158",
+        serialNumber = "SN-9876543210",
+        assetStatus = "В эксплуатации",
+        comment = "Выдан системному администратору",
+        dateIssue = "2024-01-15",
+        datePurchasing = "2024-01-10",
+        modelId = 55,
+        modelName = "ThinkPad X1 Carbon Gen 11",
+        assetTypeId = 1,
+        parentId = 2,
+        locationId = 1,
+        preparedBy = "0000015370",
+        checkedBy = "0000015370",
+        parentName = "Рабочая станция №12",
+        manufacturerName = "Lenovo",
+        vendorName = "ООО ТехноПоставка",
+        osName = "Windows 11 Pro",
+        createdBy = "0000015370",
+        updatedBy = "0000015370",
+        createdAt = "2024-01-01T10:00:00Z",
+        updatedAt = "2024-01-15T12:30:00Z",
+        assetTypeName = "Компьютер",
+        location = LocationResponseDto(
+            locationId = 1,
+            name = "Центральный склад",
+            address = "г. Тула, ул. Ленина, д. 10"
+        ),
+        users = listOf(
+            AssetUserResponseDto(
+                guid = "14ba77ab-2d91-11f1-a3cb-000c290ca5c4",
+                employeeId = "0000015370",
+                fullNameRu = "Малышев Тимур Максимович",
+                fullNameEn = "Malyshev Timur Maksimovich",
+                startDate = "2024-01-15",
+                endDate = null
+            )
+        ),
+        parent = AssetParentResponseDto(
+            assetId = 2,
+            name = "Рабочая станция №12",
+            inventoryId = "INV-WS-12",
+            serialNumber = "SN-WS-12",
+            assetStatus = "В эксплуатации",
+            comment = null,
+            dateIssue = null,
+            datePurchasing = null,
+            modelId = null,
+            modelName = null,
+            assetTypeId = null,
+            parentId = null,
+            locationId = null,
+            preparedBy = null,
+            checkedBy = null,
+            parentName = null,
+            manufacturerName = null,
+            vendorName = null,
+            osName = null,
+            createdBy = null,
+            updatedBy = null,
+            createdAt = "2024-01-01T10:00:00Z",
+            updatedAt = null,
+            assetTypeName = "Рабочая станция"
+        )
+    )
+}
+
+private fun getSampleMinimalAssetResponseDto(): AssetResponseDto {
+    return AssetResponseDto(
+        assetId = 99,
+        name = "Тестовый актив",
+        inventoryId = "TEST-001",
+        serialNumber = null,
+        assetStatus = "Приемка",
+        comment = null,
+        dateIssue = null,
+        datePurchasing = null,
+        modelId = null,
+        modelName = null,
+        assetTypeId = null,
+        parentId = null,
+        locationId = null,
+        preparedBy = null,
+        checkedBy = null,
+        parentName = null,
+        manufacturerName = null,
+        vendorName = null,
+        osName = null,
+        createdBy = null,
+        updatedBy = null,
+        createdAt = "2024-01-01T10:00:00Z",
+        updatedAt = null,
+        assetTypeName = null,
+        location = null,
+        users = null,
+        parent = null
+    )
 }

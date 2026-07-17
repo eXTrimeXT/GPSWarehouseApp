@@ -210,95 +210,117 @@ fun MyAssetCard(
 // ============================================================================
 // PREVIEW ФУНКЦИИ И MOCK ДАННЫЕ
 // ============================================================================
+// ============================================================================
+// PREVIEW ФУНКЦИИ ДЛЯ ВСЕГО ЭКРАНА
+// ============================================================================
 
-@Preview(showBackground = true, name = "Карточка актива (Полная)")
 @Composable
-fun MyAssetCardPreview_Full() {
+fun MyAssetsScreenContent(
+    uiState: AssetViewModel.AssetUiState,
+    onNavigate: (String) -> Unit,
+    onBackClick: () -> Unit,
+    onRetry: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            MyCustomActionBar(
+                text = "Мои активы",
+                onBackClick = onBackClick
+            )
+        }
+    ) { paddingValues ->
+        when (uiState) {
+            is AssetViewModel.AssetUiState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is AssetViewModel.AssetUiState.MyAssetsLoaded -> {
+                if (uiState.assets.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Laptop, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(text = "За вами не закреплено активов", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(paddingValues),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(uiState.assets) { asset ->
+                            MyAssetCard(
+                                asset = asset,
+                                onClick = { onNavigate("my_asset_details/${asset.assetId}") }
+                            )
+                        }
+                    }
+                }
+            }
+            is AssetViewModel.AssetUiState.Error -> {
+                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = uiState.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = onRetry) { Text("Повторить") }
+                    }
+                }
+            }
+            else -> {}
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Экран: Загрузка")
+@Composable
+fun MyAssetsScreenPreview_Loading() {
     MaterialTheme {
-        Surface(modifier = Modifier.fillMaxWidth()) {
-            MyAssetCard(
-                asset = getSampleFullMyAssetDto(),
-                onClick = { }
+        Surface(modifier = Modifier.fillMaxSize()) {
+            MyAssetsScreenContent(
+                uiState = AssetViewModel.AssetUiState.Loading,
+                onNavigate = {},
+                onBackClick = {},
+                onRetry = {}
             )
         }
     }
 }
 
-@Preview(showBackground = true, name = "Карточка актива (Минимальная / Без типа)")
+@Preview(showBackground = true, name = "Экран: Список активов (Заполненный)")
 @Composable
-fun MyAssetCardPreview_Minimal() {
+fun MyAssetsScreenPreview_Loaded() {
     MaterialTheme {
-        Surface(modifier = Modifier.fillMaxWidth()) {
-            MyAssetCard(
-                asset = getSampleMinimalMyAssetDto(),
-                onClick = { }
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Карточка актива (С родительским активом)")
-@Composable
-fun MyAssetCardPreview_WithParent() {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxWidth()) {
-            MyAssetCard(
-                asset = getSampleFullMyAssetDto().copy(
-                    name = "Процессор Intel Core i7",
-                    inventoryId = "INV-002",
-                    serialNumber = "SN-998877",
-                    assetTypeName = "Комплектующие",
-                    assetStatus = "В эксплуатации",
-                    parentName = "Сервер Dell PowerEdge R740"
+        Surface(modifier = Modifier.fillMaxSize()) {
+            MyAssetsScreenContent(
+                uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(
+                    assets = listOf(
+                        getSampleFullMyAssetDto(),
+                        getSampleFullMyAssetDto(),
+                        getSampleFullMyAssetDto(),
+                        getSampleFullMyAssetDto()
+                    )
                 ),
-                onClick = { }
+                onNavigate = {},
+                onBackClick = {},
+                onRetry = {}
             )
         }
     }
 }
 
-// ============================================================================
-// MOCK ДАННЫЕ
-// ============================================================================
-
-private fun getSampleFullMyAssetDto(): MyAssetDto {
-    return MyAssetDto(
-        assetId = 2,
-        name = "Ноутбук Lenovo ThinkPad X1",
-        inventoryId = "INV-2024-00158",
-        serialNumber = "SN-9876543210",
-        assetStatus = "В эксплуатации",
-        assetTypeName = "Компьютер",
-        modelName = "ThinkPad X1 Carbon Gen 11",
-        comment = "Выдан системному администратору",
-        dateIssue = "2024-01-15",
-        datePurchasing = "2024-01-10",
-        parentName = "Рабочая станция №12",
-        location = null,
-        users = null,
-        parent = null,
-        createdAt = "",
-        updatedAt = ""
-    )
-}
-
-private fun getSampleMinimalMyAssetDto(): MyAssetDto {
-    return MyAssetDto(
-        assetId = 99,
-        name = "Тестовый актив",
-        inventoryId = "TEST-001",
-        serialNumber = null,
-        assetStatus = "Приемка",
-        assetTypeName = null,
-        modelName = null,
-        comment = null,
-        dateIssue = null,
-        datePurchasing = null,
-        parentName = null,
-        location = null,
-        users = null,
-        parent = null,
-        createdAt = "",
-        updatedAt = ""
-    )
+@Preview(showBackground = true, name = "Экран: Нет активов")
+@Composable
+fun MyAssetsScreenPreview_Empty() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            MyAssetsScreenContent(
+                uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(assets = emptyList()),
+                onNavigate = {},
+                onBackClick = {},
+                onRetry = {}
+            )
+        }
+    }
 }
