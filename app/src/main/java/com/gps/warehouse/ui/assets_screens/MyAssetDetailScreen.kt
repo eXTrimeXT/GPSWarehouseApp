@@ -236,7 +236,7 @@ fun UserCard(user: AssignedUserDto) {
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurface
         )
-        if (!user.fullNameEn.isNullOrBlank()) {
+        if (user.fullNameEn.isNotBlank()) {
             Text(
                 text = user.fullNameEn,
                 style = MaterialTheme.typography.bodySmall,
@@ -276,7 +276,7 @@ fun MyAssetDetailContentPreview_Minimal() {
 
 @Preview(showBackground = true, name = "Карточка актива (Полная)")
 @Composable
-fun MyAssetCardPreview_Full() {
+fun MyAssetCardPreview_Full_Detail() {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxWidth()) {
             MyAssetCard(asset = getSampleFullMyAssetDto())
@@ -286,7 +286,7 @@ fun MyAssetCardPreview_Full() {
 
 @Preview(showBackground = true, name = "Карточка актива (Минимальная)")
 @Composable
-fun MyAssetCardPreview_Minimal() {
+fun MyAssetCardPreview_Minimal_Detail() {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxWidth()) {
             MyAssetCard(asset = getSampleMinimalMyAssetDto())

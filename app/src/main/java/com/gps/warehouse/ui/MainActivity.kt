@@ -2,6 +2,7 @@ package com.gps.warehouse.ui
 
 import android.content.res.Configuration
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,7 +24,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.gps.warehouse.ui.assets_screens.AssetDetailsScreen
 import com.gps.warehouse.ui.assets_screens.AssetTypeListScreen
+import com.gps.warehouse.ui.assets_screens.AssetsByTypeScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
@@ -57,6 +60,8 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        val TAG = "MainActivity"
 
         // Автоматическая настройка DataWedge для Zebra-устройств
         DataWedgeProfileManager.ensureProfileExists(this)
@@ -247,7 +252,31 @@ class MainActivity : ComponentActivity() {
                         // ================== АКТИВЫ ==================
                         composable("asset_types") {
                             val assetViewModel: AssetViewModel = hiltViewModel()
+                            val mainViewModel: MainViewModel = hiltViewModel()
                             AssetTypeListScreen(
+                                navController = navController,
+                                assetViewModel = assetViewModel,
+                                mainViewModel = mainViewModel
+                            )
+                        }
+
+                        composable("assets_list/{assetTypeId}/{assetTypeName}") {backStackEntry ->
+                            val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() ?: 0
+                            val assetTypeName = backStackEntry.arguments?.getString("assetTypeName").toString()
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            AssetsByTypeScreen(
+                                assetTypeId = assetTypeId,
+                                assetTypeName = assetTypeName,
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("asset_details/{assetId}") { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            AssetDetailsScreen(
+                                assetId = assetId,
                                 navController = navController,
                                 viewModel = assetViewModel
                             )

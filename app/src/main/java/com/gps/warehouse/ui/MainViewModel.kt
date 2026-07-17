@@ -131,6 +131,9 @@ class MainViewModel @Inject constructor(
     private val _availableWarehouses = MutableStateFlow<List<WarehousePermissionDto>>(emptyList())
     val availableWarehouses: StateFlow<List<WarehousePermissionDto>> = _availableWarehouses.asStateFlow()
 
+    private val _gpsPermissions = MutableStateFlow<List<GpsPermissionDto>>(emptyList())
+    val gpsPermissions: StateFlow<List<GpsPermissionDto>> = _gpsPermissions.asStateFlow()
+
     // Флаг для инвентаризации
     var isInventoryActive: Boolean = true
 
@@ -295,6 +298,20 @@ class MainViewModel @Inject constructor(
                 val profile = apiService.getUserProfile(GetUserProfileRequest(token))
                 val storages = profile.warehousePermissions ?: emptyList()
                 _availableWarehouses.value = storages.map { it } // или как у вас в DTO
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки складов", e)
+            }
+        }
+    }
+
+    fun loadPermissions() {
+        viewModelScope.launch {
+            try {
+                val token = getTokenOrThrow()
+                // Загружаем через GPS API из профиля (не Assets API)
+                val profile = apiService.getUserProfile(GetUserProfileRequest(token))
+                val permissions = profile.gpsPermissions ?: emptyList()
+                _gpsPermissions.value = permissions.map { it }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка загрузки складов", e)
             }

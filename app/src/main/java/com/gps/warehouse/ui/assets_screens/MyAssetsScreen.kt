@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
@@ -42,7 +43,9 @@ fun MyAssetsScreen(
         when (val state = uiState) {
             is AssetViewModel.AssetUiState.Loading -> {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator()
@@ -51,7 +54,9 @@ fun MyAssetsScreen(
             is AssetViewModel.AssetUiState.MyAssetsLoaded -> {
                 if (state.assets.isEmpty()) {
                     Box(
-                        modifier = Modifier.fillMaxSize().padding(paddingValues),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -71,7 +76,9 @@ fun MyAssetsScreen(
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(paddingValues),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -88,7 +95,9 @@ fun MyAssetsScreen(
             }
             is AssetViewModel.AssetUiState.Error -> {
                 Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -196,4 +205,100 @@ fun MyAssetCard(
             }
         }
     }
+}
+
+// ============================================================================
+// PREVIEW ФУНКЦИИ И MOCK ДАННЫЕ
+// ============================================================================
+
+@Preview(showBackground = true, name = "Карточка актива (Полная)")
+@Composable
+fun MyAssetCardPreview_Full() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxWidth()) {
+            MyAssetCard(
+                asset = getSampleFullMyAssetDto(),
+                onClick = { }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Карточка актива (Минимальная / Без типа)")
+@Composable
+fun MyAssetCardPreview_Minimal() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxWidth()) {
+            MyAssetCard(
+                asset = getSampleMinimalMyAssetDto(),
+                onClick = { }
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Карточка актива (С родительским активом)")
+@Composable
+fun MyAssetCardPreview_WithParent() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxWidth()) {
+            MyAssetCard(
+                asset = getSampleFullMyAssetDto().copy(
+                    name = "Процессор Intel Core i7",
+                    inventoryId = "INV-002",
+                    serialNumber = "SN-998877",
+                    assetTypeName = "Комплектующие",
+                    assetStatus = "В эксплуатации",
+                    parentName = "Сервер Dell PowerEdge R740"
+                ),
+                onClick = { }
+            )
+        }
+    }
+}
+
+// ============================================================================
+// MOCK ДАННЫЕ
+// ============================================================================
+
+private fun getSampleFullMyAssetDto(): MyAssetDto {
+    return MyAssetDto(
+        assetId = 2,
+        name = "Ноутбук Lenovo ThinkPad X1",
+        inventoryId = "INV-2024-00158",
+        serialNumber = "SN-9876543210",
+        assetStatus = "В эксплуатации",
+        assetTypeName = "Компьютер",
+        modelName = "ThinkPad X1 Carbon Gen 11",
+        comment = "Выдан системному администратору",
+        dateIssue = "2024-01-15",
+        datePurchasing = "2024-01-10",
+        parentName = "Рабочая станция №12",
+        location = null,
+        users = null,
+        parent = null,
+        createdAt = "",
+        updatedAt = ""
+    )
+}
+
+private fun getSampleMinimalMyAssetDto(): MyAssetDto {
+    return MyAssetDto(
+        assetId = 99,
+        name = "Тестовый актив",
+        inventoryId = "TEST-001",
+        serialNumber = null,
+        assetStatus = "Приемка",
+        assetTypeName = null,
+        modelName = null,
+        comment = null,
+        dateIssue = null,
+        datePurchasing = null,
+        parentName = null,
+        location = null,
+        users = null,
+        parent = null,
+        createdAt = "",
+        updatedAt = ""
+    )
 }

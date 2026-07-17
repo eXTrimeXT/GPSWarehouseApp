@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.TokenStorage
 import com.gps.warehouse.data.remote.AssetApiService
+import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
@@ -28,6 +29,18 @@ class AssetViewModel @Inject constructor(
         data class MyAssetDetailsLoaded(val asset: MyAssetDto) : AssetUiState()
         data class MyPcsLoaded(val pcs: List<MyPcDto>) : AssetUiState()
         data class AssetTypesLoaded(val types: List<AssetTypeDto>) : AssetUiState()
+        data class AssetDetailsLoaded(val asset: AssetResponseDto) : AssetUiState()
+
+        // Пагинация для списка активов (из типов активов)
+        data class AssetsLoadedPaginated(
+            val assets: List<AssetResponseDto>,
+            val total: Int,
+            val page: Int,
+            val pageSize: Int,
+            val totalPages: Int,
+            val hasNext: Boolean,
+            val hasPrevious: Boolean
+        ) : AssetUiState()
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
@@ -42,7 +55,6 @@ class AssetViewModel @Inject constructor(
 
     private val _assetTypes = MutableStateFlow<List<AssetTypeDto>>(emptyList())
     val assetTypes: StateFlow<List<AssetTypeDto>> = _assetTypes.asStateFlow()
-
 
     // Обновите метод loadMyAssets:
     fun loadMyAssets() {
@@ -60,7 +72,7 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    // Добавьте метод получения актива по ID:
+    // Метод получения актива по ID:
     fun loadMyAssetDetails(assetId: Int) {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -109,6 +121,69 @@ class AssetViewModel @Inject constructor(
         }
     }
 
+    // 2. Добавьте новый метод загрузки с фильтрами:
+    fun loadAssetsByFilters(
+        page: Int = 1,
+        pageSize: Int = 50,
+        name: String? = null,
+        inventoryId: String? = null,
+        serialNumber: String? = null,
+        assetStatus: String? = null,
+        modelId: Int? = null,
+        assetTypeId: Int? = null,
+        parentId: Int? = null,
+        locationId: Int? = null
+    ) {
+        viewModelScope.launch {
+            if (page == 1) {
+                _uiState.value = AssetUiState.Loading
+            }
+            try {
+                val gpsToken = tokenStorage.getToken()
+                    ?: throw Exception("Отсутствует GPS токен авторизации. Выполните вход заново.")
+                val response = assetApiService.getAssets(
+                    token = "Bearer $gpsToken",
+                    page = page,
+                    pageSize = pageSize,
+                    name = name,
+                    inventoryId = inventoryId,
+                    serialNumber = serialNumber,
+                    assetStatus = assetStatus,
+                    modelId = modelId,
+                    assetTypeId = assetTypeId,
+                    parentId = parentId,
+                    locationId = locationId
+                )
+                _uiState.value = AssetUiState.AssetsLoadedPaginated(
+                    assets = response.items,
+                    total = response.total,
+                    page = response.page,
+                    pageSize = response.pageSize,
+                    totalPages = response.totalPages,
+                    hasNext = response.hasNext,
+                    hasPrevious = response.hasPrevious
+                )
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки активов")
+            }
+        }
+    }
+
+    // Метод для загрузки деталей актива
+    fun loadAssetDetails(assetId: Int) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val token = tokenStorage.getToken()
+                    ?: throw Exception("Отсутствует GPS токен авторизации. Выполните вход заново.")
+
+                val asset = assetApiService.getAssetById("Bearer $token", assetId)
+                _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки деталей актива")
+            }
+        }
+    }
 
     fun resetState() {
         _uiState.value = AssetUiState.Idle
