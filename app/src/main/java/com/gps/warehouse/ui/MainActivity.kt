@@ -23,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.gps.warehouse.ui.assets_screens.AssetTypeListScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
@@ -243,7 +244,15 @@ class MainActivity : ComponentActivity() {
 
 
 
-                        // ================== МОИ АКТИВЫ ==================
+                        // ================== АКТИВЫ ==================
+                        composable("asset_types") {
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            AssetTypeListScreen(
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
                         composable("my_assets_list") {
                             val assetViewModel: AssetViewModel = hiltViewModel()
                             MyAssetsScreen(
