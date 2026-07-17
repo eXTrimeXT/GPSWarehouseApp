@@ -12,7 +12,7 @@ data class LoginRequest(
 data class LoginResponse(
     val status: String,
     val msg: String,
-    @SerializedName("data") val data: TokenData
+    @SerializedName("data") val data: TokenData?
 )
 
 // Класс для хранения токена

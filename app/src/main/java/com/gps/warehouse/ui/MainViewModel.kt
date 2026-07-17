@@ -180,9 +180,6 @@ class MainViewModel @Inject constructor(
                         )
                         logout()
                         exitProcess(1)
-                        // После logout() состояние изменится на Idle,
-                        // UI должен обработать это и перенаправить на LoginScreen
-                        break // Выходим из цикла мониторинга после логаута
                     }
                 }
             }
@@ -236,18 +233,24 @@ class MainViewModel @Inject constructor(
 
                 // 2. Логинимся в GPS API
                 val gpsResponse = apiService.login(LoginRequest(username, encryptedPassword))
-                val gpsToken = gpsResponse.data.token
 
-                // 3. Сохраняем токен для API
-                tokenStorage.saveToken(gpsToken)
-                currentToken = gpsToken
-                currentLogin = username
+                // 3. Проверяем статус ответа
+                if (gpsResponse.status == "success" && gpsResponse.data != null) {
+                    val gpsToken = gpsResponse.data.token
 
-                _uiState.value = UiState.LoggedIn(gpsToken)
+                    // 4. Сохраняем токен
+                    tokenStorage.saveToken(gpsToken)
+                    currentToken = gpsToken
+                    currentLogin = username
 
+                    _uiState.value = UiState.LoggedIn(gpsToken)
+                } else {
+                    // Ошибка авторизации - показываем сообщение от сервера
+                    _uiState.value = UiState.Error(gpsResponse.msg.ifEmpty { "Ошибка авторизации" })
+                }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка входа: ${e.message}", e)
-                _uiState.value = UiState.Error(e.message ?: "Ошибка входа")
+                _uiState.value = UiState.Error(e.message ?: "Ошибка сети")
             }
         }
     }

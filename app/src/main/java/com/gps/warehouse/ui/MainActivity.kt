@@ -47,6 +47,7 @@ import com.gps.warehouse.ui.gps_screens.warehouse.WmsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsWriteOffScreen
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants
+import com.gps.warehouse.utils.DataWedgeProfileManager
 import com.gps.warehouse.utils.UpdateManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -55,6 +56,10 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Автоматическая настройка DataWedge для Zebra-устройств
+        DataWedgeProfileManager.ensureProfileExists(this)
+
         setContent {
             // Наблюдаем за темой из ViewModel
             val viewModel: MainViewModel = hiltViewModel()
@@ -309,4 +314,9 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+//    override fun onDestroy() {
+//        super.onDestroy()
+//        DataWedgeProfileManager.unregisterReceiver(this)
+//    }
 }

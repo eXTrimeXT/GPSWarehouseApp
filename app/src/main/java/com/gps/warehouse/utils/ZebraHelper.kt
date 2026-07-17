@@ -51,23 +51,23 @@ class ZebraHelper(private val context: Context) {
 
                     // Пробуем получить данные из разных возможных источников (для надежности)
                     val data = when {
-                        intent?.hasExtra(ZEBRA_EXTRA_DATA) == true -> {
+                        intent.hasExtra(ZEBRA_EXTRA_DATA) -> {
                             intent.getStringExtra(ZEBRA_EXTRA_DATA)
                         }
-                        intent?.hasExtra("data_string") == true -> {
+                        intent.hasExtra("data_string") -> {
                             intent.getStringExtra("data_string")
                         }
-                        intent?.hasExtra("com.symbol.datawedge.DATA_STRING") == true -> {
+                        intent.hasExtra("com.symbol.datawedge.DATA_STRING") -> {
                             intent.getStringExtra("com.symbol.datawedge.DATA_STRING")
                         }
                         else -> intent?.dataString
                     }
 
                     if (!data.isNullOrEmpty()) {
-                        Log.d(TAG, "✓ Successfully extracted barcode: $data")
+                        Log.d(TAG, "Successfully extracted barcode: $data")
                         _barcodeChannel.trySend(data)
                     } else {
-                        Log.w(TAG, "✗ No barcode data found in intent extras")
+                        Log.w(TAG, "No barcode data found in intent extras")
                         // Для отладки: логируем все extras, если данные не найдены
                         intent?.extras?.keySet()?.forEach { key ->
                             Log.d(TAG, "  Available extra: $key = ${intent.extras?.get(key)}")
@@ -89,9 +89,9 @@ class ZebraHelper(private val context: Context) {
                     ContextCompat.RECEIVER_EXPORTED
                 )
             }
-            Log.d(TAG, "✓ Zebra BroadcastReceiver registered successfully")
+            Log.d(TAG, "Zebra BroadcastReceiver registered successfully")
         } catch (e: Exception) {
-            Log.e(TAG, "✗ Failed to register Zebra receiver", e)
+            Log.e(TAG, "Failed to register Zebra receiver", e)
         }
     }
 
