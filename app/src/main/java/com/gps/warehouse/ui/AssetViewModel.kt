@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.TokenStorage
 import com.gps.warehouse.data.remote.AssetApiService
+import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,6 +27,7 @@ class AssetViewModel @Inject constructor(
         data class Error(val message: String) : AssetUiState()
         data class MyAssetDetailsLoaded(val asset: MyAssetDto) : AssetUiState()
         data class MyPcsLoaded(val pcs: List<MyPcDto>) : AssetUiState()
+        data class AssetTypesLoaded(val types: List<AssetTypeDto>) : AssetUiState()
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
@@ -37,6 +39,10 @@ class AssetViewModel @Inject constructor(
 
     private val _myPcsList = MutableStateFlow<List<MyPcDto>>(emptyList())
     val myPcsList: StateFlow<List<MyPcDto>> = _myPcsList.asStateFlow()
+
+    private val _assetTypes = MutableStateFlow<List<AssetTypeDto>>(emptyList())
+    val assetTypes: StateFlow<List<AssetTypeDto>> = _assetTypes.asStateFlow()
+
 
     // Обновите метод loadMyAssets:
     fun loadMyAssets() {
@@ -86,6 +92,23 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+
+    // ================== Типы активов ==================
+    fun loadAssetTypes() {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val gpsToken = tokenStorage.getToken()
+                    ?: throw Exception("Отсутствует токен авторизации")
+                val types = assetApiService.getAssetTypes("Bearer $gpsToken")
+                _assetTypes.value = types
+                _uiState.value = AssetUiState.AssetTypesLoaded(types)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки типов")
+            }
+        }
+    }
+
 
     fun resetState() {
         _uiState.value = AssetUiState.Idle

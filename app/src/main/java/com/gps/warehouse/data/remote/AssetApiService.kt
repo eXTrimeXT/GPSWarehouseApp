@@ -1,5 +1,6 @@
 package com.gps.warehouse.data.remote
 
+import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import retrofit2.http.GET
@@ -29,4 +30,11 @@ interface AssetApiService {
         @Query("skip") skip: Int = 0,
         @Query("limit") limit: Int = 100
     ): List<MyPcDto>
+
+    // ====================== Типы активов ======================
+    @GET("assets-types/")
+    suspend fun getAssetTypes(
+        @Header("Authorization") token: String
+    ): List<AssetTypeDto>
+
 }
