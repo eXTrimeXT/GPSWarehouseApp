@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
@@ -211,8 +212,8 @@ class AssetViewModel @Inject constructor(
         viewModelScope.launch {
             _mapData.value = AssetUiState.Loading
             try {
-                val assets = assetApiService.getAssetPositions()
-                val workshops = assetApiService.getWorkshops()
+                val assets = assetApiService.getAssetPositions("Bearer ${getToken()}")
+                val workshops = assetApiService.getWorkshops("Bearer ${getToken()}")
                 _mapData.value = AssetUiState.MapSuccess(workshops, assets)
             } catch (e: Exception) {
                 _mapData.value = AssetUiState.Error(e.message ?: "Неизвестная ошибка")

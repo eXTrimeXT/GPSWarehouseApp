@@ -1,27 +1,27 @@
 package com.gps.warehouse.data.remote.assets_dto.map
 
-import kotlinx.serialization.SerialName
+import com.google.gson.annotations.SerializedName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class Workshop(
-    @SerialName("workshop_id") val workshopId: Int,
-    @SerialName("name") val name: String,
-    @SerialName("code") val code: String,
-    @SerialName("description") val description: String?,
-    @SerialName("background_image_url") val backgroundImageUrl: String?,
-    @SerialName("geometry") val geometry: Geometry?,
-    @SerialName("workshop_width") val workshopWidth: Int?,
-    @SerialName("workshop_height") val workshopHeight: Int?,
-    @SerialName("offset_x") val offsetX: Int,
-    @SerialName("offset_y") val offsetY: Int,
-    @SerialName("workshop_scale") val workshopScale: Float,
-    @SerialName("color") val color: String,
-    @SerialName("is_active") val isActive: Boolean
+    @SerializedName("workshop_id") val workshopId: Int,
+    @SerializedName("name") val name: String,
+    @SerializedName("code") val code: String,
+    @SerializedName("description") val description: String?,
+    @SerializedName("background_image_url") val backgroundImageUrl: String?,
+    @SerializedName("geometry") val geometry: Geometry?,
+    @SerializedName("workshop_width") val workshopWidth: Int?,
+    @SerializedName("workshop_height") val workshopHeight: Int?,
+    @SerializedName("offset_x") val offsetX: Int,
+    @SerializedName("offset_y") val offsetY: Int,
+    @SerializedName("workshop_scale") val workshopScale: Float,
+    @SerializedName("color") val color: String,
+    @SerializedName("is_active") val isActive: Boolean
 )
 
 @Serializable
 data class Geometry(
-    @SerialName("type") val type: String,
-    @SerialName("coordinates") val coordinates: List<List<Int>>
+    @SerializedName("type") val type: String,
+    @SerializedName("coordinates") val coordinates: List<List<Int>>
 )

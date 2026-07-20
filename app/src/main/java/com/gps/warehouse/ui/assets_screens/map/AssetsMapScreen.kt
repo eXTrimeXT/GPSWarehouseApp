@@ -90,11 +90,6 @@ fun AssetsMapScreen(
                     }
                 }
                 is AssetViewModel.AssetUiState.MapSuccess -> {
-
-                    state.workshops.forEach {
-                        Log.d(TAG, "${it.workshopId} ${it.geometry} ${it.workshopWidth} ${it.workshopHeight} ${it.offsetX} ${it.offsetY}")
-                    }
-
                     MapCanvas(
                         workshops = state.workshops,
                         assets = state.assets,

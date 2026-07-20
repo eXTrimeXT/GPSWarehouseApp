@@ -67,8 +67,12 @@ interface AssetApiService {
 
     // ====================== Карта активов ======================
     @GET("workshops")
-    suspend fun getWorkshops(): List<Workshop>
+    suspend fun getWorkshops(
+        @Header("Authorization") token: String
+    ): List<Workshop>
 
     @GET("asset-positions")
-    suspend fun getAssetPositions(): List<AssetPosition>
+    suspend fun getAssetPositions(
+        @Header("Authorization") token: String
+    ): List<AssetPosition>
 }
