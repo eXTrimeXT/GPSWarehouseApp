@@ -31,6 +31,7 @@ import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcsScreen
+import com.gps.warehouse.ui.assets_screens.map.AssetsMapScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
 import com.gps.warehouse.ui.home.HomeScreen
@@ -272,15 +273,15 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        composable("asset_details/{assetId}") { backStackEntry ->
-                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            AssetDetailsScreen(
-                                assetId = assetId,
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
+//                        composable("asset_details/{assetId}") { backStackEntry ->
+//                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
+//                            val assetViewModel: AssetViewModel = hiltViewModel()
+//                            AssetDetailsScreen(
+//                                assetId = assetId,
+//                                navController = navController,
+//                                viewModel = assetViewModel
+//                            )
+//                        }
 
                         composable("my_assets_list") {
                             val assetViewModel: AssetViewModel = hiltViewModel()
@@ -315,6 +316,18 @@ class MainActivity : ComponentActivity() {
                                 pcId = pcId,
                                 navController = navController,
                                 viewModel = assetViewModel
+                            )
+                        }
+
+                        composable("assets_map") {
+                            AssetsMapScreen(navController = navController)
+                        }
+
+                        composable("asset_details/{assetId}") { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: return@composable
+                            AssetDetailsScreen(
+                                assetId = assetId,
+                                navController = navController,
                             )
                         }
                     }

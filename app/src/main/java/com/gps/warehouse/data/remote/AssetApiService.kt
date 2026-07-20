@@ -5,6 +5,8 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedAssetResponse
+import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
+import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Path
@@ -62,4 +64,11 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Path("asset_id") assetId: Int
     ): AssetResponseDto
+
+    // ====================== Карта активов ======================
+    @GET("workshops")
+    suspend fun getWorkshops(): List<Workshop>
+
+    @GET("asset-positions")
+    suspend fun getAssetPositions(): List<AssetPosition>
 }

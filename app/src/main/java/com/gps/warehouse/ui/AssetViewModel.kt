@@ -10,6 +10,8 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
+import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
+import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -46,6 +48,11 @@ class AssetViewModel @Inject constructor(
             val hasNext: Boolean,
             val hasPrevious: Boolean
         ) : AssetUiState()
+
+        data class MapSuccess(
+            val workshops: List<Workshop>,
+            val assets: List<AssetPosition>
+        ) : AssetUiState()
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
@@ -60,6 +67,9 @@ class AssetViewModel @Inject constructor(
 
     private val _assetTypes = MutableStateFlow<List<AssetTypeDto>>(emptyList())
     val assetTypes: StateFlow<List<AssetTypeDto>> = _assetTypes.asStateFlow()
+
+    private val _mapData = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
+    val mapData: StateFlow<AssetUiState> = _mapData.asStateFlow()
 
     // ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПАРСИНГА ОШИБОК
     private fun getErrorMessage(e: Exception): String? {
@@ -197,4 +207,16 @@ class AssetViewModel @Inject constructor(
         }
     }
 
+    fun loadMapData() {
+        viewModelScope.launch {
+            _mapData.value = AssetUiState.Loading
+            try {
+                val assets = assetApiService.getAssetPositions()
+                val workshops = assetApiService.getWorkshops()
+                _mapData.value = AssetUiState.MapSuccess(workshops, assets)
+            } catch (e: Exception) {
+                _mapData.value = AssetUiState.Error(e.message ?: "Неизвестная ошибка")
+            }
+        }
+    }
 }

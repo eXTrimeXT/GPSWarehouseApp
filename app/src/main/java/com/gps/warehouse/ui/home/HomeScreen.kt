@@ -160,6 +160,12 @@ fun HomeScreenContent(
                     icon = Icons.Default.Computer,
                     onClick = { onNavigate("my_pcs") }
                 )
+                MenuButton(
+                    title = "Карта активов",
+                    subtitle = "Карта активов",
+                    icon = Icons.Default.Map,
+                    onClick = { onNavigate("assets_map") }
+                )
             }
             // Вкладка "Настройки"
             3 -> {
