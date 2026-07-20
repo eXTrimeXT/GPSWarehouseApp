@@ -118,7 +118,6 @@ fun MyAssetsScreen(
     }
 }
 
-// Замените MyAssetCard на этот вариант:
 @Composable
 fun MyAssetCard(
     asset: MyAssetDto,
@@ -207,12 +206,6 @@ fun MyAssetCard(
     }
 }
 
-// ============================================================================
-// PREVIEW ФУНКЦИИ И MOCK ДАННЫЕ
-// ============================================================================
-// ============================================================================
-// PREVIEW ФУНКЦИИ ДЛЯ ВСЕГО ЭКРАНА
-// ============================================================================
 
 @Composable
 fun MyAssetsScreenContent(
@@ -273,21 +266,7 @@ fun MyAssetsScreenContent(
     }
 }
 
-@Preview(showBackground = true, name = "Экран: Загрузка")
-@Composable
-fun MyAssetsScreenPreview_Loading() {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            MyAssetsScreenContent(
-                uiState = AssetViewModel.AssetUiState.Loading,
-                onNavigate = {},
-                onBackClick = {},
-                onRetry = {}
-            )
-        }
-    }
-}
-
+// PREVIEW ФУНКЦИИ И MOCK ДАННЫЕ
 @Preview(showBackground = true, name = "Экран: Список активов (Заполненный)")
 @Composable
 fun MyAssetsScreenPreview_Loaded() {

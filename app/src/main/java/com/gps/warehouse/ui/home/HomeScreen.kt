@@ -144,7 +144,7 @@ fun HomeScreenContent(
             2 -> {
                 MenuButton(
                     title = "Типы активов",
-                    subtitle = "Справочник доступных типов активов",
+                    subtitle = "Доступные типы активов",
                     icon = Icons.Default.Category,
                     onClick = { onNavigate("asset_types") }
                 )
@@ -156,7 +156,7 @@ fun HomeScreenContent(
                 )
                 MenuButton(
                     title = "Мои ПК",
-                    subtitle = "Закрепленные компьютеры и их конфигурация",
+                    subtitle = "Компьютеры и их конфигурация",
                     icon = Icons.Default.Computer,
                     onClick = { onNavigate("my_pcs") }
                 )

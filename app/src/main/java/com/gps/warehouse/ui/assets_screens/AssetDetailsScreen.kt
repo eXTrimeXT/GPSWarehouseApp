@@ -16,6 +16,7 @@ import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUserResponseDto
 import com.gps.warehouse.data.remote.assets_dto.LocationResponseDto
 import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,15 +53,10 @@ fun AssetDetailsScreen(
                 )
             }
             is AssetViewModel.AssetUiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = state.message, color = MaterialTheme.colorScheme.error)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadAssetDetails(assetId) }) {
-                            Text("Повторить")
-                        }
-                    }
-                }
+                ErrorStateView(
+                    message = state.message,
+                    onRetry = { viewModel.loadAssetDetails(assetId) }
+                )
             }
             else -> {}
         }
@@ -127,7 +123,7 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
                         DetailRow("Сотрудник", user.fullNameRu)
                         DetailRow("Табельный номер", user.employeeId)
                         DetailRow("Дата начала", user.startDate)
-                        Spacer(modifier = Modifier.height(8.dp))
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                     }
                 }
             }
@@ -151,11 +147,8 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
 }
 
 
-// ============================================================================
 // PREVIEW ФУНКЦИИ И MOCK ДАННЫЕ
-// ============================================================================
-
-@Preview(showBackground = true, name = "Детали актива (Полные)")
+@Preview(showBackground = true, name = "Детали актива (Полные)", device = "spec:width=380dp,height=1270dp")
 @Composable
 fun AssetDetailsContentPreview_Full() {
     MaterialTheme {
@@ -168,23 +161,7 @@ fun AssetDetailsContentPreview_Full() {
     }
 }
 
-@Preview(showBackground = true, name = "Детали актива (Минимальные)")
-@Composable
-fun AssetDetailsContentPreview_Minimal() {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            AssetDetailsContent(
-                asset = getSampleMinimalAssetResponseDto(),
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-    }
-}
-
-// ============================================================================
 // MOCK ДАННЫЕ
-// ============================================================================
-
 private fun getSampleFullAssetResponseDto(): AssetResponseDto {
     return AssetResponseDto(
         assetId = 1,
@@ -252,37 +229,5 @@ private fun getSampleFullAssetResponseDto(): AssetResponseDto {
             updatedAt = null,
             assetTypeName = "Рабочая станция"
         )
-    )
-}
-
-private fun getSampleMinimalAssetResponseDto(): AssetResponseDto {
-    return AssetResponseDto(
-        assetId = 99,
-        name = "Тестовый актив",
-        inventoryId = "TEST-001",
-        serialNumber = null,
-        assetStatus = "Приемка",
-        comment = null,
-        dateIssue = null,
-        datePurchasing = null,
-        modelId = null,
-        modelName = null,
-        assetTypeId = null,
-        parentId = null,
-        locationId = null,
-        preparedBy = null,
-        checkedBy = null,
-        parentName = null,
-        manufacturerName = null,
-        vendorName = null,
-        osName = null,
-        createdBy = null,
-        updatedBy = null,
-        createdAt = "2024-01-01T10:00:00Z",
-        updatedAt = null,
-        assetTypeName = null,
-        location = null,
-        users = null,
-        parent = null
     )
 }

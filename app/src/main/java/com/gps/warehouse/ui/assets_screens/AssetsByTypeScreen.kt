@@ -18,6 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,12 +73,6 @@ fun AssetsByTypeScreen(
         onSerialNumberChange = { serialNumber = it; currentPage = 1 },
         assetStatus = assetStatus,
         onAssetStatusChange = { assetStatus = it; currentPage = 1 },
-        modelId = modelId,
-        onModelIdChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { modelId = it; currentPage = 1 } },
-        parentId = parentId,
-        onParentIdChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { parentId = it; currentPage = 1 } },
-        locationId = locationId,
-        onLocationIdChange = { if (it.isEmpty() || it.all { char -> char.isDigit() }) { locationId = it; currentPage = 1 } },
         onResetFilters = {
             searchQuery = ""
             inventoryId = ""
@@ -117,12 +112,6 @@ fun AssetsByTypeScreenContent(
     onSerialNumberChange: (String) -> Unit,
     assetStatus: String?,
     onAssetStatusChange: (String?) -> Unit,
-    modelId: String,
-    onModelIdChange: (String) -> Unit,
-    parentId: String,
-    onParentIdChange: (String) -> Unit,
-    locationId: String,
-    onLocationIdChange: (String) -> Unit,
     onResetFilters: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
@@ -210,31 +199,6 @@ fun AssetsByTypeScreenContent(
                             }
                         }
 
-                        OutlinedTextField(
-                            value = modelId,
-                            onValueChange = onModelIdChange,
-                            label = { Text("ID модели") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = parentId,
-                            onValueChange = onParentIdChange,
-                            label = { Text("ID родителя") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = locationId,
-                            onValueChange = onLocationIdChange,
-                            label = { Text("ID локации") },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number),
-                            singleLine = true
-                        )
-
                         Button(
                             onClick = onResetFilters,
                             modifier = Modifier.fillMaxWidth()
@@ -290,13 +254,10 @@ fun AssetsByTypeScreenContent(
                     }
                 }
                 is AssetViewModel.AssetUiState.Error -> {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(text = uiState.message, color = MaterialTheme.colorScheme.error)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Button(onClick = onRetry) { Text("Повторить") }
-                        }
-                    }
+                    ErrorStateView(
+                        message = uiState.message,
+                        onRetry = onRetry
+                    )
                 }
                 else -> {}
             }
@@ -388,41 +349,6 @@ fun AssetCardPaginated(
 // ============================================================================
 // PREVIEW ФУНКЦИИ ДЛЯ ВСЕГО ЭКРАНА
 // ============================================================================
-
-@Preview(showBackground = true, name = "Экран: Загрузка")
-@Composable
-fun AssetsByTypeScreenContentPreview_Loading() {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            AssetsByTypeScreenContent(
-                assetTypeName = "Компьютеры",
-                uiState = AssetViewModel.AssetUiState.Loading,
-                searchQuery = "",
-                onSearchQueryChange = {},
-                isFiltersExpanded = false,
-                onToggleFilters = {},
-                inventoryId = "",
-                onInventoryIdChange = {},
-                serialNumber = "",
-                onSerialNumberChange = {},
-                assetStatus = null,
-                onAssetStatusChange = {},
-                modelId = "",
-                onModelIdChange = {},
-                parentId = "",
-                onParentIdChange = {},
-                locationId = "",
-                onLocationIdChange = {},
-                onResetFilters = {},
-                onRetry = {},
-                onLoadMore = {},
-                onAssetClick = {},
-                onBackClick = {}
-            )
-        }
-    }
-}
-
 @Preview(showBackground = true, name = "Экран: Список активов")
 @Composable
 fun AssetsByTypeScreenContentPreview_Loaded() {
@@ -449,12 +375,6 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                 onSerialNumberChange = {},
                 assetStatus = null,
                 onAssetStatusChange = {},
-                modelId = "",
-                onModelIdChange = {},
-                parentId = "",
-                onParentIdChange = {},
-                locationId = "",
-                onLocationIdChange = {},
                 onResetFilters = {},
                 onRetry = {},
                 onLoadMore = {},
@@ -491,12 +411,6 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                 onSerialNumberChange = {},
                 assetStatus = "Списан",
                 onAssetStatusChange = {},
-                modelId = "",
-                onModelIdChange = {},
-                parentId = "",
-                onParentIdChange = {},
-                locationId = "",
-                onLocationIdChange = {},
                 onResetFilters = {},
                 onRetry = {},
                 onLoadMore = {},
@@ -525,12 +439,6 @@ fun AssetsByTypeScreenContentPreview_Error() {
                 onSerialNumberChange = {},
                 assetStatus = null,
                 onAssetStatusChange = {},
-                modelId = "",
-                onModelIdChange = {},
-                parentId = "",
-                onParentIdChange = {},
-                locationId = "",
-                onLocationIdChange = {},
                 onResetFilters = {},
                 onRetry = {},
                 onLoadMore = {},
@@ -541,10 +449,7 @@ fun AssetsByTypeScreenContentPreview_Error() {
     }
 }
 
-// ============================================================================
 // PREVIEW ФУНКЦИИ ДЛЯ КАРТОЧКИ
-// ============================================================================
-
 @Preview(showBackground = true, name = "Карточка актива (Полная)")
 @Composable
 fun AssetCardPaginatedPreview_Full() {
@@ -552,32 +457,6 @@ fun AssetCardPaginatedPreview_Full() {
         Surface(modifier = Modifier.fillMaxWidth()) {
             AssetCardPaginated(
                 asset = getSampleFullAssetResponseDto(),
-                onClick = { }
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Карточка актива (Минимальная / Без типа)")
-@Composable
-fun AssetCardPaginatedPreview_Minimal() {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxWidth()) {
-            AssetCardPaginated(
-                asset = getSampleMinimalAssetResponseDto(),
-                onClick = { }
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Карточка актива (Статус: Списан)")
-@Composable
-fun AssetCardPaginatedPreview_Scrapped() {
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxWidth()) {
-            AssetCardPaginated(
-                asset = getSampleScrappedAssetResponseDto(),
                 onClick = { }
             )
         }
@@ -604,10 +483,7 @@ fun AssetCardPaginatedPreview_WithParent() {
     }
 }
 
-// ============================================================================
 // MOCK ДАННЫЕ
-// ============================================================================
-
 private fun getSampleFullAssetResponseDto(): AssetResponseDto {
     return AssetResponseDto(
         assetId = 2,
@@ -634,38 +510,6 @@ private fun getSampleFullAssetResponseDto(): AssetResponseDto {
         createdAt = "2024-01-01T10:00:00Z",
         updatedAt = "2024-01-15T12:30:00Z",
         assetTypeName = "Компьютер",
-        location = null,
-        users = null,
-        parent = null
-    )
-}
-
-private fun getSampleMinimalAssetResponseDto(): AssetResponseDto {
-    return AssetResponseDto(
-        assetId = 99,
-        name = "Тестовый актив",
-        inventoryId = "TEST-001",
-        serialNumber = null,
-        assetStatus = "Приемка",
-        comment = null,
-        dateIssue = null,
-        datePurchasing = null,
-        modelId = null,
-        modelName = null,
-        assetTypeId = null,
-        parentId = null,
-        locationId = null,
-        preparedBy = null,
-        checkedBy = null,
-        parentName = null,
-        manufacturerName = null,
-        vendorName = null,
-        osName = null,
-        createdBy = null,
-        updatedBy = null,
-        createdAt = "2024-01-01T10:00:00Z",
-        updatedAt = null,
-        assetTypeName = null,
         location = null,
         users = null,
         parent = null
