@@ -60,9 +60,6 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        val TAG = "MainActivity"
-
         // Автоматическая настройка DataWedge для Zebra-устройств
         DataWedgeProfileManager.ensureProfileExists(this)
 
