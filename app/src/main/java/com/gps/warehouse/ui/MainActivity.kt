@@ -2,7 +2,6 @@ package com.gps.warehouse.ui
 
 import android.content.res.Configuration
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,9 +30,7 @@ import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcsScreen
-import com.gps.warehouse.ui.assets_screens.map.AssetMapScreen
 import com.gps.warehouse.ui.assets_screens.map.AssetMapWebViewScreen
-import com.gps.warehouse.ui.assets_screens.map.AssetsMapScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
 import com.gps.warehouse.ui.home.HomeScreen
