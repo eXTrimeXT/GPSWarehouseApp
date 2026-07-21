@@ -34,9 +34,6 @@ fun MyPcDetailsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val myPcsList by viewModel.myPcsList.collectAsState()
 
-    // Находим ПК по ID из загруженного списка (чтобы не делать лишний запрос)
-//    val pc = (uiState as? AssetViewModel.AssetUiState.MyPcsLoaded)?.pcs?.find { it.id == 2 }
-
     LaunchedEffect(Unit) {
         if (myPcsList.isEmpty()) {
             viewModel.loadMyPcs()

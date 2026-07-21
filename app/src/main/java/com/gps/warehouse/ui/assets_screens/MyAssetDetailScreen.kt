@@ -19,6 +19,7 @@ import com.gps.warehouse.data.remote.assets_dto.LocationInfoDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.ParentAssetDto
 import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,23 +51,10 @@ fun MyAssetDetailScreen(
                 )
             }
             is AssetViewModel.AssetUiState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadMyAssetDetails(assetId) }) {
-                            Text("Повторить")
-                        }
-                    }
-                }
+                ErrorStateView(
+                    message = state.message,
+                    onRetry = { viewModel.loadMyAssetDetails(assetId) }
+                )
             }
             else -> {
                 Box(

@@ -51,7 +51,7 @@ fun WmsRequestsScreen(
     // Состояние выбранного запроса для диалога
     var selectedRequest by remember { mutableStateOf<WmsRequestDto?>(null) }
 
-    // === НОВОЕ: Состояния для диалога результата (успех/ошибка) ===
+    // === Состояния для диалога результата (успех/ошибка) ===
     var showResultDialog by remember { mutableStateOf(false) }
     var isResultSuccess by remember { mutableStateOf(false) }
     var resultMessage by remember { mutableStateOf("") }
@@ -61,7 +61,7 @@ fun WmsRequestsScreen(
         viewModel.loadWmsRequests()
     }
 
-    // === НОВОЕ: Обработка состояний успеха/ошибки от ViewModel ===
+    // === Обработка состояний успеха/ошибки от ViewModel ===
     LaunchedEffect(uiState) {
         when (val state = uiState) {
             // Успешное действие с запросом
@@ -133,7 +133,7 @@ fun WmsRequestsScreen(
         )
     }
 
-    // === НОВОЕ: ДИАЛОГ РЕЗУЛЬТАТА ОПЕРАЦИИ (Успех / Ошибка) ===
+    // === ДИАЛОГ РЕЗУЛЬТАТА ОПЕРАЦИИ (Успех / Ошибка) ===
     if (showResultDialog) {
         AlertDialog(
             onDismissRequest = {

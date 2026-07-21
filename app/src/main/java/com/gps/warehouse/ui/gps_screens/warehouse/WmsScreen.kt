@@ -52,7 +52,7 @@ fun WmsScreen(
     // Состояния для фильтрации
     var searchQuery by remember { mutableStateOf("") }
     var selectedStorageFilterId by remember { mutableStateOf<String?>(null) }
-    // Новый фильтр - показывать только с ненулевым количеством
+    // фильтр - только с ненулевым количеством
     var showOnlyNonZeroQty by remember { mutableStateOf(false) }
     // Состояние раскрытия шторки фильтров
     var isFiltersExpanded by remember { mutableStateOf(false) }
@@ -271,7 +271,6 @@ fun WmsScreen(
             // Перезагружаем список материалов
             viewModel.loadWmsData()
         },
-        // Передаем параметры нового фильтра
         showOnlyNonZeroQty = showOnlyNonZeroQty,
         onShowOnlyNonZeroQtyChange = { showOnlyNonZeroQty = it },
         onResetFilters = {
@@ -308,7 +307,6 @@ fun WmsContent(
     onDismissMoveDialog: () -> Unit,
     onConfirmMove: (WmsItemDto, String, String) -> Unit,
     onSuccessAcknowledge: () -> Unit,
-    // Новые параметры для фильтра по количеству
     showOnlyNonZeroQty: Boolean,
     onShowOnlyNonZeroQtyChange: (Boolean) -> Unit,
     onResetFilters: () -> Unit,
@@ -359,7 +357,7 @@ fun WmsContent(
                 }
             }
 
-                // === НОВЫЙ ФИЛЬТР: Только с остатком ===
+                // === ФИЛЬТР: Только с остатком ===
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

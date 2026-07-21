@@ -59,7 +59,7 @@ fun WmsReceiveScreen(
     var dialogPosition by remember { mutableStateOf("") }
     var isPositionReadOnly by remember { mutableStateOf(false) }
 
-    // НОВОЕ: Состояния для DatePicker в СПИСКЕ
+    // Состояния для DatePicker в СПИСКЕ
     var showListDatePicker by remember { mutableStateOf(false) }
     var listDatePickerIndex by remember { mutableStateOf<Int?>(null) }
     var listDatePickerInitialDate by remember { mutableStateOf<Long?>(null) }

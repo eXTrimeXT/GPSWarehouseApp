@@ -1,5 +1,5 @@
 package com.gps.warehouse.ui.login
-// Экран авторизации
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.Icons
@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
 
-// 1. Реальный экран.
+// Реальный экран
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
@@ -46,7 +46,7 @@ fun LoginScreen(
     )
 }
 
-// 2. Чистый UI компонент. Принимает только данные и коллбэки.
+// Чистый UI компонент. Принимает только данные и коллбэки
 @Composable
 fun LoginScreenContent(
     username: String,
@@ -122,7 +122,6 @@ fun LoginScreenContent(
     }
 }
 
-// 3. Превью.
 @Preview(showBackground = true, name = "Login - Default")
 @Composable
 fun LoginScreenPreviewDefault() {

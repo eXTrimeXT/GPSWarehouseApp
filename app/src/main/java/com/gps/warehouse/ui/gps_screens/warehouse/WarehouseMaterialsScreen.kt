@@ -20,7 +20,7 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
-import com.gps.warehouse.ui.components.SearchAndFilterBar // Импортируем новый компонент
+import com.gps.warehouse.ui.components.SearchAndFilterBar
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannerManager
 import java.text.SimpleDateFormat
@@ -129,7 +129,6 @@ fun WarehouseMaterialsContent(
     Column(modifier = Modifier.fillMaxSize()) {
         MyCustomActionBar(onBackClick = onBackClick, text = "Склад деталей")
 
-        // === ИСПОЛЬЗУЕМ НОВЫЙ КОМПОНЕНТ ===
         SearchAndFilterBar(
             searchQuery = searchQuery,
             onSearchQueryChange = onSearchQueryChange,

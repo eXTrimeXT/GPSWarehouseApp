@@ -8,7 +8,6 @@ import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -23,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.utils.AppPreferences
 
 // Перечисление вкладок нижней навигации
@@ -162,9 +160,9 @@ fun HomeScreenContent(
                 )
                 MenuButton(
                     title = "Карта активов",
-                    subtitle = "Карта активов",
+                    subtitle = "Карта цехов и активов",
                     icon = Icons.Default.Map,
-                    onClick = { onNavigate("assets_map") }
+                    onClick = { onNavigate("assets_map_web") }
                 )
             }
             // Вкладка "Настройки"

@@ -41,14 +41,15 @@ fun PackToWarehouseScreen(
 
     val honeywellHelper = remember { ScannerManager(context) }
 
+    // При входе на экран сбрасываем состояние
+    LaunchedEffect(Unit) {
+        viewModel.enterPackToWarehouseScreen()
+    }
+
     // Инициализация сканера
     DisposableEffect(Unit) {
-        honeywellHelper.init(
-//            onInitialized = { honeywellHelper.enableScanner(true) },
-//            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
-        )
+        honeywellHelper.init()
         onDispose {
-//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
         }
     }
@@ -165,9 +166,10 @@ fun PackToWarehouseContent(
         )
     }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState())
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
     ) {
         MyCustomActionBar(onBackClick = onBackClick, text = "Упаковка на склад")
 
@@ -177,61 +179,6 @@ fun PackToWarehouseContent(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         ) {
-            OutlinedTextField(
-                value = materialArticle,
-                onValueChange = onMaterialChange,
-                label = { Text("Артикул материала") },
-                modifier = Modifier.fillMaxWidth(),
-                trailingIcon = {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Сканировать")
-                },
-                enabled = true
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = qtyFieldValue,
-                onValueChange = { newValue ->
-                    // Разрешаем ввод только цифр и ограничиваем длину до 3 знаков
-                    if (newValue.text.all { it.isDigit() } && newValue.text.length <= 3) {
-                        qtyFieldValue = newValue.copy(
-                            selection = TextRange(newValue.text.length)
-                        )
-                    }
-                },
-                label = { Text("Количество") },
-                modifier = Modifier.fillMaxWidth().focusRequester(quantityFocusRequester),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            OutlinedTextField(
-                value = uniqueCode,
-                onValueChange = onCodeChange,
-                label = { Text("Уникальный код упаковки") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = false // Код обычно приходит со сканера или генерируется
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = onPackClick,
-                enabled = uiState !is MainViewModel.UiState.Loading,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState is MainViewModel.UiState.Loading) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
-                } else {
-                    Text("Упаковать")
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedButton(onClick = onClearClick, modifier = Modifier.fillMaxWidth()) {
-                Text("Очистить")
-            }
-
             when (uiState) {
                 is MainViewModel.UiState.Packed -> {
                     Card(
@@ -239,8 +186,15 @@ fun PackToWarehouseContent(
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Успешно!", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Text(uiState.message, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Text(
+                                "Успешно!",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                            Text(
+                                uiState.message,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         }
                     }
                     // Автоматическая очистка после успеха (опционально)
@@ -249,6 +203,7 @@ fun PackToWarehouseContent(
                         onClearClick()
                     }
                 }
+
                 is MainViewModel.UiState.Error -> {
                     ErrorStateView(
                         message = uiState.message,
@@ -257,11 +212,75 @@ fun PackToWarehouseContent(
                     )
 
                 }
-                else -> { }
+
+                is MainViewModel.UiState.PackToWarehouseIdle -> {
+                    OutlinedTextField(
+                        value = materialArticle,
+                        onValueChange = onMaterialChange,
+                        label = { Text("Артикул материала") },
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            Icon(Icons.Default.QrCodeScanner, contentDescription = "Сканировать")
+                        },
+                        enabled = true
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = qtyFieldValue,
+                        onValueChange = { newValue ->
+                            // Разрешаем ввод только цифр и ограничиваем длину до 3 знаков
+                            if (newValue.text.all { it.isDigit() } && newValue.text.length <= 3) {
+                                qtyFieldValue = newValue.copy(
+                                    selection = TextRange(newValue.text.length)
+                                )
+                            }
+                        },
+                        label = { Text("Количество") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(quantityFocusRequester),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = uniqueCode,
+                        onValueChange = onCodeChange,
+                        label = { Text("Уникальный код упаковки") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = false // Код обычно приходит со сканера или генерируется
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = onPackClick,
+                        enabled = uiState !is MainViewModel.UiState.Loading,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (uiState is MainViewModel.UiState.Loading) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else {
+                            Text("Упаковать")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(onClick = onClearClick, modifier = Modifier.fillMaxWidth()) {
+                        Text("Очистить")
+                    }
+                }
+
+                else -> {}
             }
         }
     }
 }
+
 
 // ========================
 // PREVIEWS (ПРЕВЬЮ)

@@ -1,6 +1,5 @@
 package com.gps.warehouse.ui.gps_screens.profile
 
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
@@ -104,7 +103,6 @@ fun ProfileContent(
             is MainViewModel.UiState.Loading -> { CustomLoadingView() }
             is MainViewModel.UiState.ProfileLoaded -> {
                 val profile = uiState.profile
-//                val assetsProfile = uiState.assetsProfile
 
                 // Основной контент с прокруткой
                 Column(

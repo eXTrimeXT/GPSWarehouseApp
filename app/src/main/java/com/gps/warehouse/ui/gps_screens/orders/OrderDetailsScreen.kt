@@ -114,19 +114,13 @@ fun ReceiveMaterialsScreen(
     }
 
     DisposableEffect(Unit) {
-        honeywellHelper.init(
-//            onInitialized = { honeywellHelper.enableScanner(true) },
-//            onError = { e ->
-//                Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show()
-//            }
-        )
+        honeywellHelper.init()
         onDispose {
-//            honeywellHelper.enableScanner(false)
             honeywellHelper.release()
         }
     }
 
-// === НОВОЕ: Диалог ручного ввода артикула ===
+// === Диалог ручного ввода артикула ===
     if (showManualAddDialog) {
         AlertDialog(
             onDismissRequest = {

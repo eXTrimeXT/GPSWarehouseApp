@@ -74,7 +74,7 @@ fun WmsWriteOffScreen(
     var dialogPosText by remember { mutableStateOf("") }
     var dialogIntOrder by remember { mutableStateOf("") }
 
-    // НОВОЕ: Состояние для отслеживания активного поля в диалоге (для сканирования)
+    // Состояние для отслеживания активного поля в диалоге (для сканирования)
     var focusedField by remember { mutableStateOf<EditField?>(null) }
 
     // Загружаем доступные склады при входе на экран
@@ -399,7 +399,7 @@ fun EditWriteOffItemDialog(
     availableStorages: List<String>,
     isEditing: Boolean,
     autoFocusCostCenter: Boolean = false,
-    onFocusChanged: (EditField, Boolean) -> Unit, // НОВЫЙ ПАРАМЕТР
+    onFocusChanged: (EditField, Boolean) -> Unit,
     onDismiss: () -> Unit,
     onConfirm: (String, String, String, String, String, String, String) -> Unit
 ) {

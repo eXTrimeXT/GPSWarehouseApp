@@ -31,6 +31,8 @@ import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcsScreen
+import com.gps.warehouse.ui.assets_screens.map.AssetMapScreen
+import com.gps.warehouse.ui.assets_screens.map.AssetMapWebViewScreen
 import com.gps.warehouse.ui.assets_screens.map.AssetsMapScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
@@ -140,19 +142,14 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("home") {
                                         popUpTo("login") { inclusive = true }
                                     }
-                                    // === ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПОСЛЕ ВХОДА ===
-//                                    checkForAppUpdate(navController, viewModel)
+                                    // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПОСЛЕ ВХОДА
                                     checkForAppUpdate()
                                 },
                                 viewModel = viewModel
                             )
                         }
                         composable("home") {
-//                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            HomeScreen(
-                                navController = navController,
-//                                assetViewModel = assetViewModel
-                            )
+                            HomeScreen(navController = navController)
                         }
                         composable("orders") {
                             OrdersScreen(
@@ -249,8 +246,7 @@ class MainActivity : ComponentActivity() {
                         }
 
 
-
-                        // ================== АКТИВЫ ==================
+                        // АКТИВЫ
                         composable("asset_types") {
                             val assetViewModel: AssetViewModel = hiltViewModel()
                             val mainViewModel: MainViewModel = hiltViewModel()
@@ -272,16 +268,6 @@ class MainActivity : ComponentActivity() {
                                 viewModel = assetViewModel
                             )
                         }
-
-//                        composable("asset_details/{assetId}") { backStackEntry ->
-//                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
-//                            val assetViewModel: AssetViewModel = hiltViewModel()
-//                            AssetDetailsScreen(
-//                                assetId = assetId,
-//                                navController = navController,
-//                                viewModel = assetViewModel
-//                            )
-//                        }
 
                         composable("my_assets_list") {
                             val assetViewModel: AssetViewModel = hiltViewModel()
@@ -319,8 +305,8 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        composable("assets_map") {
-                            AssetsMapScreen(navController = navController)
+                        composable("assets_map_web") {
+                            AssetMapWebViewScreen(navController = navController)
                         }
 
                         composable("asset_details/{assetId}") { backStackEntry ->
@@ -365,9 +351,4 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-
-//    override fun onDestroy() {
-//        super.onDestroy()
-//        DataWedgeProfileManager.unregisterReceiver(this)
-//    }
 }
