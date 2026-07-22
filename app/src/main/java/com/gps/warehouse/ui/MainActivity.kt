@@ -323,7 +323,8 @@ class MainActivity : ComponentActivity() {
                             MobileDevicesScreen(
                                 onDeviceClick = { serialNumber ->
                                     navController.navigate("mobile_device_detail/$serialNumber")
-                                }
+                                },
+                                onNavigateBack = { navController.popBackStack() }
                             )
                         }
 

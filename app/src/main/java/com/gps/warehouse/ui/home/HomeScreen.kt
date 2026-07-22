@@ -171,9 +171,19 @@ fun HomeScreenContent(
                     icon = Icons.Default.Category,
                     onClick = { onNavigate("asset_types") }
                 )
+
+                val isReadAndroid = permissions.any { it.nameGroup == "android_data" && it.read }
+                if (isReadAndroid || isUserAssetsAdmin)
+                    MenuButton(
+                        title = "Android устройства",
+                        subtitle = "Мобильные устройства Android\nHoneywell, Zebra",
+                        icon = Icons.Default.PhoneAndroid,
+                        onClick = { onNavigate("mobile_devices") }
+                    )
+
                 MenuButton(
                     title = "Мои активы",
-                    subtitle = "Список оборудования, закрепленного за вами",
+                    subtitle = "Список вашего оборудования",
                     icon = Icons.Default.AutoAwesomeMosaic,
                     onClick = { onNavigate("my_assets_list") }
                 )
@@ -186,14 +196,7 @@ fun HomeScreenContent(
                     icon = Icons.Default.Computer,
                     onClick = { onNavigate("my_pcs") }
                 )
-                val isReadAndroid = permissions.any { it.nameGroup == "android_data" && it.read }
-                if (isReadAndroid || isUserAssetsAdmin)
-                    MenuButton(
-                        title = "Мобильные устройства",
-                        subtitle = "Мобильные устройства Android\nHoneywell, Zebra",
-                        icon = Icons.Default.PhoneAndroid,
-                        onClick = { onNavigate("mobile_devices") }
-                    )
+
                 MenuButton(
                     title = "Карта активов",
                     subtitle = "Карта цехов и активов",

@@ -7,11 +7,11 @@ data class DeviceResponse(
     val id: Int,
     val serial_number: String,
     val request_time: String,
-    val info: DeviceInfo,
-    val system: SystemInfo,
-    val hardware: HardwareInfo,
-    val network: NetworkInfo,
-    val battery: BatteryInfo
+    val device: DeviceInfo?,
+    val system: SystemInfo?,
+    val hardware: HardwareInfo?,
+    val network: NetworkInfo?,
+    val battery: BatteryInfo?
 )
 
 @Serializable

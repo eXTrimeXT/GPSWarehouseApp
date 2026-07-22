@@ -19,48 +19,53 @@ import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import com.gps.warehouse.data.remote.assets_dto.*
+import com.gps.warehouse.data.remote.assets_dto.BatteryInfo
+import com.gps.warehouse.data.remote.assets_dto.DeviceInfo
+import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
+import com.gps.warehouse.data.remote.assets_dto.HardwareInfo
+import com.gps.warehouse.data.remote.assets_dto.NetworkInfo
+import com.gps.warehouse.data.remote.assets_dto.SystemInfo
 import com.gps.warehouse.ui.MobileDevicesViewModel
 import com.gps.warehouse.ui.UiState
+import com.gps.warehouse.ui.components.CustomLoadingView
+import com.gps.warehouse.ui.components.ErrorStateView
+import com.gps.warehouse.ui.components.MyCustomActionBar
 import kotlinx.coroutines.delay
 
-// SCREEN (Обертка с ViewModel и логикой)
+// SCREEN: Обертка с ViewModel и бизнес-логикой
 @Composable
 fun MobileDevicesScreen(
     viewModel: MobileDevicesViewModel = hiltViewModel(),
-    onDeviceClick: (String) -> Unit
+    onDeviceClick: (String) -> Unit,
+    onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.mobileUiState.collectAsState()
-
-    // Текст, который видит пользователь
     var searchQuery by remember { mutableStateOf("") }
-    // Текст, который реально уходит на сервер (с задержкой)
     var debounceQuery by remember { mutableStateOf("") }
 
-    // 1. Debounce: ждем 500 мс после окончания ввода, чтобы не спамить сервер ilike-запросами
     LaunchedEffect(searchQuery) {
         delay(500)
         debounceQuery = searchQuery
     }
 
-    // 2. Загружаем данные при изменении debounceQuery (или при первом запуске, когда он "")
     LaunchedEffect(debounceQuery) {
         val query = debounceQuery.takeIf { it.isNotBlank() }
         viewModel.loadDevices(serialNumber = query)
     }
 
-    // Делегируем отрисовку чистому UI
+    // Делегируем отрисовку чистому UI-компоненту
     MobileDevicesContent(
         uiState = uiState,
         searchQuery = searchQuery,
         onSearchQueryChange = { searchQuery = it },
-        onSearch = { debounceQuery = searchQuery }, // Мгновенный поиск при нажатии "Search"
+        onSearch = { debounceQuery = searchQuery },
         onRetry = { viewModel.loadDevices(serialNumber = debounceQuery.takeIf { it.isNotBlank() }) },
-        onDeviceClick = onDeviceClick
+        onDeviceClick = onDeviceClick,
+        onNavigateBack = onNavigateBack
     )
 }
 
-// CONTENT (Чистый UI без зависимостей)
+// CONTENT: Чистый UI
 @Composable
 fun MobileDevicesContent(
     uiState: UiState,
@@ -68,16 +73,19 @@ fun MobileDevicesContent(
     onSearchQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onRetry: () -> Unit,
-    onDeviceClick: (String) -> Unit
+    onDeviceClick: (String) -> Unit,
+    onNavigateBack: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // Поле поиска
+        MyCustomActionBar(
+            text = "Android устройства",
+            onBackClick = onNavigateBack
+        )
+
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchQueryChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             placeholder = { Text("Поиск по серийному номеру...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Поиск") },
             trailingIcon = {
@@ -92,22 +100,16 @@ fun MobileDevicesContent(
             keyboardActions = KeyboardActions(onSearch = { onSearch() })
         )
 
-        // Основной контент
         when (uiState) {
             is UiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                CustomLoadingView()
             }
             is UiState.Error -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = "Ошибка: ${uiState.message}", color = MaterialTheme.colorScheme.error)
-                        Button(onClick = onRetry, modifier = Modifier.padding(top = 8.dp)) {
-                            Text("Повторить")
-                        }
-                    }
-                }
+                ErrorStateView(
+                    message = uiState.message,
+                    onRetry = onRetry,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
             is UiState.Success -> {
                 if (uiState.devices.isEmpty()) {
@@ -144,26 +146,34 @@ fun DeviceListItem(device: DeviceResponse, onClick: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(text = device.info.model ?: "Неизвестная модель", style = MaterialTheme.typography.titleMedium)
-                    Text(text = "SN: ${device.serial_number}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = device.device?.model ?: "Неизвестная модель",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "Серийный номер: ${device.serial_number}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(modifier = Modifier, thickness = DividerDefaults.Thickness, color = DividerDefaults.color)
+            HorizontalDivider(modifier = Modifier, thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(modifier = Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Text(text = "🔋 ${device.battery.level ?: "N/A"}", style = MaterialTheme.typography.bodySmall)
-                Text(text = "🌐 ${device.network.ip_addresses ?: "N/A"}", style = MaterialTheme.typography.bodySmall)
-                Text(text = "🕒 ${device.system.uptime ?: "N/A"}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "🔋 ${device.battery?.level ?: "N/A"}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "🌐 ${device.network?.ip_addresses ?: "N/A"}", style = MaterialTheme.typography.bodySmall)
+                Text(text = "🕒 ${device.request_time}", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
 }
 
+// MOCK DATA ДЛЯ ПРЕВЬЮ
 val mockDeviceForPreview = DeviceResponse(
     serial_number = "25010524202340",
     request_time = "2026-07-22 14:15:50",
-    info = DeviceInfo(model = "Zebra Technologies TC52", name = "TC52"),
+    device = DeviceInfo(model = "Zebra Technologies TC52", name = "TC52"),
     system = SystemInfo(
         android_version = "Android 13",
         android_api_version = "API 33",
@@ -199,6 +209,7 @@ val mockDeviceForPreview = DeviceResponse(
     id = 2
 )
 
+// 4. PREVIEW ФУНКЦИИ
 @Preview(showBackground = true, name = "Список устройств (успех)", device = Devices.PIXEL_4)
 @Composable
 private fun MobileDevicesContentSuccessPreview() {
@@ -210,7 +221,8 @@ private fun MobileDevicesContentSuccessPreview() {
                 onSearchQueryChange = {},
                 onSearch = {},
                 onRetry = {},
-                onDeviceClick = { println("Preview: Клик по $it") }
+                onDeviceClick = { println("Preview: Клик по $it") },
+                onNavigateBack = { println("Preview: Назад") }
             )
         }
     }
@@ -227,7 +239,8 @@ private fun MobileDevicesContentSearchPreview() {
                 onSearchQueryChange = {},
                 onSearch = {},
                 onRetry = {},
-                onDeviceClick = {}
+                onDeviceClick = {},
+                onNavigateBack = {}
             )
         }
     }
@@ -244,7 +257,8 @@ private fun MobileDevicesContentLoadingPreview() {
                 onSearchQueryChange = {},
                 onSearch = {},
                 onRetry = {},
-                onDeviceClick = {}
+                onDeviceClick = {},
+                onNavigateBack = {}
             )
         }
     }
@@ -261,7 +275,8 @@ private fun MobileDevicesContentErrorPreview() {
                 onSearchQueryChange = {},
                 onSearch = {},
                 onRetry = {},
-                onDeviceClick = {}
+                onDeviceClick = {},
+                onNavigateBack = {}
             )
         }
     }
@@ -278,7 +293,8 @@ private fun MobileDevicesContentEmptyPreview() {
                 onSearchQueryChange = {},
                 onSearch = {},
                 onRetry = {},
-                onDeviceClick = {}
+                onDeviceClick = {},
+                onNavigateBack = {}
             )
         }
     }

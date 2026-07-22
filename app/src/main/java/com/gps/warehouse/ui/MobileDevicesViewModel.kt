@@ -23,11 +23,9 @@ open class MobileDevicesViewModel @Inject constructor(
     private val apiService: AssetApiService
 ) : ViewModel() {
 
-    // Состояние для списка (поиск)
     private val _mobileUiState = MutableStateFlow<UiState>(UiState.Loading)
     val mobileUiState: StateFlow<UiState> = _mobileUiState
 
-    // Состояние для детального экрана
     private val _detailUiState = MutableStateFlow<UiState>(UiState.Loading)
     val detailUiState: StateFlow<UiState> = _detailUiState
 
@@ -52,7 +50,6 @@ open class MobileDevicesViewModel @Inject constructor(
         }
     }
 
-    // НОВАЯ ФУНКЦИЯ: Загружает детали конкретного устройства по серийному номеру
     fun loadDeviceDetails(serialNumber: String) {
         viewModelScope.launch {
             _detailUiState.value = UiState.Loading
@@ -61,9 +58,8 @@ open class MobileDevicesViewModel @Inject constructor(
                     token = "Bearer ${getToken()}",
                     serialNumber = serialNumber,
                     skip = 0,
-                    limit = 1 // Оптимизация: нам нужно максимум 1 устройство
+                    limit = 1 // Оптимизация: запрашиваем только 1 устройство
                 )
-
                 if (response.isNotEmpty()) {
                     _detailUiState.value = UiState.Success(response)
                 } else {
