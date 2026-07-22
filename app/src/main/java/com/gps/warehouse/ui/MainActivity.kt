@@ -20,12 +20,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.gps.warehouse.ui.assets_screens.AssetDetailsScreen
 import com.gps.warehouse.ui.assets_screens.AssetTypeListScreen
 import com.gps.warehouse.ui.assets_screens.AssetsByTypeScreen
+import com.gps.warehouse.ui.assets_screens.MobileDeviceDetailScreen
+import com.gps.warehouse.ui.assets_screens.MobileDevicesScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
@@ -312,6 +316,25 @@ class MainActivity : ComponentActivity() {
                             AssetDetailsScreen(
                                 assetId = assetId,
                                 navController = navController,
+                            )
+                        }
+
+                        composable("mobile_devices") {
+                            MobileDevicesScreen(
+                                onDeviceClick = { serialNumber ->
+                                    navController.navigate("mobile_device_detail/$serialNumber")
+                                }
+                            )
+                        }
+
+                        composable(
+                            route = "mobile_device_detail/{serialNumber}",
+                            arguments = listOf(navArgument("serialNumber") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val serialNumber = backStackEntry.arguments?.getString("serialNumber") ?: return@composable
+                            MobileDeviceDetailScreen(
+                                serialNumber = serialNumber,
+                                onNavigateBack = { navController.popBackStack() }
                             )
                         }
                     }

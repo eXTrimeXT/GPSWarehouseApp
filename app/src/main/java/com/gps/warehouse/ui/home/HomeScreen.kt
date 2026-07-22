@@ -186,6 +186,14 @@ fun HomeScreenContent(
                     icon = Icons.Default.Computer,
                     onClick = { onNavigate("my_pcs") }
                 )
+                val isReadAndroid = permissions.any { it.nameGroup == "android_data" && it.read }
+                if (isReadAndroid || isUserAssetsAdmin)
+                    MenuButton(
+                        title = "Мобильные устройства",
+                        subtitle = "Мобильные устройства Android\nHoneywell, Zebra",
+                        icon = Icons.Default.PhoneAndroid,
+                        onClick = { onNavigate("mobile_devices") }
+                    )
                 MenuButton(
                     title = "Карта активов",
                     subtitle = "Карта цехов и активов",
@@ -300,7 +308,7 @@ private fun HomeScreenPreview() {
             selectedTabIndex = selectedTabIndex,
             onNavigate = { },
             permissions = emptyList(),
-            isUserAssetsAdmin = false
+            isUserAssetsAdmin = true
         )
     }
 }
@@ -329,7 +337,7 @@ private fun HomeScreenPreview1() {
             selectedTabIndex = selectedTabIndex,
             onNavigate = { },
             permissions = emptyList(),
-            isUserAssetsAdmin = false
+            isUserAssetsAdmin = true
         )
     }
 }
@@ -358,7 +366,7 @@ private fun HomeScreenPreview2() {
             selectedTabIndex = selectedTabIndex,
             onNavigate = { },
             permissions = emptyList(),
-            isUserAssetsAdmin = false
+            isUserAssetsAdmin = true
         )
     }
 }
@@ -387,7 +395,7 @@ private fun HomeScreenPreview3() {
             selectedTabIndex = selectedTabIndex,
             onNavigate = { },
             permissions = emptyList(),
-            isUserAssetsAdmin = false
+            isUserAssetsAdmin = true
         )
     }
 }

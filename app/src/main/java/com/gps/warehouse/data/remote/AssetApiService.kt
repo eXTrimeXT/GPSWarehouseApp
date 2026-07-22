@@ -2,6 +2,7 @@ package com.gps.warehouse.data.remote
 
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
+import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedAssetResponse
@@ -75,4 +76,12 @@ interface AssetApiService {
     suspend fun getAssetPositions(
         @Header("Authorization") token: String
     ): List<AssetPosition>
+
+    @GET("android-data")
+    suspend fun getMobileDevices(
+        @Header("Authorization") token: String,
+        @Query("serial_number") serialNumber: String? = null,
+        @Query("skip") skip: Int = 0,
+        @Query("limit") limit: Int = 100
+    ): List<DeviceResponse>
 }
