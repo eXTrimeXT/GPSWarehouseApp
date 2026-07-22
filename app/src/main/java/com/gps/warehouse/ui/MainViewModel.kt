@@ -18,7 +18,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.json.JSONException
 import org.json.JSONObject
+import retrofit2.HttpException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -138,6 +140,9 @@ class MainViewModel @Inject constructor(
 
     private val _gpsPermissions = MutableStateFlow<List<GpsPermissionDto>>(emptyList())
     val gpsPermissions: StateFlow<List<GpsPermissionDto>> = _gpsPermissions.asStateFlow()
+
+    private val _userIsAssetsAdmin = MutableStateFlow(true)
+    val userIsAssetsAdmin: StateFlow<Boolean> = _userIsAssetsAdmin.asStateFlow()
 
     // Флаг для инвентаризации
     var isInventoryActive: Boolean = true
@@ -276,11 +281,13 @@ class MainViewModel @Inject constructor(
                 // 1. Загружаем профиль из GPS API
                 val gpsProfile = apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow()))
                 val storages = gpsProfile.warehousePermissions
+                val isAssetsAdmin = gpsProfile.assetsIsAdmin ?: false
                 if (storages != null) {
                     _availableWarehouses.value = storages
                 }
-
+                _userIsAssetsAdmin.value = isAssetsAdmin
                 _uiState.value = UiState.ProfileLoaded(gpsProfile)
+                Log.d("MainViewModel", isAssetsAdmin.toString())
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка загрузки профиля", e)
                 _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить профиль")
@@ -306,7 +313,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val token = getTokenOrThrow()
-                // Загружаем через GPS API из профиля (не Assets API)
+                // Загружаем через GPS API из профиля
                 val profile = apiService.getUserProfile(GetUserProfileRequest(token))
                 val permissions = profile.gpsPermissions ?: emptyList()
                 _gpsPermissions.value = permissions.map { it }
@@ -491,7 +498,7 @@ class MainViewModel @Inject constructor(
                 } else if (page == 1) {
                     _uiState.value = UiState.Error("Нет данных от сервера")
                 }
-            } catch (e: retrofit2.HttpException) {
+            } catch (e: HttpException) {
                 if (page == 1) _uiState.value = UiState.Error("Ошибка сервера: ${e.code()}")
             } catch (e: Exception) {
                 if (page == 1) _uiState.value = UiState.Error(e.message ?: "Ошибка сети")
@@ -576,7 +583,7 @@ class MainViewModel @Inject constructor(
                 // 2. Пытаемся распарсить как JSON
                 if (responseString.startsWith("{")) {
                     try {
-                        val json = org.json.JSONObject(responseString)
+                        val json = JSONObject(responseString)
                         val status = json.optString("status", "")
                         val message = json.optString("message", json.optString("msg", ""))
 
@@ -585,7 +592,7 @@ class MainViewModel @Inject constructor(
                         } else {
                             _uiState.value = UiState.Error(message.ifEmpty { "Ошибка сервера" })
                         }
-                    } catch (e: org.json.JSONException) {
+                    } catch (e: JSONException) {
                         _uiState.value = UiState.Error("Ошибка парсинга ответа сервера")
                     }
                 } else {
@@ -903,7 +910,7 @@ class MainViewModel @Inject constructor(
                 // 2. Пытаемся распарсить как JSON
                 if (responseString.startsWith("{")) {
                     try {
-                        val json = org.json.JSONObject(responseString)
+                        val json = JSONObject(responseString)
                         val status = json.optString("status", "")
                         val message = json.optString("message", json.optString("msg", ""))
 
@@ -912,7 +919,7 @@ class MainViewModel @Inject constructor(
                         } else {
                             _uiState.value = UiState.Error(message.ifEmpty { "Ошибка сервера" })
                         }
-                    } catch (e: org.json.JSONException) {
+                    } catch (e: JSONException) {
                         _uiState.value = UiState.Error("Ошибка парсинга ответа сервера")
                     }
                 } else {

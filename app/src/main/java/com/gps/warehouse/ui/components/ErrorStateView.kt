@@ -23,7 +23,7 @@ import kotlinx.coroutines.delay
 fun ErrorStateView(
     message: String,
     onRetry: (() -> Unit)? = null,
-    autoRetry: Boolean = true, // Новый параметр
+    autoRetry: Boolean = true, // флаг автоматического вызова onRetry
     modifier: Modifier = Modifier
 ) {
     // Количество секунд для повтора

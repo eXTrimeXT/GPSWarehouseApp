@@ -17,8 +17,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.home.HomeTab
@@ -28,7 +32,10 @@ import com.gps.warehouse.utils.UpdateManager
 import kotlinx.coroutines.launch
 
 @Composable
-fun SettingsScreen(navController: NavHostController) {
+fun SettingsScreen(
+    navController: NavHostController,
+    viewModel: MainViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val updateManager = remember { UpdateManager(context) }
@@ -39,6 +46,12 @@ fun SettingsScreen(navController: NavHostController) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var remoteVersion by remember { mutableStateOf<UpdateManager.VersionInfo?>(null) }
     var showUpdateDialog by remember { mutableStateOf(false) }
+
+    val gpsPermissions by viewModel.gpsPermissions.collectAsState()
+    val isUserAssetsAdmin by viewModel.userIsAssetsAdmin.collectAsState()
+
+    // Флаг прав, есть ли хотя бы 1 элемент доступа
+    val isPermissions = gpsPermissions.any{ it.read } || isUserAssetsAdmin
 
     val (currentVersionCode, currentVersionName) = remember {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
@@ -64,6 +77,10 @@ fun SettingsScreen(navController: NavHostController) {
                     Spacer(Modifier.height(12.dp))
 
                     var expanded by remember { mutableStateOf(false) }
+
+                    if (AppPreferences.getDefaultTab(context) == 2 && !isPermissions){
+                        AppPreferences.setDefaultTab(context, 1)
+                    }
                     var savedTabIndex by remember { mutableIntStateOf(AppPreferences.getDefaultTab(context)) }
 
                     Box {
@@ -83,8 +100,12 @@ fun SettingsScreen(navController: NavHostController) {
                             onDismissRequest = { expanded = false }
                         ) {
                             HomeTab.entries.forEachIndexed { index, tab ->
-                                DropdownMenuItem(
-                                    text = { Text(tab.title) },
+                                if (
+                                    tab.title != HomeTab.ASSETS.title ||
+                                    (tab.title == HomeTab.ASSETS.title && isPermissions)
+                                )
+                                    DropdownMenuItem(
+                                        text = { Text(tab.title) },
                                     onClick = {
                                         // Сохраняем выбор в SharedPreferences
                                         savedTabIndex = index

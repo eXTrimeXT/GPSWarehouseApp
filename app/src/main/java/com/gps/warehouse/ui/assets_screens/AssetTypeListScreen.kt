@@ -25,16 +25,13 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 fun AssetTypeListScreen(
     navController: NavHostController,
     assetViewModel: AssetViewModel,
-    mainViewModel: MainViewModel
 ) {
     val uiState by assetViewModel.uiState.collectAsState()
     val assetTypes by assetViewModel.assetTypes.collectAsState()
-    val gpsPermissions by mainViewModel.gpsPermissions.collectAsState()
 
     // Загружаем типы активов при открытии экрана
     LaunchedEffect(Unit) {
         assetViewModel.loadAssetTypes()
-        mainViewModel.loadPermissions()
     }
 
     Scaffold(
@@ -86,15 +83,7 @@ fun AssetTypeListScreen(
             // Когда типы загружены (или состояние Idle)
             is AssetViewModel.AssetUiState.AssetTypesLoaded,
             is AssetViewModel.AssetUiState.Idle -> {
-
-                // КЛЮЧЕВАЯ ФИЛЬТРАЦИЯ: оставляем только те типы, на которые у пользователя есть право read == true
-                val availableTypes = assetTypes.filter { type ->
-                    gpsPermissions.any { permission ->
-                        permission.nameGroup.equals(type.enName, ignoreCase = true) && permission.read
-                    }
-                }.sortedBy { it.assetTypeId } // Сортируем по id
-
-                if (availableTypes.isEmpty()) {
+                if (assetTypes.isEmpty()) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -129,12 +118,11 @@ fun AssetTypeListScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(availableTypes) { type ->
+                        items(assetTypes) { type ->
                             AssetTypeCard(
                                 type = type,
-                                // Пока оставляем пустым, как вы и просили (потом добавим запрос по ID типа)
                                 onClick = {
-                                    // Переход к списку активов по type.assetTypeId
+                                    // Переход к списку активов
                                     navController.navigate("assets_list/${type.assetTypeId}/${type.name}")
                                 }
                             )

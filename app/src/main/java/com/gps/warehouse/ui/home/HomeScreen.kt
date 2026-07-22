@@ -8,6 +8,8 @@ import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -22,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
+import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.AppPreferences
 
 // Перечисление вкладок нижней навигации
@@ -35,24 +39,39 @@ enum class HomeTab(val title: String, val icon: ImageVector) {
 @Composable
 fun HomeScreen(
     navController: NavHostController,
+    viewModel: MainViewModel
 ) {
     val tabs = HomeTab.entries.toTypedArray()
+    val gpsPermissions by viewModel.gpsPermissions.collectAsState()
+    val isUserAssetsAdmin by viewModel.userIsAssetsAdmin.collectAsState()
 
     val context = LocalContext.current
     var selectedTabIndex by rememberSaveable {
         mutableIntStateOf(AppPreferences.getDefaultTab(context))
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.loadUserProfile()
+    }
+
+    // Флаг прав, есть ли хотя бы 1 элемент доступа
+    val isPermissions = gpsPermissions.any{ it.read } || isUserAssetsAdmin
+
     Scaffold(
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        icon = { Icon(tab.icon, contentDescription = tab.title) },
-                        label = { Text(tab.title) },
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index }
-                    )
+                    if (
+                        tab.title != HomeTab.ASSETS.title ||
+                        (tab.title == HomeTab.ASSETS.title && isPermissions)
+                    ) {
+                        NavigationBarItem(
+                            icon = { Icon(tab.icon, contentDescription = tab.title) },
+                            label = { Text(tab.title) },
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index }
+                        )
+                    }
                 }
             }
         }
@@ -61,6 +80,8 @@ fun HomeScreen(
             modifier = Modifier.padding(paddingValues),
             selectedTabIndex = selectedTabIndex,
             onNavigate = { route -> navController.navigate(route) },
+            permissions = gpsPermissions,
+            isUserAssetsAdmin = isUserAssetsAdmin
         )
     }
 }
@@ -70,6 +91,8 @@ fun HomeScreenContent(
     modifier: Modifier = Modifier,
     selectedTabIndex: Int,
     onNavigate: (String) -> Unit,
+    permissions: List<GpsPermissionDto>,
+    isUserAssetsAdmin: Boolean
 ) {
     Column(
         modifier = modifier
@@ -140,6 +163,8 @@ fun HomeScreenContent(
             }
             // Вкладка "Активы"
             2 -> {
+                val isAllPermissionsFalse = permissions.all { !it.read }
+                if (isAllPermissionsFalse || isUserAssetsAdmin)
                 MenuButton(
                     title = "Типы активов",
                     subtitle = "Доступные типы активов",
@@ -152,6 +177,9 @@ fun HomeScreenContent(
                     icon = Icons.Default.AutoAwesomeMosaic,
                     onClick = { onNavigate("my_assets_list") }
                 )
+
+                val isReadComputers = permissions.any { it.nameGroup == "computer" && it.read }
+                if (isReadComputers || isUserAssetsAdmin)
                 MenuButton(
                     title = "Мои ПК",
                     subtitle = "Компьютеры и их конфигурация",
@@ -270,7 +298,9 @@ private fun HomeScreenPreview() {
         HomeScreenContent(
             modifier = Modifier.padding(paddingValues),
             selectedTabIndex = selectedTabIndex,
-            onNavigate = { }
+            onNavigate = { },
+            permissions = emptyList(),
+            isUserAssetsAdmin = false
         )
     }
 }
@@ -297,7 +327,9 @@ private fun HomeScreenPreview1() {
         HomeScreenContent(
             modifier = Modifier.padding(paddingValues),
             selectedTabIndex = selectedTabIndex,
-            onNavigate = { }
+            onNavigate = { },
+            permissions = emptyList(),
+            isUserAssetsAdmin = false
         )
     }
 }
@@ -324,7 +356,9 @@ private fun HomeScreenPreview2() {
         HomeScreenContent(
             modifier = Modifier.padding(paddingValues),
             selectedTabIndex = selectedTabIndex,
-            onNavigate = { }
+            onNavigate = { },
+            permissions = emptyList(),
+            isUserAssetsAdmin = false
         )
     }
 }
@@ -351,7 +385,9 @@ private fun HomeScreenPreview3() {
         HomeScreenContent(
             modifier = Modifier.padding(paddingValues),
             selectedTabIndex = selectedTabIndex,
-            onNavigate = { }
+            onNavigate = { },
+            permissions = emptyList(),
+            isUserAssetsAdmin = false
         )
     }
 }

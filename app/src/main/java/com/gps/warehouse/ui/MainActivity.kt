@@ -112,11 +112,11 @@ class MainActivity : ComponentActivity() {
             ) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    val viewModel: MainViewModel = hiltViewModel()
+                    val mainViewModel: MainViewModel = hiltViewModel()
 
                     // Добавим observer для отслеживания изменений состояния ViewModel
                     LaunchedEffect(Unit) {
-                        viewModel.uiState.collect { state ->
+                        mainViewModel.uiState.collect { state ->
                             if (state is MainViewModel.UiState.SessionExpired) {
                                 val currentRoute = navController.currentBackStackEntry?.destination?.route
                                 if (currentRoute != "login") {
@@ -139,16 +139,19 @@ class MainActivity : ComponentActivity() {
                                     // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПОСЛЕ ВХОДА
                                     checkForAppUpdate()
                                 },
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("home") {
-                            HomeScreen(navController = navController)
+                            HomeScreen(
+                                navController = navController,
+                                viewModel = mainViewModel
+                            )
                         }
                         composable("orders") {
                             OrdersScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("order_details/{orderNumber}") { backStackEntry ->
@@ -156,7 +159,7 @@ class MainActivity : ComponentActivity() {
                             OrderDetailsScreen(
                                 orderNumber = orderNumber,
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("receive/{orderNumber}") { backStackEntry ->
@@ -164,25 +167,25 @@ class MainActivity : ComponentActivity() {
                             ReceiveMaterialsScreen(
                                 orderNumber = orderNumber,
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("packaging") {
                             PackagingScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("pack_to_warehouse") {
                             PackToWarehouseScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("inventory") {
                             InventoryListScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("inventory_check/{orderNumber}") { backStackEntry ->
@@ -190,64 +193,65 @@ class MainActivity : ComponentActivity() {
                             InventoryCheckScreen(
                                 orderNumber = orderNumber,
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("wms") {
                             WmsScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("wms_requests") {
                             WmsRequestsScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("warehouse") {
                             WarehouseMaterialsScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("wms_receive") {
                             WmsReceiveScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("wms_write_off") {
                             WmsWriteOffScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("archive") {
                             ArchiveScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("profile") {
                             ProfileScreen(
                                 navController = navController,
-                                viewModel = viewModel
+                                viewModel = mainViewModel
                             )
                         }
                         composable("settings") {
-                            SettingsScreen(navController = navController)
+                            SettingsScreen(
+                                navController = navController,
+                                viewModel = mainViewModel
+                            )
                         }
 
 
                         // АКТИВЫ
                         composable("asset_types") {
                             val assetViewModel: AssetViewModel = hiltViewModel()
-                            val mainViewModel: MainViewModel = hiltViewModel()
                             AssetTypeListScreen(
                                 navController = navController,
                                 assetViewModel = assetViewModel,
-                                mainViewModel = mainViewModel
                             )
                         }
 
@@ -267,7 +271,7 @@ class MainActivity : ComponentActivity() {
                             val assetViewModel: AssetViewModel = hiltViewModel()
                             MyAssetsScreen(
                                 navController = navController,
-                                viewModel = assetViewModel
+                                viewModel = assetViewModel,
                             )
                         }
 

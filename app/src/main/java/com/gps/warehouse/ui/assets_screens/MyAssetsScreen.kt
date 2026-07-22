@@ -18,15 +18,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MyAssetsScreen(
     navController: NavHostController,
-    viewModel: AssetViewModel = hiltViewModel()
+    viewModel: AssetViewModel = hiltViewModel(),
 ) {
-    val uiState by viewModel.uiState.collectAsState() 
+    val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadMyAssets()
@@ -94,24 +96,10 @@ fun MyAssetsScreen(
                 }
             }
             is AssetViewModel.AssetUiState.Error -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadMyAssets() }) {
-                            Text("Повторить")
-                        }
-                    }
-                }
+                ErrorStateView(
+                    message = state.message,
+                    onRetry = { viewModel.loadMyAssets() }
+                )
             }
             else -> {}
         }
