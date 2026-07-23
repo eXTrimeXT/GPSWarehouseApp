@@ -34,6 +34,8 @@ import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcsScreen
+import com.gps.warehouse.ui.assets_screens.inventorization.InventorizationItemsScreen
+import com.gps.warehouse.ui.assets_screens.inventorization.InventorizationSessionsScreen
 import com.gps.warehouse.ui.assets_screens.map.AssetMapWebViewScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
@@ -271,54 +273,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        composable("my_assets_list") {
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            MyAssetsScreen(
-                                navController = navController,
-                                viewModel = assetViewModel,
-                            )
-                        }
-
-                        composable("my_asset_details/{assetId}") { backStackEntry ->
-                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            MyAssetDetailScreen(
-                                assetId = assetId,
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
-
-                        composable("my_pcs") {
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            MyPcsScreen(
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
-
-                        composable("my_pc_details/{pcId}") { backStackEntry ->
-                            val pcId = backStackEntry.arguments?.getString("pcId")?.toIntOrNull() ?: 0
-                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            MyPcDetailsScreen(
-                                pcId = pcId,
-                                navController = navController,
-                                viewModel = assetViewModel
-                            )
-                        }
-
-                        composable("assets_map_web") {
-                            AssetMapWebViewScreen(navController = navController)
-                        }
-
-                        composable("asset_details/{assetId}") { backStackEntry ->
-                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: return@composable
-                            AssetDetailsScreen(
-                                assetId = assetId,
-                                navController = navController,
-                            )
-                        }
-
                         composable("mobile_devices") {
                             MobileDevicesScreen(
                                 onDeviceClick = { serialNumber ->
@@ -337,6 +291,69 @@ class MainActivity : ComponentActivity() {
                                 serialNumber = serialNumber,
                                 onNavigateBack = { navController.popBackStack() }
                             )
+                        }
+
+                        composable("my_assets_list") {
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            MyAssetsScreen(
+                                navController = navController,
+                                viewModel = assetViewModel,
+                            )
+                        }
+
+                        composable("my_asset_details/{assetId}") { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
+                            val assetViewModel: AssetViewModel = hiltViewModel()
+                            MyAssetDetailScreen(
+                                assetId = assetId,
+                                navController = navController,
+                                viewModel = assetViewModel
+                            )
+                        }
+
+
+                        composable("asset_details/{assetId}") { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: return@composable
+                            AssetDetailsScreen(
+                                assetId = assetId,
+                                navController = navController,
+                            )
+                        }
+
+                        composable("my_pcs") {
+                            MyPcsScreen(
+                                navController = navController,
+                            )
+                        }
+
+                        composable("my_pc_details/{pcId}") { backStackEntry ->
+                            val pcId = backStackEntry.arguments?.getString("pcId")?.toIntOrNull() ?: 0
+                            MyPcDetailsScreen(
+                                pcId = pcId,
+                                navController = navController,
+                            )
+                        }
+
+                        // Инвентаризация активов
+                        composable("inventorization_sessions") {
+                            InventorizationSessionsScreen(
+                                navController = navController,
+                            )
+                        }
+
+                        composable("inventorization_items/{sessionId}/{isCompleted}") { backStackEntry ->
+                            val sessionId = backStackEntry.arguments?.getString("sessionId")?.toIntOrNull() ?: 0
+                            val isCompleted = backStackEntry.arguments?.getString("isCompleted")?.toBoolean() ?: false
+
+                            InventorizationItemsScreen(
+                                sessionId = sessionId,
+                                isCompleted = isCompleted,
+                                navController = navController,
+                            )
+                        }
+
+                        composable("assets_map_web") {
+                            AssetMapWebViewScreen(navController = navController)
                         }
                     }
 

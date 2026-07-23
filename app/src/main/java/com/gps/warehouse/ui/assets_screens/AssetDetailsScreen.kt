@@ -148,7 +148,7 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
 
 
 // PREVIEW ФУНКЦИИ И MOCK ДАННЫЕ
-@Preview(showBackground = true, name = "Детали актива (Полные)", device = "spec:width=380dp,height=1270dp")
+@Preview(showBackground = true, showSystemUi = true, name = "Детали актива (Полные)", device = "spec:width=380dp,height=1270dp")
 @Composable
 fun AssetDetailsContentPreview_Full() {
     MaterialTheme {

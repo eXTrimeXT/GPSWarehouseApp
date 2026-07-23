@@ -11,6 +11,10 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
+import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
+import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
+import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
+import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -54,6 +58,12 @@ class AssetViewModel @Inject constructor(
             val workshops: List<Workshop>,
             val assets: List<AssetPosition>
         ) : AssetUiState()
+
+        data class InventorizationSessionsLoaded(val sessions: List<InventorizationSessionDto>) : AssetUiState()
+        data class InventorizationItemsLoaded(
+            val items: List<InventorizationItemDto>,
+            val sessionId: Int
+        ) : AssetUiState()
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
@@ -71,6 +81,13 @@ class AssetViewModel @Inject constructor(
 
     private val _mapData = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
     val mapData: StateFlow<AssetUiState> = _mapData.asStateFlow()
+
+    private val _inventorizationSessions = MutableStateFlow<List<InventorizationSessionDto>>(emptyList())
+    val inventorizationSessions: StateFlow<List<InventorizationSessionDto>> = _inventorizationSessions.asStateFlow()
+
+    private val _inventorizationItems = MutableStateFlow<List<InventorizationItemDto>>(emptyList())
+    val inventorizationItems: StateFlow<List<InventorizationItemDto>> = _inventorizationItems.asStateFlow()
+
 
     // ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПАРСИНГА ОШИБОК
     private fun getErrorMessage(e: Exception): String? {
@@ -217,6 +234,78 @@ class AssetViewModel @Inject constructor(
                 _mapData.value = AssetUiState.MapSuccess(workshops, assets)
             } catch (e: Exception) {
                 _mapData.value = AssetUiState.Error(e.message ?: "Неизвестная ошибка")
+            }
+        }
+    }
+
+    // ================== Инвентаризация ==================
+    fun loadInventorizationSessions() {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val sessions = assetApiService.getInventorizationSessions("Bearer ${getToken()}")
+                _inventorizationSessions.value = sessions
+                _uiState.value = AssetUiState.InventorizationSessionsLoaded(sessions)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки сессий")
+            }
+        }
+    }
+
+    fun loadInventorizationItems(sessionId: Int) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val items = assetApiService.getInventorizationSessionItems("Bearer ${getToken()}", sessionId)
+                _inventorizationItems.value = items
+                _uiState.value = AssetUiState.InventorizationItemsLoaded(items, sessionId)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
+            }
+        }
+    }
+
+    fun startInventorizationSession(assetTypeId: Int) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val session = assetApiService.startInventorizationSession(
+                    "Bearer ${getToken()}",
+                    InventorizationSessionCreateRequest(assetTypeId)
+                )
+                // Перезагружаем список сессий
+                loadInventorizationSessions()
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка создания сессии")
+            }
+        }
+    }
+
+    fun checkInventorizationItem(sessionId: Int, assetId: Int) {
+        viewModelScope.launch {
+            try {
+                assetApiService.checkInventorizationItem(
+                    "Bearer ${getToken()}",
+                    sessionId,
+                    CheckItemRequest(assetId)
+                )
+                // Перезагружаем элементы
+                loadInventorizationItems(sessionId)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка проверки актива")
+            }
+        }
+    }
+
+    fun completeInventorizationSession(sessionId: Int) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                assetApiService.completeInventorizationSession("Bearer ${getToken()}", sessionId)
+                // Возвращаемся к списку сессий
+                loadInventorizationSessions()
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка завершения сессии")
             }
         }
     }

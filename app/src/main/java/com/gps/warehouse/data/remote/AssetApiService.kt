@@ -2,14 +2,20 @@ package com.gps.warehouse.data.remote
 
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
+import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
+import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
+import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
+import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedAssetResponse
 import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
+import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -84,4 +90,37 @@ interface AssetApiService {
         @Query("skip") skip: Int = 0,
         @Query("limit") limit: Int = 100
     ): List<DeviceResponse>
+
+    // ====================== Инвентаризация ======================
+    @GET("inventorization/sessions/")
+    suspend fun getInventorizationSessions(
+        @Header("Authorization") token: String,
+        @Query("skip") skip: Int = 0,
+        @Query("limit") limit: Int = 50
+    ): List<InventorizationSessionDto>
+
+    @GET("inventorization/sessions/{session_id}/items/")
+    suspend fun getInventorizationSessionItems(
+        @Header("Authorization") token: String,
+        @Path("session_id") sessionId: Int
+    ): List<InventorizationItemDto>
+
+    @POST("inventorization/sessions/")
+    suspend fun startInventorizationSession(
+        @Header("Authorization") token: String,
+        @Body request: InventorizationSessionCreateRequest
+    ): InventorizationSessionDto
+
+    @POST("inventorization/sessions/{session_id}/check")
+    suspend fun checkInventorizationItem(
+        @Header("Authorization") token: String,
+        @Path("session_id") sessionId: Int,
+        @Body request: CheckItemRequest
+    ): Map<String, String>
+
+    @POST("inventorization/sessions/{session_id}/complete")
+    suspend fun completeInventorizationSession(
+        @Header("Authorization") token: String,
+        @Path("session_id") sessionId: Int
+    ): InventorizationSessionDto
 }

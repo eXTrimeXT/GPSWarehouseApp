@@ -198,6 +198,13 @@ fun HomeScreenContent(
                 )
 
                 MenuButton(
+                    title = "Инвентаризация активов",
+                    subtitle = "Сессии инвентаризации по типам",
+                    icon = Icons.Default.RequestPage,
+                    onClick = { onNavigate("inventorization_sessions") }
+                )
+
+                MenuButton(
                     title = "Карта активов",
                     subtitle = "Карта цехов и активов",
                     icon = Icons.Default.Map,
