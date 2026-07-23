@@ -34,8 +34,8 @@ import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcsScreen
-import com.gps.warehouse.ui.assets_screens.inventorization.InventorizationItemsScreen
-import com.gps.warehouse.ui.assets_screens.inventorization.InventorizationSessionsScreen
+import com.gps.warehouse.ui.assets_screens.InventorizationSessionsScreen
+import com.gps.warehouse.ui.assets_screens.InventorizationItemsScreen
 import com.gps.warehouse.ui.assets_screens.map.AssetMapWebViewScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
