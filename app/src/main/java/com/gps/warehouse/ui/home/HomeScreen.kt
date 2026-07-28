@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.home
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -56,6 +57,7 @@ fun HomeScreen(
 
     // Флаг прав, есть ли хотя бы 1 элемент доступа
     val isPermissions = gpsPermissions.any{ it.read } || isUserAssetsAdmin
+    Log.d("isPermissions", isPermissions.toString())
 
     Scaffold(
         bottomBar = {
@@ -163,7 +165,7 @@ fun HomeScreenContent(
             }
             // Вкладка "Активы"
             2 -> {
-                val isAllPermissionsFalse = permissions.all { !it.read }
+                val isAllPermissionsFalse = permissions.any { !it.read }
                 if (isAllPermissionsFalse || isUserAssetsAdmin)
                 MenuButton(
                     title = "Типы активов",
@@ -299,16 +301,30 @@ fun MenuButton(
 private fun HomeScreenPreview() {
     var selectedTabIndex by remember { mutableIntStateOf(0) } // 0 = Заказы (по умолчанию)
     val tabs = HomeTab.entries.toTypedArray()
+    val permissions = listOf(
+        GpsPermissionDto(nameGroup = "computer", read = false, write = false),
+        GpsPermissionDto(nameGroup = "mes_equipment", read = false, write = true),
+        GpsPermissionDto(nameGroup = "power_adapter", read = false, write = true),
+        GpsPermissionDto(nameGroup = "android_data", read = true, write = true),
+    )
+    val isUserAssetsAdmin = false
+    val isPermissions = permissions.any{ it.read } || isUserAssetsAdmin
+
     Scaffold(
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        icon = { Icon(tab.icon, contentDescription = tab.title) },
-                        label = { Text(tab.title) },
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index }
-                    )
+                    if (
+                        tab.title != HomeTab.ASSETS.title ||
+                        (tab.title == HomeTab.ASSETS.title && isPermissions)
+                    ) {
+                        NavigationBarItem(
+                            icon = { Icon(tab.icon, contentDescription = tab.title) },
+                            label = { Text(tab.title) },
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index }
+                        )
+                    }
                 }
             }
         }
@@ -317,8 +333,8 @@ private fun HomeScreenPreview() {
             modifier = Modifier.padding(paddingValues),
             selectedTabIndex = selectedTabIndex,
             onNavigate = { },
-            permissions = emptyList(),
-            isUserAssetsAdmin = true
+            permissions = permissions,
+            isUserAssetsAdmin = false
         )
     }
 }

@@ -177,13 +177,14 @@ fun ProfileContent(
                     }
 
                     // Права на типы активов
-                    if (!profile.gpsPermissions.isNullOrEmpty())
+//                    if (!profile.gpsPermissions.isNullOrEmpty())
                     CollapsiblePermissionCard(
                         assetsAdmin = profile.assetsIsAdmin,
                         permissions = profile.gpsPermissions
                     )
 
-                    Spacer(modifier = Modifier.weight(1f))
+//                    Spacer(modifier = Modifier.weight(1f))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // Кнопка выхода
                     Button(
@@ -434,8 +435,8 @@ fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: List<GpsPermis
 
                     AnimatedVisibility(visible = isExpanded) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            permissions?.forEach { (groupName, permission) ->
-                                PermissionGroupCard(groupName, permission)
+                            permissions?.forEach { (groupName, readPermission, writePermission) ->
+                                PermissionGroupCard(groupName, readPermission, writePermission)
                             }
                         }
                     }
@@ -446,7 +447,7 @@ fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: List<GpsPermis
 }
 
 @Composable
-fun PermissionGroupCard(groupName: String, permission: Boolean) {
+fun PermissionGroupCard(groupName: String, readPermission: Boolean, writePermission: Boolean) {
     val displayName = getPermissionDisplayName(groupName)
     val icon = getPermissionIcon(groupName)
 
@@ -480,8 +481,8 @@ fun PermissionGroupCard(groupName: String, permission: Boolean) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                PermissionBadge("Чтение", permission)
-                PermissionBadge("Запись", permission)
+                PermissionBadge("Чтение", readPermission)
+                PermissionBadge("Запись", writePermission)
             }
         }
     }
@@ -555,8 +556,10 @@ fun ProfilePreviewLoaded() {
             WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0"),
             WarehousePermissionDto(id = "3", name = "Архив", isLeader = "0", isVirtual = "1")
         ),
-        assetsIsAdmin = true,
-        gpsPermissions = emptyList()
+        assetsIsAdmin = false,
+        gpsPermissions = listOf(
+            GpsPermissionDto(nameGroup = "android_data", read = true, write = false)
+        )
     )
     MaterialTheme {
         Surface {

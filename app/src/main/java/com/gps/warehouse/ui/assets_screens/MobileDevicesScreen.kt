@@ -7,13 +7,18 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.OnlinePrediction
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,6 +36,10 @@ import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import kotlinx.coroutines.delay
+import java.time.Duration
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 // SCREEN: Обертка с ViewModel и бизнес-логикой
 @Composable
@@ -79,13 +88,23 @@ fun MobileDevicesContent(
     Column(modifier = Modifier.fillMaxSize()) {
         MyCustomActionBar(
             text = "Android устройства",
-            onBackClick = onNavigateBack
+            onBackClick = onNavigateBack,
+            actionButton = {
+                IconButton(onClick = onRetry) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Обновить данные"
+                    )
+                }
+            }
         )
 
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchQueryChange,
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             placeholder = { Text("Поиск по серийному номеру...") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Поиск") },
             trailingIcon = {
@@ -113,12 +132,16 @@ fun MobileDevicesContent(
             }
             is UiState.Success -> {
                 if (uiState.devices.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp), contentAlignment = Alignment.Center) {
                         Text("Устройства не найдены", style = MaterialTheme.typography.bodyLarge)
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-                        items(uiState.devices) { device ->
+                    LazyColumn(modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp)) {
+                        items(uiState.devices.sortedBy { it.request_time }.reversed()) { device ->
                             DeviceListItem(
                                 device = device,
                                 onClick = { onDeviceClick(device.serial_number) }
@@ -134,7 +157,10 @@ fun MobileDevicesContent(
 @Composable
 fun DeviceListItem(device: DeviceResponse, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).clickable { onClick() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -142,7 +168,10 @@ fun DeviceListItem(device: DeviceResponse, onClick: () -> Unit) {
                 Icon(
                     imageVector = Icons.Default.PhoneAndroid,
                     contentDescription = null,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(32.dp),
+                    tint =
+                        if (device.request_time.isRecentWithinOneMinute()) Color(100, 200, 100)
+                        else Color(255, 50, 50)
                 )
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -166,6 +195,31 @@ fun DeviceListItem(device: DeviceResponse, onClick: () -> Unit) {
                 Text(text = "🕒 ${device.request_time}", style = MaterialTheme.typography.bodySmall)
             }
         }
+    }
+}
+
+/**
+ * Проверяет, что переданная дата-время отличается от текущего времени устройства менее чем на 1 минуту.
+ * @return true, если разница < 60 секунд, false в противном случае или при ошибке парсинга.
+ */
+fun String.isRecentWithinOneMinute(): Boolean {
+    return try {
+        // Формат строки: "2026-07-22 14:15:50"
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+        val parsedTime = LocalDateTime.parse(this, formatter)
+        val currentTime = LocalDateTime.now()
+
+        // Вычисляем абсолютную разницу во времени
+        val duration = Duration.between(parsedTime, currentTime).abs()
+
+        // Возвращаем true, если разница меньше 5 минут
+        duration.seconds < 5 * 60
+    } catch (e: DateTimeParseException) {
+        // Если строка не соответствует формату, безопасно возвращаем false
+        false
+    } catch (e: Exception) {
+        // Ловим любые другие непредвиденные ошибки
+        false
     }
 }
 

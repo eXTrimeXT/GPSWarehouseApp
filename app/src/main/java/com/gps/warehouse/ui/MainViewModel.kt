@@ -286,8 +286,10 @@ class MainViewModel @Inject constructor(
                     _availableWarehouses.value = storages
                 }
                 _userIsAssetsAdmin.value = isAssetsAdmin
+                val permissions = gpsProfile.gpsPermissions ?: emptyList()
+                _gpsPermissions.value = permissions.map { it }
                 _uiState.value = UiState.ProfileLoaded(gpsProfile)
-                Log.d("MainViewModel", isAssetsAdmin.toString())
+                Log.d("MainViewModel", "isAssetsAdmin = $isAssetsAdmin")
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка загрузки профиля", e)
                 _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить профиль")

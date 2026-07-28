@@ -10,8 +10,10 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedAssetResponse
+import com.gps.warehouse.data.remote.assets_dto.PlaySoundResponse
 import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -83,7 +85,7 @@ interface AssetApiService {
         @Header("Authorization") token: String
     ): List<AssetPosition>
 
-    @GET("android-data")
+    @GET("android-data/")
     suspend fun getMobileDevices(
         @Header("Authorization") token: String,
         @Query("serial_number") serialNumber: String? = null,
@@ -123,4 +125,11 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Path("session_id") sessionId: Int
     ): InventorizationSessionDto
+
+    // Запрос на отправку сигнала для устройства с serial_number
+    @POST("android-data/{serial_number}/play-sound")
+    suspend fun playDeviceSound(
+        @Header("Authorization") token: String,
+        @Path("serial_number") serialNumber: String
+    ): Response<PlaySoundResponse>
 }

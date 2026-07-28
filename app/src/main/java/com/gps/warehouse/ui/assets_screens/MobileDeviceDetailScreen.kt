@@ -9,19 +9,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.BatterySaver
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -32,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
@@ -73,7 +78,11 @@ fun MobileDeviceDetailScreen(
         is UiState.Success -> {
             val device = state.devices.firstOrNull()
             if (device != null) {
-                MobileDeviceDetailContent(device = device, onNavigateBack = onNavigateBack)
+                MobileDeviceDetailContent(
+                    device = device,
+                    onNavigateBack = onNavigateBack,
+                    onPlaySoundClick = { viewModel.playDeviceSound(device.serial_number) }
+                )
             } else {
                 ErrorStateView(
                     message = "Устройство не найдено",
@@ -89,13 +98,22 @@ fun MobileDeviceDetailScreen(
 @Composable
 fun MobileDeviceDetailContent(
     device: DeviceResponse,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onPlaySoundClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
             MyCustomActionBar(
                 text = device.device?.name.toString(),
-                onBackClick = onNavigateBack
+                onBackClick = onNavigateBack,
+                actionButton = {
+                    IconButton(onClick = onPlaySoundClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = "Воспроизвести звук"
+                        )
+                    }
+                }
             )
         }
     ) { paddingValues ->
@@ -219,7 +237,8 @@ private fun MobileDeviceDetailContentPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             MobileDeviceDetailContent(
                 device = mockDeviceForPreview,
-                onNavigateBack = { println("Preview: Назад") }
+                onNavigateBack = { println("Preview: Назад") },
+                onPlaySoundClick = {}
             )
         }
     }
@@ -232,7 +251,8 @@ private fun MobileDeviceDetailContentNotFoundPreview() {
         Surface(color = MaterialTheme.colorScheme.background) {
             MobileDeviceDetailContent(
                 device = mockDeviceForPreview,
-                onNavigateBack = { println("Preview: Назад") }
+                onNavigateBack = { println("Preview: Назад") },
+                onPlaySoundClick = {}
             )
         }
     }

@@ -10,6 +10,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.LabelOff
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.*
 import  androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
@@ -38,6 +41,7 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.decodeWmsWriteOffScreen
 import com.gps.warehouse.utils.isBase64EncodedJson
+import kotlin.time.Duration.Companion.seconds
 
 // Enum для отслеживания фокуса в диалоге
 enum class EditField {
@@ -86,6 +90,66 @@ fun WmsWriteOffScreen(
     val honeywellHelper = remember { ScannerManager(context) }
 
     // Слушаем поток сканера
+//    LaunchedEffect(Unit) {
+//        honeywellHelper.barcodeFlow.collect { scannedData ->
+//            if (scannedData.isNotEmpty()) {
+//                val trimmedData = scannedData.trim()
+//
+//                if (isBase64EncodedJson(trimmedData)) {
+//                    // JSON-скан: всегда в артикул, независимо от фокуса
+//                    val scanResult = decodeWmsWriteOffScreen(trimmedData)
+//                    Log.d(TAG, scanResult.toString())
+//                    if (scanResult != null) {
+//                        if (showDialog) {
+//                            dialogMaterial = scanResult.matNumScan
+//                        } else {
+//                            val newItem = WmsWriteOffItem(
+//                                material = scanResult.matNumScan,
+//                                qty = "1",
+//                                storage = availableStorages.firstOrNull() ?: "",
+//                                costcenter = null,
+//                                galaccount = null,
+//                                posText = null,
+//                                intOrder = null
+//                            )
+//                            writeOffItems = writeOffItems + newItem
+//                            editingIndex.apply { newItem }
+//                            showDialog = true
+//                        }
+//                    } else {
+//                        Toast.makeText(context, "Ошибка распознавания данных скана!", Toast.LENGTH_SHORT).show()
+//                    }
+//                } else {
+//                    // Простой текст: сканируем в поле, которое сейчас в фокусе
+//                    if (showDialog) {
+//                        when (focusedField) {
+//                            EditField.COST_CENTER -> dialogCostCenter = trimmedData
+//                            EditField.GAL_ACCOUNT -> dialogGalAccount = trimmedData
+//                            EditField.POS_TEXT -> dialogPosText = trimmedData
+//                            EditField.INT_ORDER -> dialogIntOrder = trimmedData
+//                            EditField.MATERIAL -> dialogMaterial = trimmedData
+//                            // Если фокус на количестве или складе — по умолчанию в артикул
+//                            else -> dialogMaterial = trimmedData
+//                        }
+//                    } else {
+//                        // Диалог закрыт: создаем новый элемент
+//                        val newItem = WmsWriteOffItem(
+//                            material = trimmedData,
+//                            qty = "1",
+//                            storage = availableStorages.firstOrNull() ?: "",
+//                            costcenter = null,
+//                            galaccount = null,
+//                            posText = null,
+//                            intOrder = null
+//                        )
+//                        writeOffItems = writeOffItems + newItem
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+    // Слушаем поток сканера
     LaunchedEffect(Unit) {
         honeywellHelper.barcodeFlow.collect { scannedData ->
             if (scannedData.isNotEmpty()) {
@@ -97,18 +161,19 @@ fun WmsWriteOffScreen(
                     Log.d(TAG, scanResult.toString())
                     if (scanResult != null) {
                         if (showDialog) {
+                            // Если диалог открыт — заполняем ТОЛЬКО артикул
                             dialogMaterial = scanResult.matNumScan
                         } else {
-                            val newItem = WmsWriteOffItem(
-                                material = scanResult.matNumScan,
-                                qty = "1",
-                                storage = availableStorages.firstOrNull() ?: "",
-                                costcenter = null,
-                                galaccount = null,
-                                posText = null,
-                                intOrder = null
-                            )
-                            writeOffItems = writeOffItems + newItem
+                            // Открываем диалог для редактирования с данными из скана
+                            dialogMaterial = scanResult.matNumScan
+                            dialogQty = "1"
+                            dialogStorage = availableStorages.firstOrNull() ?: ""
+                            dialogCostCenter = ""  // Пустое МВЗ для заполнения
+                            dialogGalAccount = ""
+                            dialogPosText = ""
+                            dialogIntOrder = ""
+                            editingIndex = null  // Новый элемент
+                            showDialog = true    // Открываем диалог
                         }
                     } else {
                         Toast.makeText(context, "Ошибка распознавания данных скана!", Toast.LENGTH_SHORT).show()
@@ -126,17 +191,16 @@ fun WmsWriteOffScreen(
                             else -> dialogMaterial = trimmedData
                         }
                     } else {
-                        // Диалог закрыт: создаем новый элемент
-                        val newItem = WmsWriteOffItem(
-                            material = trimmedData,
-                            qty = "1",
-                            storage = availableStorages.firstOrNull() ?: "",
-                            costcenter = null,
-                            galaccount = null,
-                            posText = null,
-                            intOrder = null
-                        )
-                        writeOffItems = writeOffItems + newItem
+                        // Открываем диалог для редактирования с отсканированным артикулом
+                        dialogMaterial = trimmedData
+                        dialogQty = "1"
+                        dialogStorage = availableStorages.firstOrNull() ?: ""
+                        dialogCostCenter = ""
+                        dialogGalAccount = ""
+                        dialogPosText = ""
+                        dialogIntOrder = ""
+                        editingIndex = null
+                        showDialog = true  // Открываем диалог
                     }
                 }
             }
@@ -309,9 +373,8 @@ fun WmsWriteOffScreenContent(
                     onClick = onWriteOffClick,
                     enabled = writeOffItems.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(50, 130, 50))
                 ) {
-                    Icon(Icons.Default.DeleteForever, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(8.dp))
                     Text("Выполнить списание (${writeOffItems.sumOf { it.qty.toIntOrNull() ?: 0 }} шт.)")
                 }

@@ -29,6 +29,9 @@ open class MobileDevicesViewModel @Inject constructor(
     private val _detailUiState = MutableStateFlow<UiState>(UiState.Loading)
     val detailUiState: StateFlow<UiState> = _detailUiState
 
+    private val _actionMessage = MutableStateFlow<String?>(null)
+    val actionMessage: StateFlow<String?> = _actionMessage
+
     private suspend fun getToken(): String {
         return tokenStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации.")
     }
@@ -69,5 +72,27 @@ open class MobileDevicesViewModel @Inject constructor(
                 _detailUiState.value = UiState.Error(e.message ?: "Ошибка сети")
             }
         }
+    }
+
+    fun playDeviceSound(serialNumber: String) {
+        viewModelScope.launch {
+            try {
+                val response = apiService.playDeviceSound(
+                    token = "Bearer ${getToken()}",
+                    serialNumber = serialNumber
+                )
+                if (response.isSuccessful && response.body() != null) {
+                    _actionMessage.value = response.body()!!.message
+                } else {
+                    _actionMessage.value = "Ошибка сервера: ${response.code()}"
+                }
+            } catch (e: Exception) {
+                _actionMessage.value = "Ошибка сети: ${e.message}"
+            }
+        }
+    }
+
+    fun clearActionMessage() {
+        _actionMessage.value = null
     }
 }

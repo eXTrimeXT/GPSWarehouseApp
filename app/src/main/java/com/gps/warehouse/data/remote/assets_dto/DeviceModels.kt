@@ -56,3 +56,5 @@ data class BatteryInfo(
     val status: String?,
     val temperature: String?
 )
+
+data class PlaySoundResponse(val message: String)
