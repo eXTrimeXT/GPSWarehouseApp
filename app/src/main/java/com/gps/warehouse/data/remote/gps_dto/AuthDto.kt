@@ -34,7 +34,8 @@ data class UserProfileResponse(
     @SerializedName("last_ip") val lastIp: String?,         // Последний IP
     @SerializedName("warehouse_permissions") val warehousePermissions: List<WarehousePermissionDto>?,   // Права на склады
     @SerializedName("permission") val gpsPermissions: List<GpsPermissionDto>?,
-    @SerializedName("assets_is_admin") val assetsIsAdmin: Boolean? = false
+    @SerializedName("assets_is_admin") val assetsIsAdmin: Boolean? = false,
+    @SerializedName("bm_list") val bmList: List<BmListDto>?
 )
 
 // Класс для элемента списка прав на склады
@@ -49,4 +50,16 @@ data class GpsPermissionDto(
     @SerializedName("name_group") val nameGroup: String,
     val read: Boolean,
     val write: Boolean
+)
+
+data class BmListDto(
+    @SerializedName("icon") val icon: String,
+    @SerializedName("icon1") val icon1: String,
+    @SerializedName("id_menu1") val idMenu1: String,
+    @SerializedName("id_menu2") val idMenu2: String,
+    @SerializedName("link") val link: String,
+    @SerializedName("main_level") val mainLevel: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("name1") val name1: String,
+    @SerializedName("name_rule") val nameRule: String,
 )

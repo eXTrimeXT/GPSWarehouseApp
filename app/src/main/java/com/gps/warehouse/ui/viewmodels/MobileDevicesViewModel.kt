@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui
+package com.gps.warehouse.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

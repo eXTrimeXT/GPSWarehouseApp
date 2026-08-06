@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.gps_screens.profile
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.*
@@ -88,6 +89,7 @@ fun ProfileScreen(
     )
 }
 
+@SuppressLint("SuspiciousIndentation")
 @Composable
 fun ProfileContent(
     uiState: MainViewModel.UiState,
@@ -177,7 +179,7 @@ fun ProfileContent(
                     }
 
                     // Права на типы активов
-//                    if (!profile.gpsPermissions.isNullOrEmpty())
+                    if (!profile.gpsPermissions.isNullOrEmpty())
                     CollapsiblePermissionCard(
                         assetsAdmin = profile.assetsIsAdmin,
                         permissions = profile.gpsPermissions
@@ -559,7 +561,8 @@ fun ProfilePreviewLoaded() {
         assetsIsAdmin = false,
         gpsPermissions = listOf(
             GpsPermissionDto(nameGroup = "android_data", read = true, write = false)
-        )
+        ),
+        bmList = null
     )
     MaterialTheme {
         Surface {

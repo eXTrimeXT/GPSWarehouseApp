@@ -54,12 +54,6 @@ class AssetViewModel @Inject constructor(
             val hasPrevious: Boolean
         ) : AssetUiState()
 
-        data class MapSuccess(
-            val workshops: List<Workshop>,
-            val assets: List<AssetPosition>
-        ) : AssetUiState()
-
-        data class InventorizationSessionsLoaded(val sessions: List<InventorizationSessionDto>) : AssetUiState()
         data class InventorizationItemsLoaded(
             val items: List<InventorizationItemDto>,
             val sessionId: Int
@@ -70,7 +64,6 @@ class AssetViewModel @Inject constructor(
         object Idle : InventorizationUiState()
         object Loading : InventorizationUiState()
         data class SessionsLoaded(val sessions: List<InventorizationSessionDto>) : InventorizationUiState()
-        data class ItemsLoaded(val items: List<InventorizationItemDto>, val sessionId: Int) : InventorizationUiState()
         data class Error(val message: String) : InventorizationUiState()
     }
 
@@ -86,9 +79,6 @@ class AssetViewModel @Inject constructor(
 
     private val _assetTypes = MutableStateFlow<List<AssetTypeDto>>(emptyList())
     val assetTypes: StateFlow<List<AssetTypeDto>> = _assetTypes.asStateFlow()
-
-    private val _mapData = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
-    val mapData: StateFlow<AssetUiState> = _mapData.asStateFlow()
 
     // Добавляем отдельный StateFlow для UI-состояния инвентаризации
     private val _inventorizationUiState = MutableStateFlow<InventorizationUiState>(InventorizationUiState.Idle)
@@ -238,33 +228,7 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    fun loadMapData() {
-        viewModelScope.launch {
-            _mapData.value = AssetUiState.Loading
-            try {
-                val assets = assetApiService.getAssetPositions("Bearer ${getToken()}")
-                val workshops = assetApiService.getWorkshops("Bearer ${getToken()}")
-                _mapData.value = AssetUiState.MapSuccess(workshops, assets)
-            } catch (e: Exception) {
-                _mapData.value = AssetUiState.Error(e.message ?: "Неизвестная ошибка")
-            }
-        }
-    }
-
     // ================== Инвентаризация ==================
-//    fun loadInventorizationSessions() {
-//        viewModelScope.launch {
-//            _uiState.value = AssetUiState.Loading
-//            try {
-//                val sessions = assetApiService.getInventorizationSessions("Bearer ${getToken()}")
-//                _inventorizationSessions.value = sessions
-//                _uiState.value = AssetUiState.InventorizationSessionsLoaded(sessions)
-//            } catch (e: Exception) {
-//                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки сессий")
-//            }
-//        }
-//    }
-
     fun loadInventorizationSessions() {
         viewModelScope.launch {
             _inventorizationUiState.value = InventorizationUiState.Loading
@@ -290,22 +254,6 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
-
-//    fun startInventorizationSession(assetTypeId: Int) {
-//        viewModelScope.launch {
-//            _uiState.value = AssetUiState.Loading
-//            try {
-//                val session = assetApiService.startInventorizationSession(
-//                    "Bearer ${getToken()}",
-//                    InventorizationSessionCreateRequest(assetTypeId)
-//                )
-//                // Перезагружаем список сессий
-//                loadInventorizationSessions()
-//            } catch (e: Exception) {
-//                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка создания сессии")
-//            }
-//        }
-//    }
 
     fun startInventorizationSession(assetTypeId: Int) {
         viewModelScope.launch {
@@ -347,13 +295,6 @@ class AssetViewModel @Inject constructor(
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка завершения сессии")
             }
-        }
-    }
-
-    fun resetIdle(){
-        viewModelScope.launch {
-            _uiState.value = AssetUiState.Idle
-            Log.d("AssetViewModel", "RESET IDLE")
         }
     }
 }

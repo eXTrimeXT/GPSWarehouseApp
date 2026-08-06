@@ -300,7 +300,7 @@ fun WmsReceiveScreen(
                     }
                 }
                 // Отправляем на сервер список с заполненными датами
-                viewModel.receiveWmsMaterials(orderNumber, itemsWithDefaultDate)
+                viewModel.receiveWmsMaterials(itemsWithDefaultDate)
             } else {
                 Toast.makeText(context, "Добавьте хотя бы один материал", Toast.LENGTH_SHORT).show()
             }

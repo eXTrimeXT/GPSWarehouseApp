@@ -370,8 +370,8 @@ private fun handleScanForReceive(
     val existing = currentMaterials.firstOrNull { it.material.equals(article, ignoreCase = true) }
 
     if (existing == null) {
-    // Материал не найден → готовим к добавлению
-    onMaterialNotFound(article)
+        // Материал не найден → готовим к добавлению
+        onMaterialNotFound(article)
 //    Toast.makeText(context, "Материал не найден. Добавьте его в заказ.", Toast.LENGTH_LONG).show()
     }
 }

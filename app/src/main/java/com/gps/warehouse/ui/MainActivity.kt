@@ -49,7 +49,7 @@ import com.gps.warehouse.ui.gps_screens.packaging.PackagingScreen
 import com.gps.warehouse.ui.gps_screens.packtowarehouse.PackToWarehouseScreen
 import com.gps.warehouse.ui.gps_screens.profile.ProfileScreen
 import com.gps.warehouse.ui.gps_screens.orders.ReceiveMaterialsScreen
-import com.gps.warehouse.ui.gps_screens.settings.SettingsScreen
+import com.gps.warehouse.ui.settings.SettingsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WarehouseMaterialsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsReceiveScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsRequestsScreen
@@ -160,6 +160,12 @@ class MainActivity : ComponentActivity() {
                                 viewModel = mainViewModel
                             )
                         }
+                        composable("archive") {
+                            ArchiveScreen(
+                                navController = navController,
+                                viewModel = mainViewModel
+                            )
+                        }
                         composable("order_details/{orderNumber}") { backStackEntry ->
                             val orderNumber = backStackEntry.arguments?.getString("orderNumber") ?: ""
                             OrderDetailsScreen(
@@ -228,12 +234,6 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("wms_write_off") {
                             WmsWriteOffScreen(
-                                navController = navController,
-                                viewModel = mainViewModel
-                            )
-                        }
-                        composable("archive") {
-                            ArchiveScreen(
                                 navController = navController,
                                 viewModel = mainViewModel
                             )

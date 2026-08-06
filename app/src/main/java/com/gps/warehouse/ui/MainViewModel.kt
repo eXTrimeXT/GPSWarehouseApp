@@ -151,6 +151,9 @@ class MainViewModel @Inject constructor(
     private val _themeMode = MutableStateFlow(AppThemeMode.SYSTEM)
     val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
+    private val _bmList = MutableStateFlow<List<BmListDto>>(emptyList())
+    val bmList: StateFlow<List<BmListDto>> = _bmList.asStateFlow()
+
     init {
         viewModelScope.launch {
             // Собираем поток токена
@@ -288,6 +291,9 @@ class MainViewModel @Inject constructor(
                 _userIsAssetsAdmin.value = isAssetsAdmin
                 val permissions = gpsProfile.gpsPermissions ?: emptyList()
                 _gpsPermissions.value = permissions.map { it }
+
+                val bmList = gpsProfile.bmList ?: emptyList()
+                _bmList.value = bmList.map { it }
                 _uiState.value = UiState.ProfileLoaded(gpsProfile)
                 Log.d("MainViewModel", "isAssetsAdmin = $isAssetsAdmin")
             } catch (e: Exception) {
@@ -887,7 +893,7 @@ class MainViewModel @Inject constructor(
     /**
      * Отправляет данные о принятых материалах на складе на сервер
      */
-    fun receiveWmsMaterials(orderNumber: String, materials: List<WmsReceiveItem>) {
+    fun receiveWmsMaterials(materials: List<WmsReceiveItem>) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {

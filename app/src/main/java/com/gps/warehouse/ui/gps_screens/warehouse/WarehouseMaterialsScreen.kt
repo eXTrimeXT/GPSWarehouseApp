@@ -59,10 +59,7 @@ fun WarehouseMaterialsScreen(
         viewModel.loadWarehouseMaterials(startDate = startApi, endDate = endApi)
 
         // Инициализация сканера при открытии экрана
-        honeywellHelper.init(
-//            onInitialized = { honeywellHelper.enableScanner(true) },
-//            onError = { e -> Toast.makeText(context, "Ошибка сканера: ${e.message}", Toast.LENGTH_LONG).show() }
-        )
+        honeywellHelper.init()
     }
 
     // Обработка сканирования на экране Склада Деталей
@@ -83,10 +80,7 @@ fun WarehouseMaterialsScreen(
 
     // Освобождение ресурсов сканера при уходе с экрана
     DisposableEffect(Unit) {
-        onDispose {
-//            honeywellHelper.enableScanner(false)
-            honeywellHelper.release()
-        }
+        onDispose { honeywellHelper.release() }
     }
 
     WarehouseMaterialsContent(

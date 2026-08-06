@@ -7,10 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.OnlinePrediction
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -30,8 +27,8 @@ import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import com.gps.warehouse.data.remote.assets_dto.HardwareInfo
 import com.gps.warehouse.data.remote.assets_dto.NetworkInfo
 import com.gps.warehouse.data.remote.assets_dto.SystemInfo
-import com.gps.warehouse.ui.MobileDevicesViewModel
-import com.gps.warehouse.ui.UiState
+import com.gps.warehouse.ui.viewmodels.MobileDevicesViewModel
+import com.gps.warehouse.ui.viewmodels.UiState
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar

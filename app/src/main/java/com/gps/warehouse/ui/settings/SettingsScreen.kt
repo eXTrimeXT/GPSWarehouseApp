@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui.gps_screens.settings
+package com.gps.warehouse.ui.settings
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -7,39 +7,37 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.InstallMobile
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material3.*
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
-import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.data.remote.gps_dto.BmListDto
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.home.HomeTab
+import com.gps.warehouse.ui.home.isTabFilter
 import com.gps.warehouse.utils.AppPreferences
 import com.gps.warehouse.utils.Constants
 import com.gps.warehouse.utils.UpdateManager
 import kotlinx.coroutines.launch
 
+// ====================== 1. SCREEN (Логика + ViewModel) ======================
 @Composable
 fun SettingsScreen(
     navController: NavHostController,
-    viewModel: MainViewModel = hiltViewModel()
+    viewModel: MainViewModel
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val updateManager = remember { UpdateManager(context) }
 
+    // Состояния UI
     var isChecking by remember { mutableStateOf(false) }
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableIntStateOf(0) }
@@ -47,18 +45,109 @@ fun SettingsScreen(
     var remoteVersion by remember { mutableStateOf<UpdateManager.VersionInfo?>(null) }
     var showUpdateDialog by remember { mutableStateOf(false) }
 
+    // Данные из ViewModel
     val gpsPermissions by viewModel.gpsPermissions.collectAsState()
     val isUserAssetsAdmin by viewModel.userIsAssetsAdmin.collectAsState()
+    val bmList by viewModel.bmList.collectAsState()
 
-    // Флаг прав, есть ли хотя бы 1 элемент доступа
-    val isPermissions = gpsPermissions.any{ it.read } || isUserAssetsAdmin
 
+    // Флаг: есть ли права доступа
+    val hasPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
+
+    // Текущая версия приложения
     val (currentVersionCode, currentVersionName) = remember {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         info.versionCode to (info.versionName ?: "1.0.0")
     }
-    Column(modifier = Modifier.fillMaxWidth()) {
-        MyCustomActionBar(onBackClick = { navController.popBackStack() }, text = "Настройки")
+
+    // Сохранённый индекс вкладки
+    var savedTabIndex by remember { mutableIntStateOf(AppPreferences.getDefaultTab(context)) }
+
+    // Корректировка вкладки если нет прав на Assets
+    LaunchedEffect(hasPermissions, savedTabIndex) {
+        if (savedTabIndex == 2 && !hasPermissions) {
+            AppPreferences.setDefaultTab(context, 1)
+            savedTabIndex = 1
+        }
+    }
+
+    SettingsContent(
+        currentVersionName = currentVersionName,
+        currentVersionCode = currentVersionCode,
+        savedTabIndex = savedTabIndex,
+        hasPermissions = hasPermissions,
+        bmList = bmList,
+        isChecking = isChecking,
+        isDownloading = isDownloading,
+        downloadProgress = downloadProgress,
+        errorMessage = errorMessage,
+        remoteVersion = remoteVersion,
+        showUpdateDialog = showUpdateDialog,
+        onBackClick = { navController.popBackStack() },
+        onTabSelected = { index ->
+            savedTabIndex = index
+            AppPreferences.setDefaultTab(context, index)
+        },
+        onCheckUpdates = {
+            isChecking = true
+            errorMessage = null
+            scope.launch {
+                val remote = updateManager.checkForUpdates(Constants.BASE_URL_UPDATE)
+                isChecking = false
+                if (remote != null) {
+                    remoteVersion = remote
+                    if (remote.versionCode > currentVersionCode) {
+                        showUpdateDialog = true
+                    } else {
+                        Toast.makeText(context, "Установлена последняя версия", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    errorMessage = "Ошибка подключения к серверу обновлений."
+                }
+            }
+        },
+        onDownloadUpdate = {
+            showUpdateDialog = false
+            isDownloading = true
+            downloadProgress = 0
+            errorMessage = null
+            scope.launch {
+                val success = updateManager.downloadUpdate(
+                    baseUrl = Constants.BASE_URL_UPDATE,
+                    onProgress = { progress -> downloadProgress = progress }
+                )
+                isDownloading = false
+                if (!success) {
+                    errorMessage = "Ошибка загрузки APK. Попробуйте позже."
+                }
+            }
+        },
+        onDismissUpdateDialog = { showUpdateDialog = false }
+    )
+}
+
+// ====================== 2. CONTENT (Чистый UI) ======================
+@Composable
+fun SettingsContent(
+    currentVersionName: String,
+    currentVersionCode: Int,
+    savedTabIndex: Int,
+    hasPermissions: Boolean,
+    bmList: List<BmListDto>,
+    isChecking: Boolean,
+    isDownloading: Boolean,
+    downloadProgress: Int,
+    errorMessage: String?,
+    remoteVersion: UpdateManager.VersionInfo?,
+    showUpdateDialog: Boolean,
+    onBackClick: () -> Unit,
+    onTabSelected: (Int) -> Unit,
+    onCheckUpdates: () -> Unit,
+    onDownloadUpdate: () -> Unit,
+    onDismissUpdateDialog: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        MyCustomActionBar(onBackClick = onBackClick, text = "Настройки")
 
         Column(
             modifier = Modifier
@@ -78,11 +167,6 @@ fun SettingsScreen(
 
                     var expanded by remember { mutableStateOf(false) }
 
-                    if (AppPreferences.getDefaultTab(context) == 2 && !isPermissions){
-                        AppPreferences.setDefaultTab(context, 1)
-                    }
-                    var savedTabIndex by remember { mutableIntStateOf(AppPreferences.getDefaultTab(context)) }
-
                     Box {
                         OutlinedButton(
                             onClick = { expanded = true },
@@ -96,23 +180,13 @@ fun SettingsScreen(
                         }
 
                         DropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false }
-                        ) {
+                            expanded = expanded, onDismissRequest = { expanded = false }) {
                             HomeTab.entries.forEachIndexed { index, tab ->
-                                if (
-                                    tab.title != HomeTab.ASSETS.title ||
-                                    (tab.title == HomeTab.ASSETS.title && isPermissions)
-                                )
-                                    DropdownMenuItem(
-                                        text = { Text(tab.title) },
-                                    onClick = {
-                                        // Сохраняем выбор в SharedPreferences
-                                        savedTabIndex = index
-                                        AppPreferences.setDefaultTab(context, index)
+                                if (isTabFilter(bmList, tab)) {
+                                    DropdownMenuItem(text = { Text(tab.title) }, onClick = {
+                                        onTabSelected(index)
                                         expanded = false
-                                    },
-                                    leadingIcon = {
+                                    }, leadingIcon = {
                                         if (savedTabIndex == index) {
                                             Icon(
                                                 Icons.Default.Check,
@@ -120,8 +194,8 @@ fun SettingsScreen(
                                                 tint = MaterialTheme.colorScheme.primary
                                             )
                                         }
-                                    }
-                                )
+                                    })
+                                }
                             }
                         }
                     }
@@ -130,29 +204,7 @@ fun SettingsScreen(
 
             // Кнопка проверки обновлений
             Button(
-                onClick = {
-                    isChecking = true
-                    errorMessage = null
-                    scope.launch {
-                        val remote = updateManager.checkForUpdates(Constants.BASE_URL_UPDATE)
-                        isChecking = false
-
-                        if (remote != null) {
-                            remoteVersion = remote
-                            if (remote.versionCode > currentVersionCode) {
-                                showUpdateDialog = true
-                            } else {
-                                Toast.makeText(
-                                    context,
-                                    "Установлена последняя версия",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
-                        } else {
-                            errorMessage = "Ошибка подключения к серверу обновлений."
-                        }
-                    }
-                },
+                onClick = onCheckUpdates,
                 enabled = !isChecking && !isDownloading,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -197,7 +249,7 @@ fun SettingsScreen(
                 )
             }
 
-            // Карточка с информацией (О приложении)
+            // Карточка с информацией
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("О приложении", style = MaterialTheme.typography.titleMedium)
@@ -212,60 +264,81 @@ fun SettingsScreen(
                             color = DividerDefaults.color
                         )
                         Text("Доступна:", color = MaterialTheme.colorScheme.primary)
-                        Text(
-                            "Версия: ${remote.versionName}",
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            "Версия кода: ${remote.versionCode}",
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Text("Версия: ${remote.versionName}", color = MaterialTheme.colorScheme.primary)
+                        Text("Версия кода: ${remote.versionCode}", color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
         }
 
-        // Диалог подтверждения скачивания
+        // Диалог обновления
         if (showUpdateDialog && remoteVersion != null) {
             UpdateDialog(
                 currentVersionName = currentVersionName,
-                remoteVersion = UpdateManager.VersionInfo(
-                    jobId = remoteVersion!!.jobId,
-                    version = remoteVersion!!.version,
-                    versionCode = remoteVersion!!.versionCode,
-                    versionName = remoteVersion!!.versionName
-                ),
-                onDownload = {
-                    showUpdateDialog = false
-                    isDownloading = true
-                    downloadProgress = 0
-                    errorMessage = null
-
-                    scope.launch {
-                        val success = updateManager.downloadUpdate(
-                            baseUrl = Constants.BASE_URL_UPDATE,
-                            onProgress = { progress -> downloadProgress = progress }
-                        )
-                        isDownloading = false
-                        if (success) {
-                            /* ничего не делает потому что запускается системный установщик */
-                        } else {
-                            errorMessage = "Ошибка загрузки APK. Попробуйте позже."
-                        }
-                    }
-                },
-                onDismiss = { showUpdateDialog = false }
+                remoteVersion = remoteVersion,
+                onDownload = onDownloadUpdate,
+                onDismiss = onDismissUpdateDialog
             )
         }
     }
 }
 
-@Preview(showBackground = true)
+// ====================== 3. ПРЕВЬЮ ======================
+@Preview(showBackground = true, name = "Settings - Downloading")
 @Composable
-private fun SettingsScreenPreview() {
+fun SettingsContentPreview_Downloading() {
     MaterialTheme {
-        SettingsScreen(
-            navController = rememberNavController()
-        )
+        Surface {
+            SettingsContent(
+                currentVersionName = "1.2.3",
+                currentVersionCode = 42,
+                savedTabIndex = 1,
+                hasPermissions = true,
+                bmList = emptyList(),
+                isChecking = false,
+                isDownloading = true,
+                downloadProgress = 67,
+                errorMessage = null,
+                remoteVersion = null,
+                showUpdateDialog = false,
+                onBackClick = {},
+                onTabSelected = {},
+                onCheckUpdates = {},
+                onDownloadUpdate = {},
+                onDismissUpdateDialog = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "Settings - Update Available")
+@Composable
+fun SettingsContentPreview_UpdateAvailable() {
+    MaterialTheme {
+        Surface {
+            SettingsContent(
+                currentVersionName = "1.2.3",
+                currentVersionCode = 42,
+                savedTabIndex = 1,
+                hasPermissions = true,
+                bmList = emptyList(),
+                isChecking = false,
+                isDownloading = false,
+                downloadProgress = 0,
+                errorMessage = null,
+                remoteVersion = UpdateManager.VersionInfo(
+                    jobId = 123,
+                    version = 1,
+                    versionCode = 43,
+                    versionName = "1.3.0"
+                ),
+                showUpdateDialog = false,
+                onBackClick = {},
+                onTabSelected = {},
+                onCheckUpdates = {},
+                onDownloadUpdate = {},
+                onDismissUpdateDialog = {}
+            )
+        }
     }
 }

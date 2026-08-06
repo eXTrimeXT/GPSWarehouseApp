@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.gps.warehouse.data.remote.gps_dto.BmListDto
 import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.AppPreferences
@@ -45,6 +46,7 @@ fun HomeScreen(
     val tabs = HomeTab.entries.toTypedArray()
     val gpsPermissions by viewModel.gpsPermissions.collectAsState()
     val isUserAssetsAdmin by viewModel.userIsAssetsAdmin.collectAsState()
+    val bmList by viewModel.bmList.collectAsState()
 
     val context = LocalContext.current
     var selectedTabIndex by rememberSaveable {
@@ -56,17 +58,15 @@ fun HomeScreen(
     }
 
     // Флаг прав, есть ли хотя бы 1 элемент доступа
-    val isPermissions = gpsPermissions.any{ it.read } || isUserAssetsAdmin
+    val isPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
     Log.d("isPermissions", isPermissions.toString())
 
     Scaffold(
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->
-                    if (
-                        tab.title != HomeTab.ASSETS.title ||
-                        (tab.title == HomeTab.ASSETS.title && isPermissions)
-                    ) {
+//                    if (isTabFilter(bmList, tab)) {
+                    if (true) {
                         NavigationBarItem(
                             icon = { Icon(tab.icon, contentDescription = tab.title) },
                             label = { Text(tab.title) },
@@ -83,9 +83,20 @@ fun HomeScreen(
             selectedTabIndex = selectedTabIndex,
             onNavigate = { route -> navController.navigate(route) },
             permissions = gpsPermissions,
-            isUserAssetsAdmin = isUserAssetsAdmin
+            isUserAssetsAdmin = isUserAssetsAdmin,
+            bmList = bmList
         )
     }
+}
+
+@Composable
+fun isTabFilter(bmList: List<BmListDto>, tab: HomeTab): Boolean {
+    return (
+        (tab.title == HomeTab.SETTINGS.title) || // Всегда показываем настройки
+        (tab.title == HomeTab.ASSETS.title && bmList.any { it.name == "Assets" }) ||
+        (tab.title == HomeTab.ORDERS.title && bmList.any { it.name == "AfterSales" }) ||
+        (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
+    )
 }
 
 @Composable
@@ -94,7 +105,8 @@ fun HomeScreenContent(
     selectedTabIndex: Int,
     onNavigate: (String) -> Unit,
     permissions: List<GpsPermissionDto>,
-    isUserAssetsAdmin: Boolean
+    isUserAssetsAdmin: Boolean,
+    bmList: List<BmListDto>
 ) {
     Column(
         modifier = modifier
@@ -109,70 +121,96 @@ fun HomeScreenContent(
                     title = "Создание заказа",
                     subtitle = "Создание нового заказа на перемещение",
                     icon = Icons.Default.AddShoppingCart,
-                    onClick = { onNavigate("packaging") }
+                    onClick = { onNavigate("packaging") },
+                    bmList = bmList,
+                    nameRule = "ps_makeorder"
                 )
+
                 MenuButton(
                     title = "Список заказов",
                     subtitle = "Активные заказы и приемка",
                     icon = Icons.AutoMirrored.Filled.ListAlt,
-                    onClick = { onNavigate("orders") }
+                    onClick = { onNavigate("orders") },
+                    bmList = bmList,
+                    nameRule = "qrcode_pda"
                 )
+
                 MenuButton(
                     title = "Архив заказов",
                     subtitle = "История выполненных операций",
                     icon = Icons.Default.Archive,
-                    onClick = { onNavigate("archive") }
+                    onClick = { onNavigate("archive") },
+                    bmList = bmList,
+                    nameRule = "qrcode_msk"
+                )
+
+                MenuButton(
+                    title = "Упаковка на склад",
+                    subtitle = "Оприходование и маркировка",
+                    icon = Icons.Default.Inventory,
+                    onClick = { onNavigate("pack_to_warehouse") },
+                    bmList = bmList,
+                    nameRule = "ps_pack_materials"
+                )
+
+                MenuButton(
+                    title = "Склад деталей",
+                    subtitle = "Остатки и наличие",
+                    icon = Icons.Default.Warehouse,
+                    onClick = { onNavigate("warehouse") },
+                    bmList = bmList,
+                    nameRule = "qrcode_ps"
                 )
             }
             // Вкладка "Склад"
             1 -> {
                 MenuButton(
-                    title = "Упаковка на склад",
-                    subtitle = "Оприходование и маркировка",
-                    icon = Icons.Default.Inventory,
-                    onClick = { onNavigate("pack_to_warehouse") }
-                )
-                MenuButton(
                     title = "Склады",
                     subtitle = "Перемещение материалов",
                     icon = Icons.Default.Warehouse,
-                    onClick = { onNavigate("wms") }
+                    onClick = { onNavigate("wms") },
+                    bmList = bmList,
+                    nameRule = "wh_read_remains"
                 )
-                MenuButton(
-                    title = "Склад деталей",
-                    subtitle = "Остатки и наличие",
-                    icon = Icons.Default.Warehouse,
-                    onClick = { onNavigate("warehouse") }
-                )
+
                 MenuButton(
                     title = "Инвентаризация",
                     subtitle = "Проведение инвентаризации склада",
                     icon = Icons.Default.RequestPage,
-                    onClick = { onNavigate("inventory") }
+                    onClick = { onNavigate("inventory") },
+                    bmList = bmList,
+                    nameRule = "wh_inv_read"
                 )
+
                 MenuButton(
                     title = "Приемка",
                     subtitle = "Приемка материалов по заказу",
                     icon = Icons.Default.AssignmentReturned,
-                    onClick = { onNavigate("wms_receive") }
+                    onClick = { onNavigate("wms_receive") },
+                    bmList = bmList,
+                    nameRule = "wh_accept_store"
                 )
+
                 MenuButton(
                     title = "Списание",
                     subtitle = "Списание материалов со склада",
                     icon = Icons.Default.DeleteForever,
-                    onClick = { onNavigate("wms_write_off") }
+                    onClick = { onNavigate("wms_write_off") },
+                    bmList = bmList,
+                    nameRule = "wms_write_off"
                 )
             }
             // Вкладка "Активы"
             2 -> {
                 val isAllPermissionsFalse = permissions.any { !it.read }
                 if (isAllPermissionsFalse || isUserAssetsAdmin)
-                MenuButton(
-                    title = "Типы активов",
-                    subtitle = "Доступные типы активов",
-                    icon = Icons.Default.Category,
-                    onClick = { onNavigate("asset_types") }
-                )
+                    MenuButton(
+                        title = "Типы активов",
+                        subtitle = "Доступные типы активов",
+                        icon = Icons.Default.Category,
+                        onClick = { onNavigate("asset_types") },
+                        isVisible = true
+                    )
 
                 val isReadAndroid = permissions.any { it.nameGroup == "android_data" && it.read }
                 if (isReadAndroid || isUserAssetsAdmin)
@@ -180,37 +218,41 @@ fun HomeScreenContent(
                         title = "Android устройства",
                         subtitle = "Мобильные устройства Android\nHoneywell, Zebra",
                         icon = Icons.Default.PhoneAndroid,
-                        onClick = { onNavigate("mobile_devices") }
+                        onClick = { onNavigate("mobile_devices") },
+                        isVisible = true
                     )
 
                 MenuButton(
                     title = "Мои активы",
                     subtitle = "Список вашего оборудования",
                     icon = Icons.Default.AutoAwesomeMosaic,
-                    onClick = { onNavigate("my_assets_list") }
+                    onClick = { onNavigate("my_assets_list") },
+                    isVisible = true
                 )
 
                 val isReadComputers = permissions.any { it.nameGroup == "computer" && it.read }
                 if (isReadComputers || isUserAssetsAdmin)
-                MenuButton(
-                    title = "Мои ПК",
-                    subtitle = "Компьютеры и их конфигурация",
-                    icon = Icons.Default.Computer,
-                    onClick = { onNavigate("my_pcs") }
-                )
+                    MenuButton(
+                        title = "Мои ПК",
+                        subtitle = "Компьютеры и их конфигурация",
+                        icon = Icons.Default.Computer,
+                        onClick = { onNavigate("my_pcs") },
+                        isVisible = true
+                    )
 
                 MenuButton(
                     title = "Инвентаризация активов",
                     subtitle = "Сессии инвентаризации по типам",
                     icon = Icons.Default.RequestPage,
-                    onClick = { onNavigate("inventorization_sessions") }
+                    onClick = { onNavigate("inventorization_sessions") },
+                    isVisible = true
                 )
-
                 MenuButton(
                     title = "Карта активов",
                     subtitle = "Карта цехов и активов",
                     icon = Icons.Default.Map,
-                    onClick = { onNavigate("assets_map_web") }
+                    onClick = { onNavigate("assets_map_web") },
+                    isVisible = true
                 )
             }
             // Вкладка "Настройки"
@@ -219,19 +261,20 @@ fun HomeScreenContent(
                     title = "Профиль",
                     subtitle = "Информация о пользователе",
                     icon = Icons.Default.Person,
-                    onClick = { onNavigate("profile") }
+                    onClick = { onNavigate("profile") },
+                    isVisible = true
                 )
                 MenuButton(
                     title = "Настройки",
                     subtitle = "Обновления и параметры",
                     icon = Icons.Default.Settings,
-                    onClick = { onNavigate("settings") }
+                    onClick = { onNavigate("settings") },
+                    isVisible = true
                 )
             }
         }
     }
 }
-
 
 // Оригинальный компонент кнопки
 @Composable
@@ -241,59 +284,67 @@ fun MenuButton(
     icon: ImageVector,
     onClick: () -> Unit,
     isDangerous: Boolean = false,
-    containerColor: Color? = null
+    containerColor: Color? = null,
+    bmList: List<BmListDto> = emptyList(),
+    nameRule: String = "",
+    isVisible: Boolean = true // если true, тогда показываем все вкладки без учета прав
 ) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isDangerous) MaterialTheme.colorScheme.errorContainer
-            else containerColor ?: MaterialTheme.colorScheme.surfaceVariant
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+    if (bmList.any { it.nameRule == nameRule || it.name1 == nameRule } || isVisible) {
+
+        Card(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isDangerous) MaterialTheme.colorScheme.errorContainer
+                else containerColor ?: MaterialTheme.colorScheme.surfaceVariant
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer
-                else MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer
-                    else MaterialTheme.colorScheme.onSurface
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp),
+                    tint = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer
+                    else MaterialTheme.colorScheme.primary
                 )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
-                        else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+                Spacer(modifier = Modifier.width(16.dp))
 
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer
-                else MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.onSurface
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer.copy(
+                                alpha = 0.7f
+                            )
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
+        Spacer(modifier = Modifier.height(12.dp))
     }
-    Spacer(modifier = Modifier.height(12.dp))
 }
 
 @Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
@@ -307,16 +358,24 @@ private fun HomeScreenPreview() {
         GpsPermissionDto(nameGroup = "power_adapter", read = false, write = true),
         GpsPermissionDto(nameGroup = "android_data", read = true, write = true),
     )
-    val isUserAssetsAdmin = false
-    val isPermissions = permissions.any{ it.read } || isUserAssetsAdmin
+    val bmList: List<BmListDto> = emptyList()
 
     Scaffold(
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->
                     if (
-                        tab.title != HomeTab.ASSETS.title ||
-                        (tab.title == HomeTab.ASSETS.title && isPermissions)
+                        // Всегда показываем настройки
+                        (tab.title == HomeTab.SETTINGS.title) ||
+
+                        // Если вкладка Активы и есть права, то показываем
+                        (tab.title == HomeTab.ASSETS.title && bmList.any { it.name == "Assets" }) ||
+
+                        // Если вкладка Заказы и есть доступ, то показываем
+                        (tab.title == HomeTab.ORDERS.title && bmList.any { it.name == "AfterSales" }) ||
+
+                        // Если вкладка Склад и есть доступ, то показываем
+                        (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
                     ) {
                         NavigationBarItem(
                             icon = { Icon(tab.icon, contentDescription = tab.title) },
@@ -334,36 +393,8 @@ private fun HomeScreenPreview() {
             selectedTabIndex = selectedTabIndex,
             onNavigate = { },
             permissions = permissions,
-            isUserAssetsAdmin = false
-        )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
-@Composable
-private fun HomeScreenPreview1() {
-    var selectedTabIndex by remember { mutableIntStateOf(1) } // 0 = Заказы (по умолчанию)
-    val tabs = HomeTab.entries.toTypedArray()
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
-                tabs.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        icon = { Icon(tab.icon, contentDescription = tab.title) },
-                        label = { Text(tab.title) },
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index }
-                    )
-                }
-            }
-        }
-    ) { paddingValues ->
-        HomeScreenContent(
-            modifier = Modifier.padding(paddingValues),
-            selectedTabIndex = selectedTabIndex,
-            onNavigate = { },
-            permissions = emptyList(),
-            isUserAssetsAdmin = true
+            isUserAssetsAdmin = false,
+            bmList = emptyList()
         )
     }
 }
@@ -392,36 +423,8 @@ private fun HomeScreenPreview2() {
             selectedTabIndex = selectedTabIndex,
             onNavigate = { },
             permissions = emptyList(),
-            isUserAssetsAdmin = true
-        )
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
-@Composable
-private fun HomeScreenPreview3() {
-    var selectedTabIndex by remember { mutableIntStateOf(3) } // 0 = Заказы (по умолчанию)
-    val tabs = HomeTab.entries.toTypedArray()
-    Scaffold(
-        bottomBar = {
-            NavigationBar {
-                tabs.forEachIndexed { index, tab ->
-                    NavigationBarItem(
-                        icon = { Icon(tab.icon, contentDescription = tab.title) },
-                        label = { Text(tab.title) },
-                        selected = selectedTabIndex == index,
-                        onClick = { selectedTabIndex = index }
-                    )
-                }
-            }
-        }
-    ) { paddingValues ->
-        HomeScreenContent(
-            modifier = Modifier.padding(paddingValues),
-            selectedTabIndex = selectedTabIndex,
-            onNavigate = { },
-            permissions = emptyList(),
-            isUserAssetsAdmin = true
+            isUserAssetsAdmin = true,
+            bmList = emptyList()
         )
     }
 }
