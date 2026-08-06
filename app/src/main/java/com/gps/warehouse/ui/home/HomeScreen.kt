@@ -65,8 +65,8 @@ fun HomeScreen(
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->
-//                    if (isTabFilter(bmList, tab)) {
-                    if (true) {
+                    if (isTabFilter(bmList, tab)) {
+//                    if (true) {
                         NavigationBarItem(
                             icon = { Icon(tab.icon, contentDescription = tab.title) },
                             label = { Text(tab.title) },
@@ -287,7 +287,7 @@ fun MenuButton(
     containerColor: Color? = null,
     bmList: List<BmListDto> = emptyList(),
     nameRule: String = "",
-    isVisible: Boolean = true // если true, тогда показываем все вкладки без учета прав
+    isVisible: Boolean = false // если true, тогда показываем все вкладки без учета прав
 ) {
     if (bmList.any { it.nameRule == nameRule || it.name1 == nameRule } || isVisible) {
 
