@@ -66,7 +66,6 @@ fun HomeScreen(
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->
                     if (isTabFilter(bmList, tab)) {
-//                    if (true) {
                         NavigationBarItem(
                             icon = { Icon(tab.icon, contentDescription = tab.title) },
                             label = { Text(tab.title) },
@@ -97,6 +96,8 @@ fun isTabFilter(bmList: List<BmListDto>, tab: HomeTab): Boolean {
         (tab.title == HomeTab.ORDERS.title && bmList.any { it.name == "AfterSales" }) ||
         (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
     )
+    // Чтобы отображать все NavigationBar возвращаем true
+    // return true
 }
 
 @Composable
@@ -287,7 +288,9 @@ fun MenuButton(
     containerColor: Color? = null,
     bmList: List<BmListDto> = emptyList(),
     nameRule: String = "",
-    isVisible: Boolean = false // если true, тогда показываем все вкладки без учета прав
+    // если true, тогда показываем все вкладки без учета прав,
+    // чтобы увидеть все вкладки надо изменить (isTabFilter(bmList, tab) на true
+    isVisible: Boolean = false
 ) {
     if (bmList.any { it.nameRule == nameRule || it.name1 == nameRule } || isVisible) {
 
