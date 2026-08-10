@@ -1,5 +1,44 @@
-# .gitlab-ci.yml
-image: inovex/gitlab-ci-android  # Образ с Android SDK, NDK, Gradle [[12]]
+## .gitlab-ci.yml
+#image: inovex/gitlab-ci-android  # Образ с Android SDK, NDK, Gradle [[12]]
+#
+#stages:
+#  - build
+#  - deploy
+#
+#variables:
+#  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+#  JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"  # JDK 17 для совместимости
+#
+#cache:
+#  key: ${CI_PROJECT_ID}
+#  paths:
+#    - .gradle/
+#
+#before_script:
+#  - export GRADLE_USER_HOME=$(pwd)/.gradle
+#  - chmod +x ./gradlew
+#
+#build_apk:
+#  stage: build
+#  script:
+#    - ./gradlew assembleDebug
+#  artifacts:
+#    paths:
+#      - app/build/outputs/apk/debug/
+#    expire_in: 1 week
+#  rules:
+#    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/  # только v1.2.3, v2.0.0 и т.д.
+#
+## Автоматическое обновление на сервер при новой версии apk
+#notify_deploy:
+#  stage: deploy
+#  script:
+#    - curl -X POST http://10.168.143.7:8100/sync
+#  rules:
+#    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/  # только v1.2.3 и т.д.
+#      when: on_success
+
+image: inovex/gitlab-ci-android
 
 stages:
   - build
@@ -7,7 +46,7 @@ stages:
 
 variables:
   GRADLE_OPTS: "-Dorg.gradle.daemon=false"
-  JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"  # JDK 17 для совместимости
+  JAVA_HOME: "/usr/lib/jvm/java-17-openjdk-amd64"
 
 cache:
   key: ${CI_PROJECT_ID}
@@ -18,6 +57,7 @@ before_script:
   - export GRADLE_USER_HOME=$(pwd)/.gradle
   - chmod +x ./gradlew
 
+# TEST сборка (debug)
 build_apk:
   stage: build
   script:
@@ -27,13 +67,34 @@ build_apk:
       - app/build/outputs/apk/debug/
     expire_in: 1 week
   rules:
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/  # только v1.2.3, v2.0.0 и т.д.
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
 
-# Автоматическое обновление на сервер при новой версии apk
+# PROD сборка (release)
+build_apk_prod:
+  stage: build
+  script:
+    - ./gradlew assembleDebug
+  artifacts:
+    paths:
+      - app/build/outputs/apk/debug/
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^PROD_v\d+\.\d+\.\d+$/
+
+# TEST деплой
 notify_deploy:
   stage: deploy
   script:
-    - curl -X POST http://10.168.143.7:8100/sync
+    - curl -X POST http://10.168.143.7:8100/test/sync
   rules:
-    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/  # только v1.2.3 и т.д.
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+      when: on_success
+
+# PROD деплой
+notify_deploy_prod:
+  stage: deploy
+  script:
+    - curl -X POST http://10.168.143.7:8100/prod/sync
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^PROD_v\d+\.\d+\.\d+$/
       when: on_success
