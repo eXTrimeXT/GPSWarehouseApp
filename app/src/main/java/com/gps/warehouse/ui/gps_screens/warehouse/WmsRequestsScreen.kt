@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -9,9 +10,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowRightAlt
+import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.NorthEast
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SouthWest
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +43,9 @@ fun WmsRequestsScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+
+    // Сканер
+    val honeywellHelper = remember { ScannerManager(context) }
 
     // Состояния фильтров
     var searchQuery by remember { mutableStateOf("") }
@@ -94,12 +100,12 @@ fun WmsRequestsScreen(
                     viewModel.resetWmsRequestActionState()
                 }
             }
+            is MainViewModel.UiState.WmsRequestsLoaded -> Log.d("WmsRequestsScreen", "WmsRequestsLoaded")
             else -> {}
         }
     }
 
     // Сканер
-    val honeywellHelper = remember { ScannerManager(context) }
     LaunchedEffect(Unit) {
         honeywellHelper.init()
         honeywellHelper.barcodeFlow.collect { scannedData ->
@@ -223,7 +229,16 @@ fun WmsRequestsContent(
     onBackClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        MyCustomActionBar(onBackClick = onBackClick, text = "Складские запросы")
+        MyCustomActionBar(onBackClick = onBackClick, text = "Складские запросы",
+            actionButton = {
+                IconButton(onClick = onRetryClick) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Обновить экран"
+                    )
+                }
+            }
+            )
 
         SearchAndFilterBar(
             searchQuery = searchQuery,
@@ -310,6 +325,50 @@ fun WmsRequestsContent(
             }
         }
 
+//        when (uiState) {
+//            is MainViewModel.UiState.Loading -> CustomLoadingView()
+//            is MainViewModel.UiState.Error -> ErrorStateView(message = uiState.message, onRetry = onRetryClick, modifier = Modifier.weight(1f))
+//            is MainViewModel.UiState.WmsRequestsLoaded -> {
+//                val allRequests = uiState.requests
+//                val filteredRequests = allRequests.filter { request ->
+//                    val statusMatch = selectedStatus == null || request.isActive == selectedStatus
+//                    val cleanStorage = request.fromStorage.trim()
+//                    val storageMatch = selectedStorage == null || cleanStorage == selectedStorage.trim()
+//                    val typeMatch = selectedIsIncoming == null || request.isIncoming == selectedIsIncoming
+//                    val query = searchQuery.lowercase()
+//                    val searchMatch = query.isEmpty() || request.material.lowercase().contains(query) || request.name.lowercase().contains(query)
+//                    statusMatch && storageMatch && typeMatch && searchMatch
+//                }
+//
+//                if (filteredRequests.isEmpty()) {
+//                    Box(modifier = Modifier
+//                        .fillMaxWidth()
+//                        .weight(1f), contentAlignment = Alignment.Center) {
+//                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+//                            Text("Нет запросов по фильтрам")
+//                            if (allRequests.isNotEmpty()) {
+//                                TextButton(onClick = { onSearchQueryChange(""); onStorageSelected(null); onStatusSelected(null); onIsIncomingSelected(null) }) {
+//                                    Text("Сбросить фильтры")
+//                                }
+//                            }
+//                        }
+//                    }
+//                } else {
+//                    LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+//                        item {
+//                            Spacer(modifier = Modifier.height(8.dp))
+//                            Text("Найдено: ${filteredRequests.size} из ${allRequests.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End))
+//                        }
+//                        items(filteredRequests.reversed()) { request ->
+//                            // Разрешаем клик только если статус в ожидании
+//                            WmsRequestCard(request = request, onClick = { if (request.isActive == "1") onRequestClick(request) })
+//                        }
+//                    }
+//                }
+//            }
+//            else -> CustomLoadingView()
+//        }
+
         when (uiState) {
             is MainViewModel.UiState.Loading -> CustomLoadingView()
             is MainViewModel.UiState.Error -> ErrorStateView(message = uiState.message, onRetry = onRetryClick, modifier = Modifier.weight(1f))
@@ -326,32 +385,28 @@ fun WmsRequestsContent(
                 }
 
                 if (filteredRequests.isEmpty()) {
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Нет запросов по фильтрам")
-                            if (allRequests.isNotEmpty()) {
-                                TextButton(onClick = { onSearchQueryChange(""); onStorageSelected(null); onStatusSelected(null); onIsIncomingSelected(null) }) {
-                                    Text("Сбросить фильтры")
-                                }
-                            }
+                            Text(if (allRequests.isEmpty()) "Запросов нет" else "Нет запросов по фильтрам")
+                            if (allRequests.isNotEmpty()) TextButton(onClick = { onSearchQueryChange(""); onStorageSelected(null); onStatusSelected(null); onIsIncomingSelected(null) }) { Text("Сбросить фильтры") }
                         }
                     }
                 } else {
                     LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Найдено: ${filteredRequests.size} из ${allRequests.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End))
-                        }
+                        item { Spacer(modifier = Modifier.height(8.dp)); Text("Найдено: ${filteredRequests.size} из ${allRequests.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) }
                         items(filteredRequests.reversed()) { request ->
-                            // Разрешаем клик только если статус в ожидании
                             WmsRequestCard(request = request, onClick = { if (request.isActive == "1") onRequestClick(request) })
                         }
                     }
                 }
             }
-            else -> CustomLoadingView()
+            is MainViewModel.UiState.Idle -> {
+                // Показываем пустой экран или лоадер только один раз, не бесконечно
+                Box(modifier = Modifier.fillMaxSize().weight(1f), contentAlignment = Alignment.Center) {
+                    Text("Ожидание данных...")
+                }
+            }
+            else -> {}
         }
 
         // Диалог действий (перенесён выше, но оставляем для совместимости)

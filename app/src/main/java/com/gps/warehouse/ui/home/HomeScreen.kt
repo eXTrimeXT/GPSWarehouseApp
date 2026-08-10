@@ -90,14 +90,14 @@ fun HomeScreen(
 
 @Composable
 fun isTabFilter(bmList: List<BmListDto>, tab: HomeTab): Boolean {
-    return (
-        (tab.title == HomeTab.SETTINGS.title) || // Всегда показываем настройки
-        (tab.title == HomeTab.ASSETS.title && bmList.any { it.name == "Assets" }) ||
-        (tab.title == HomeTab.ORDERS.title && bmList.any { it.name == "AfterSales" }) ||
-        (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
-    )
+//    return (
+//        (tab.title == HomeTab.SETTINGS.title) || // Всегда показываем настройки
+//        (tab.title == HomeTab.ASSETS.title && bmList.any { it.name == "Assets" }) ||
+//        (tab.title == HomeTab.ORDERS.title && bmList.any { it.name == "AfterSales" }) ||
+//        (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
+//    )
     // Чтобы отображать все NavigationBar возвращаем true
-    // return true
+     return true
 }
 
 @Composable
@@ -290,7 +290,7 @@ fun MenuButton(
     nameRule: String = "",
     // если true, тогда показываем все вкладки без учета прав,
     // чтобы увидеть все вкладки надо изменить (isTabFilter(bmList, tab) на true
-    isVisible: Boolean = false
+    isVisible: Boolean = true // true - только для тестов
 ) {
     if (bmList.any { it.nameRule == nameRule || it.name1 == nameRule } || isVisible) {
 
@@ -397,7 +397,19 @@ private fun HomeScreenPreview() {
             onNavigate = { },
             permissions = permissions,
             isUserAssetsAdmin = false,
-            bmList = emptyList()
+            bmList = listOf(
+                BmListDto(
+                    icon = "warehouse",
+                    icon1 = "history",
+                    idMenu1 = "18",
+                    idMenu2 = "45",
+                    link = "warehouse_store_history",
+                    mainLevel = "18",
+                    name = "Warehouse  management",
+                    name1 = "warehouse_store_history",
+                    nameRule = "qrcode_pda",
+                )
+            )
         )
     }
 }

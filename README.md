@@ -212,7 +212,7 @@ com.gps.warehouse/
 - **Android Studio**: Hedgehog или новее.
 - **JDK**: 11 или выше.
 - **Устройство**: Honeywell EDA52 или Zebra TC520K.
-- **Доступ к API**: `http://gps-test.hmmr.ru/api/`
+- **Доступ к API**: `Constants.BASE_URL_API`
 
 ### Шаги по запуску
 

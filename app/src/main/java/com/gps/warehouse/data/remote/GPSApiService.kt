@@ -1,7 +1,9 @@
 package com.gps.warehouse.data.remote
 
 import com.gps.warehouse.data.remote.gps_dto.*
+import com.gps.warehouse.utils.Constants.BASE_URL_API
 import okhttp3.ResponseBody
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -78,11 +80,10 @@ interface GPSApiService {
         "Content-Type: application/json",
         "X-KL-kes-Ajax-Request: Ajax_Request",
         "X-Requested-With: XMLHttpRequest",
-        "Origin: http://gps-test.hmmr.ru"
+        "Origin: $BASE_URL_API"
     )
     suspend fun updateOrderMaterial(
         @Body request: OrderMatRequest,
-        @Header("Referer") referer: String
     ): ResponseBody
 
     // Приемка материалов (вкладка Склад)
@@ -97,7 +98,7 @@ interface GPSApiService {
         "Content-Type: application/json",
         "X-KL-kes-Ajax-Request: Ajax_Request",
         "X-Requested-With: XMLHttpRequest",
-        "Origin: http://gps-test.hmmr.ru"
+        "Origin: $BASE_URL_API"
     )
     suspend fun cancelWmsRequest(@Body request: WmsRequestAction): WmsRequestActionResponse
 
@@ -107,7 +108,7 @@ interface GPSApiService {
         "Content-Type: application/json",
         "X-KL-kes-Ajax-Request: Ajax_Request",
         "X-Requested-With: XMLHttpRequest",
-        "Origin: http://gps-test.hmmr.ru"
+        "Origin: $BASE_URL_API"
     )
     suspend fun acceptWmsRequest(@Body request: WmsRequestAction): WmsRequestActionResponse
 

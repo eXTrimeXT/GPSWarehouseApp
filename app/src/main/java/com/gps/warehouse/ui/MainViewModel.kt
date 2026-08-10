@@ -8,6 +8,7 @@ import com.gps.warehouse.data.local.TokenStorage
 import com.gps.warehouse.data.remote.GPSApiService
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
+import com.gps.warehouse.utils.Constants.BASE_URL_API
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
 import com.gps.warehouse.utils.RsaUtils.encryptPassword
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -655,10 +656,7 @@ class MainViewModel @Inject constructor(
                     id_mat = idMat
                 )
 
-                val responseBody = apiService.updateOrderMaterial(
-                    request = request,
-                    referer = "http://gps-test.hmmr.ru/m_mat_status/$order"
-                )
+                val responseBody = apiService.updateOrderMaterial(request = request)
 
                 val responseString = responseBody.string().trim()
                 Log.d("MainViewModel", "Change response: $responseString")
@@ -694,10 +692,7 @@ class MainViewModel @Inject constructor(
                     id_mat = idMat
                 )
 
-                val responseBody = apiService.updateOrderMaterial(
-                    request = request,
-                    referer = "http://gps-test.hmmr.ru/m_mat_status/$order"
-                )
+                val responseBody = apiService.updateOrderMaterial(request = request)
 
                 val responseString = responseBody.string().trim()
                 Log.d("MainViewModel", "Delete response: $responseString")
@@ -735,11 +730,8 @@ class MainViewModel @Inject constructor(
                     id_mat = "0"      // или "" — зависит от поведения API
                 )
 
-                // Вызываем API с request в теле и динамическим Referer в заголовке
-                val responseBody = apiService.updateOrderMaterial(
-                    request = request,
-                    referer = "http://gps-test.hmmr.ru/m_mat_status/$order"
-                )
+                // Вызываем API с request в теле
+                val responseBody = apiService.updateOrderMaterial(request = request)
 
                 val responseString = responseBody.string().trim()
                 Log.d("MainViewModel", "Add new material response: $responseString")
