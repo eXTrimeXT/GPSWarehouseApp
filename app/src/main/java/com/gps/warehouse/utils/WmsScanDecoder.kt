@@ -11,7 +11,7 @@ data class WmsReceiveScan(
     val matNumScan: String,      // Номер материала
     val matQtyScan: Int,         // Количество
     val matNumOrder: String,     // Номер заказа
-    val matPosition: String      // Позиция заказа из SAP
+    val matPosition: String,     // Позиция заказа из SAP
 )
 
 data class WmsWriteOffScan(

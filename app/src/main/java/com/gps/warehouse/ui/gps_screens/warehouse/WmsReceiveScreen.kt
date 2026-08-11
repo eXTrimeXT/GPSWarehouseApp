@@ -4,6 +4,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -33,6 +34,7 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.decodeWmsReceiveScreen
 import com.gps.warehouse.utils.isBase64EncodedJson
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -44,6 +46,7 @@ fun WmsReceiveScreen(
     orderNumber: String = ""
 ) {
     val TAG = "WmsReceiveScreen"
+    val scope = rememberCoroutineScope()
     var receiveItems by remember { mutableStateOf<List<WmsReceiveItem>>(emptyList()) }
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -77,35 +80,52 @@ fun WmsReceiveScreen(
                 val trimmedData = scannedData.trim()
                 if (isBase64EncodedJson(trimmedData)) {
                     val scanResult = decodeWmsReceiveScreen(trimmedData)
-                    Log.d(TAG, scanResult.toString())
+                    Log.d(TAG, "scanResult = $scanResult")
                     if (scanResult != null) {
                         if (showDialog) {
-                            // Если диалог открыт — заполняем ТОЛЬКО артикул, позиция из скана игнорируется
+                            // Если диалог открыт — заполняем ТОЛЬКО артикул
                             dialogMaterial = scanResult.matNumScan
                         } else {
-                            // Создаем элемент с данными из скана
-                            val orderNumberToUse =
-                                if (scanResult.matNumOrder == orderNumber || orderNumber.isEmpty()) {
-                                    scanResult.matNumOrder
-                                } else {
-                                    orderNumber
-                                }
-                            val newItem = WmsReceiveItem(
+                            // Сначала создаём элемент ВРЕМЕННО без имени
+                            val orderNumberToUse = if (scanResult.matNumOrder == orderNumber || orderNumber.isEmpty()) {
+                                scanResult.matNumOrder
+                            } else {
+                                orderNumber
+                            }
+
+                            val tempItem = WmsReceiveItem(
                                 matNumScan = scanResult.matNumScan,
                                 matNumOrder = orderNumberToUse,
                                 matQtyScan = scanResult.matQtyScan,
                                 checkQuality = true,
                                 Expi = "",
-                                matPositionSap = scanResult.matPosition ?: "",
-                                isPositionFromScan = true // Позиция пришла из скана
+                                matPositionSap = scanResult.matPosition,
+                                isPositionFromScan = true,
+                                matName = "" // Временно пусто
                             )
-                            receiveItems = receiveItems + newItem
+
+                            // Сразу добавляем элемент в список (чтобы он отобразился)
+                            receiveItems = receiveItems + tempItem
+
+                            // Асинхронно запрашиваем имя и обновляем элемент в списке
+                            scope.launch {
+                                val nameMaterial = viewModel.getNameMaterial(scanResult.matNumScan)
+                                Log.d(TAG, "MATERIAL NAME: $nameMaterial")
+
+                                // Находим индекс элемента по артикулу и обновляем с именем
+                                val index = receiveItems.indexOfFirst {
+                                    it.matNumScan == scanResult.matNumScan && it.matName.isEmpty()
+                                }
+                                if (index != -1) {
+                                    receiveItems = receiveItems.toMutableList().apply {
+                                        set(index, get(index).copy(matName = nameMaterial))
+                                    }
+                                }
+                            }
                         }
                     } else {
                         Toast.makeText(context, "Ошибка распознавания данных скана!", Toast.LENGTH_SHORT).show()
                     }
-                } else {
-                    Toast.makeText(context, "Неизвестный формат QR кода!", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -135,7 +155,7 @@ fun WmsReceiveScreen(
             onConfirm = { mat, qty, ord, qual, exp, pos ->
                 val qtyInt = qty.toIntOrNull() ?: 1
                 val finalOrder = ord.ifBlank { orderNumber }
-                if (qtyInt > 0 && mat.isNotBlank() && finalOrder.isNotBlank()) {
+                if (qtyInt >= 0 && mat.isNotBlank() && finalOrder.isNotBlank()) {
                     val newItem = WmsReceiveItem(
                         matNumScan = mat,
                         matNumOrder = finalOrder,
@@ -256,7 +276,7 @@ fun WmsReceiveScreen(
             dialogOrderNumber = item.matNumOrder
             dialogQuality = item.checkQuality
             dialogExpi = item.Expi
-            dialogPosition = item.matPositionSap ?: ""
+            dialogPosition = item.matPositionSap
             // Позиция readOnly ТОЛЬКО если она пришла из скана
             isPositionReadOnly = item.isPositionFromScan
             editingIndex = index
@@ -422,31 +442,67 @@ fun RenderReceiveList(
         LazyColumn(
             Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(16.dp)
+            contentPadding = PaddingValues(16.dp),
+            reverseLayout = true
         ) {
             itemsIndexed(
                 items = items,
-                key = { index, item -> "${item.matNumScan} ${item.matQtyScan} $index" }
+                key = { index, item -> "${item.matNumScan} ${item.matQtyScan} $index" },
             ) { index, item ->
                 Card(
                     Modifier.fillMaxWidth(),
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
-                    Column(Modifier.padding(12.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("Заказ: ${item.matNumOrder}", style = MaterialTheme.typography.bodyLarge)
-                                Text("Материал: ${item.matNumScan}", style = MaterialTheme.typography.bodyMedium)
-                                Text("Кол-во: ${item.matQtyScan}", style = MaterialTheme.typography.bodyMedium)
+                    Column(
+                        Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(Modifier) {
+                                Text(
+                                    "Заказ: ${item.matNumOrder}",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    "Материал: ${item.matNumScan}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                if (item.matName != "") {
+                                    Text(
+                                        "Наименование: ${item.matName}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                                Text(
+                                    "Кол-во: ${item.matQtyScan}",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                                 if (!item.matPositionSap.isNullOrBlank()) {
-                                    Text("Позиция SAP: ${item.matPositionSap}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                                    Text(
+                                        "Позиция SAP: ${item.matPositionSap}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
                                 }
                             }
                             IconButton(onClick = { onEditClick(index) }) {
-                                Icon(Icons.Default.Edit, "Редактировать", tint = MaterialTheme.colorScheme.primary)
+                                Icon(
+                                    Icons.Default.Edit,
+                                    "Редактировать",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
                             }
                             IconButton(onClick = { onRemoveItem(index) }) {
-                                Icon(Icons.Default.Delete, "Удалить", tint = MaterialTheme.colorScheme.error)
+                                Icon(
+                                    Icons.Default.Delete,
+                                    "Удалить",
+                                    tint = MaterialTheme.colorScheme.error
+                                )
                             }
                         }
                         Spacer(Modifier.height(8.dp))
@@ -470,7 +526,7 @@ fun RenderReceiveList(
                             ) {
                                 Icon(
                                     Icons.Default.CalendarToday,
-                                    contentDescription = "Выбрать дату",
+                                    contentDescription = "Срок годности!",
                                     tint = if (item.Expi.isNotBlank())
                                         MaterialTheme.colorScheme.primary
                                     else
@@ -479,7 +535,7 @@ fun RenderReceiveList(
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
-                                    text = if (item.Expi.isNotBlank()) item.Expi else "Выбрать дату!",
+                                    text = if (item.Expi.isNotBlank()) item.Expi else "Срок годности!",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (item.Expi.isNotBlank())
                                         MaterialTheme.colorScheme.primary
@@ -630,12 +686,12 @@ fun EditReceiveItemDialog(
                         ) {
                             Icon(
                                 Icons.Default.CalendarToday,
-                                contentDescription = "Выбрать дату",
+                                contentDescription = "Срок годности",
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(24.dp)
                             )
                             Text(
-                                text = "Срок годности: ${expiField.ifBlank { "Не выбрано" }}",
+                                text = "Срок годности:\n${expiField.ifBlank { "Не выбрано" }}",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = if (expiField.isNotBlank())
                                     MaterialTheme.colorScheme.primary
@@ -688,8 +744,26 @@ fun WmsReceivePreviewItems() {
         Surface {
             WmsReceiveScreenContent(
                 receiveItems = listOf(
-                    WmsReceiveItem("LA0610402138", "4200011646", 5, true, "10.07.2026", "3051", true),
-                    WmsReceiveItem("LA0610501327", "4200011646", 3, false, "", "", false)
+                    WmsReceiveItem(
+                        "LA0610402138",
+                        "4200011646",
+                        5,
+                        true,
+                        "10.07.2026",
+                        "3051",
+                        true,
+                        "Название 1"
+                    ),
+                    WmsReceiveItem(
+                        "LA0610501327",
+                        "4200011646",
+                        3,
+                        false,
+                        "",
+                        "",
+                        false,
+                        ""
+                    )
                 ),
                 orderNumber = "4200011646",
                 onEditClick = {}, onRemoveItem = {}, onToggleQuality = {},

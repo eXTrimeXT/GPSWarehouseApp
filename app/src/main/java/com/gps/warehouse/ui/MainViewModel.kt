@@ -727,14 +727,14 @@ class MainViewModel @Inject constructor(
                     material = material,
                     qty = qty.toString(),
                     type = "add",  // сервер создаст запись, если id_mat = "0"
-                    id_mat = "0"      // или "" — зависит от поведения API
+                    id_mat = "0"   // или "" — зависит от поведения API
                 )
 
                 // Вызываем API с request в теле
                 val responseBody = apiService.updateOrderMaterial(request = request)
 
                 val responseString = responseBody.string().trim()
-                Log.d("MainViewModel", "Add new material response: $responseString")
+                Log.d("MainViewModel", "[addNewMaterialToOrder] status response: $responseString")
 
                 // Обрабатываем ответ через общий хелпер
                 handleOrderMatResponse(responseString, order, onSuccess, onError)
@@ -743,6 +743,19 @@ class MainViewModel @Inject constructor(
                 Log.e("MainViewModel", "Ошибка addNewMaterialToOrder", e)
                 onError(e.message ?: "Ошибка сети")
             }
+        }
+    }
+
+    suspend fun getNameMaterial(material: String): String {
+        return try {
+            val token = getTokenOrThrow()
+            val request = GetNameMaterialRequest(token = token, material = material)
+            val response = apiService.getNameMaterial(request)
+            Log.d("MainViewModel", "[getNameMaterial] material name: ${response.name}")
+            response.name ?: ""
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Ошибка получения имени материала", e)
+            ""
         }
     }
 
@@ -900,14 +913,14 @@ class MainViewModel @Inject constructor(
 
                 // === ОБРАБОТКА ОТВЕТА ===
 
-                // 1. Проверяем на простые текстовые успехи (сервер может возвращать "ok", "success")
+                // Проверяем на простые текстовые успехи (сервер может возвращать "ok", "success")
                 if (responseString.equals("ok", ignoreCase = true) ||
                     responseString.equals("success", ignoreCase = true)) {
                     _uiState.value = UiState.WmsReceiveSuccess("Приемка успешно завершена")
                     return@launch
                 }
 
-                // 2. Пытаемся распарсить как JSON
+                // Пытаемся распарсить как JSON
                 if (responseString.startsWith("{")) {
                     try {
                         val json = JSONObject(responseString)

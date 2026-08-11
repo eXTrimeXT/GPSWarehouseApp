@@ -90,14 +90,14 @@ fun HomeScreen(
 
 @Composable
 fun isTabFilter(bmList: List<BmListDto>, tab: HomeTab): Boolean {
-//    return (
-//        (tab.title == HomeTab.SETTINGS.title) || // Всегда показываем настройки
+    return (
+        (tab.title == HomeTab.SETTINGS.title) || // Всегда показываем настройки
 //        (tab.title == HomeTab.ASSETS.title && bmList.any { it.name == "Assets" }) ||
-//        (tab.title == HomeTab.ORDERS.title && bmList.any { it.name == "AfterSales" }) ||
-//        (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
-//    )
+        (tab.title == HomeTab.ORDERS.title && bmList.any { it.name == "AfterSales" }) ||
+        (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
+    )
     // Чтобы отображать все NavigationBar возвращаем true
-     return true
+//     return true
 }
 
 @Composable
@@ -210,7 +210,7 @@ fun HomeScreenContent(
                         subtitle = "Доступные типы активов",
                         icon = Icons.Default.Category,
                         onClick = { onNavigate("asset_types") },
-                        isVisible = true
+//                        isVisible = true
                     )
 
                 val isReadAndroid = permissions.any { it.nameGroup == "android_data" && it.read }
@@ -220,7 +220,7 @@ fun HomeScreenContent(
                         subtitle = "Мобильные устройства Android\nHoneywell, Zebra",
                         icon = Icons.Default.PhoneAndroid,
                         onClick = { onNavigate("mobile_devices") },
-                        isVisible = true
+//                        isVisible = true
                     )
 
                 MenuButton(
@@ -228,7 +228,7 @@ fun HomeScreenContent(
                     subtitle = "Список вашего оборудования",
                     icon = Icons.Default.AutoAwesomeMosaic,
                     onClick = { onNavigate("my_assets_list") },
-                    isVisible = true
+//                    isVisible = true
                 )
 
                 val isReadComputers = permissions.any { it.nameGroup == "computer" && it.read }
@@ -238,7 +238,7 @@ fun HomeScreenContent(
                         subtitle = "Компьютеры и их конфигурация",
                         icon = Icons.Default.Computer,
                         onClick = { onNavigate("my_pcs") },
-                        isVisible = true
+//                        isVisible = true
                     )
 
                 MenuButton(
@@ -246,14 +246,14 @@ fun HomeScreenContent(
                     subtitle = "Сессии инвентаризации по типам",
                     icon = Icons.Default.RequestPage,
                     onClick = { onNavigate("inventorization_sessions") },
-                    isVisible = true
+//                    isVisible = true
                 )
                 MenuButton(
                     title = "Карта активов",
                     subtitle = "Карта цехов и активов",
                     icon = Icons.Default.Map,
                     onClick = { onNavigate("assets_map_web") },
-                    isVisible = true
+//                    isVisible = true
                 )
             }
             // Вкладка "Настройки"
@@ -290,7 +290,7 @@ fun MenuButton(
     nameRule: String = "",
     // если true, тогда показываем все вкладки без учета прав,
     // чтобы увидеть все вкладки надо изменить (isTabFilter(bmList, tab) на true
-    isVisible: Boolean = true // true - только для тестов
+    isVisible: Boolean = false // true - только для тестов
 ) {
     if (bmList.any { it.nameRule == nameRule || it.name1 == nameRule } || isVisible) {
 

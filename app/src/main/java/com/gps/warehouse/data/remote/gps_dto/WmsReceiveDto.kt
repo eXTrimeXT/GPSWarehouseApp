@@ -15,8 +15,9 @@ data class WmsReceiveItem(
     @SerializedName("mat_qty_scan") val matQtyScan: Int,        // Фактическое количество
     @SerializedName("check_quality") val checkQuality: Boolean, // Чекбокс "Качество"
     @SerializedName("date_expi") val Expi: String,              // Дата "Срок годности"
-    @SerializedName("position") val matPositionSap: String,      // Позиция в SAP
-    @SerializedName("is_position_from_scan") val isPositionFromScan: Boolean = false // Не отправляем этот параметр!
+    @SerializedName("position") val matPositionSap: String,     // Позиция в SAP
+    val isPositionFromScan: Boolean = false,                            // Не отправляем этот параметр!
+    val matName: String = "",                                           // Не отправляем этот параметр!
 )
 
 data class WmsResponseDto(

@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.BmListDto
 import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.AppIconDisplay
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.home.HomeTab
@@ -157,6 +158,10 @@ fun SettingsContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Иконка приложения
+            if (Constants.BASE_URL_API.contains("gps-rs"))
+            AppIconDisplay()
+
             // ================== НАСТРОЙКА ВКЛАДКИ ПО УМОЛЧАНИЮ ==================
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {

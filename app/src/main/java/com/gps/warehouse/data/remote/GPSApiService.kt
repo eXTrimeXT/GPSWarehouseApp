@@ -115,4 +115,7 @@ interface GPSApiService {
      // Списание материалов со склада
     @POST("wms_write_off")
     suspend fun writeOffMaterials(@Body request: WmsWriteOffRequest): ResponseBody
+
+    @POST("get_info_material")
+    suspend fun getNameMaterial(@Body request: GetNameMaterialRequest): GetNameMaterialResponse
 }

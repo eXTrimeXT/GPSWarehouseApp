@@ -164,3 +164,14 @@ data class WmsRequestActionResponse(
     val status: String,  // "success" или "error"
     val message: String?
 )
+
+
+data class GetNameMaterialRequest(
+    val token: String,
+    val material: String
+)
+
+data class GetNameMaterialResponse(
+    val material: String,
+    val name: String
+)
