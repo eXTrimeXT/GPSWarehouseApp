@@ -12,13 +12,16 @@ android {
         version = release(36)
     }
 
+    /**
+     * Обязательно отредактировать файл com.gps.warehouse.utils.Constants.kt
+     */
     defaultConfig {
         applicationId = "com.gps.warehouse"
         minSdk = 30
         targetSdk = 36
-        versionCode = 15        // 15 -> 16 // - Обновление приложения происходит по этому параметру!!!
-//        versionName = "1.1.3"   // TEST v1.1.3 (текущая) -> v1.1.4
-        versionName = "1.0.2"   // PROD v1.0.2 (текущая) -> v1.0.3
+        versionCode = 14        // 15 (текущая на сервере) -> 16 // - Обновление приложения происходит по этому параметру!!!
+        versionName = "1.1.3"   // TEST v1.1.3 (текущая) -> v1.1.4
+//        versionName = "1.0.1"   // PROD v1.0.2 (текущая) -> v1.0.3
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -245,25 +245,6 @@ fun PackagingScreen(
     )
 }
 
-///**
-//Вспомогательная функция для добавления или обновления материала в списке.
-// */
-//private fun addOrUpdateMaterial(
-//    currentOrder: List<Pair<String, Int>>,
-//    material: String,
-//    qtyToAdd: Int
-//): List<Pair<String, Int>> {
-//    val existingIndex = currentOrder.indexOfFirst { it.first == material }
-//    return if (existingIndex != -1) {
-//        val mutableList = currentOrder.toMutableList()
-//        val oldQty = mutableList[existingIndex].second
-//        mutableList[existingIndex] = Pair(material, oldQty + qtyToAdd)
-//        mutableList.toList()
-//    } else {
-//        currentOrder + Pair(material, qtyToAdd)
-//    }
-//}
-
 /**
  * Добавляет материал или увеличивает количество, если он уже есть.
  * Используется ТОЛЬКО при добавлении нового материала (не при редактировании).
@@ -352,7 +333,6 @@ fun PackagingScreenContent(
                     orderMaterials = orderMaterials,
                     onEditClick = onEditClick,
                     onRequestDelete = onRequestDelete,
-                    onAddManualClick = onAddManualClick
                 )
 
                 // Панель действий внизу блокируется или скрывается, так как процесс завершен
@@ -365,7 +345,6 @@ fun PackagingScreenContent(
                     orderMaterials = orderMaterials,
                     onEditClick = onEditClick,
                     onRequestDelete = onRequestDelete,
-                    onAddManualClick = onAddManualClick
                 )
             }
         }
@@ -377,7 +356,6 @@ fun RenderMaterialsList(
     orderMaterials: List<Pair<String, Int>>,
     onEditClick: (Int) -> Unit,
     onRequestDelete: (Int) -> Unit,
-    onAddManualClick: () -> Unit
 ) {
     if (orderMaterials.isEmpty()) {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {

@@ -466,57 +466,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Метод загрузки данных из складов
-//    fun loadWmsData(page: Int = 1, append: Boolean = false) {
-//        viewModelScope.launch {
-//            if (page == 1) {
-//                _uiState.value = UiState.Loading
-//            } else if (_isLoadingMore.value) return@launch // Защита от дублей
-//
-//            _isLoadingMore.value = true // Старт загрузки
-//
-//            try {
-//                val token = getTokenOrThrow()
-//                val request = GetWmsRequest(
-//                    token = token,
-//                    numSap = currentWmsSearchQuery,
-//                    nameSap = "",
-//                    stloPop = currentStorageFilterId ?: "",
-//                    isHideStock = if (currentHideZeroQty) 1 else 0,
-//                    page = page,
-//                    limit = 20
-//                )
-//
-//                val response = apiService.getWmsData(request)
-//
-//                if (response.data.isNotEmpty()) {
-//                    val newItems = response.data
-//                    if (append) {
-//                        val currentList = when (val state = _uiState.value) {
-//                            is UiState.WmsLoaded -> state.items
-//                            else -> emptyList()
-//                        }
-//                        _uiState.value = UiState.WmsLoaded(currentList + newItems)
-//                    } else {
-//                        _uiState.value = UiState.WmsLoaded(newItems)
-//                    }
-//                    // Обновляем состояние пагинации
-//                    wmsCurrentPage = response.page
-//                    wmsTotalPages = response.pageQty
-//                    totalMaterialsCount = response.materialsCount
-//                } else if (page == 1) {
-//                    _uiState.value = UiState.Error("Нет данных от сервера")
-//                }
-//            } catch (e: HttpException) {
-//                if (page == 1) _uiState.value = UiState.Error("Ошибка сервера: ${e.code()}")
-//            } catch (e: Exception) {
-//                if (page == 1) _uiState.value = UiState.Error(e.message ?: "Ошибка сети")
-//            } finally {
-//                _isLoadingMore.value = false // Сброс флага в любом случае
-//            }
-//        }
-//    }
-
     fun loadWmsData(page: Int = 1, append: Boolean = false) {
         viewModelScope.launch {
             // Не ставим Loading если это подгрузка (append), чтобы не мерцал UI
