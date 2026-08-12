@@ -29,6 +29,7 @@ import com.gps.warehouse.data.remote.gps_dto.BmListDto
 import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.AppPreferences
+import com.gps.warehouse.utils.Constants.TAB_VISIBLE
 
 // Перечисление вкладок нижней навигации
 enum class HomeTab(val title: String, val icon: ImageVector) {
@@ -92,7 +93,7 @@ fun HomeScreen(
 fun isTabFilter(bmList: List<BmListDto>, tab: HomeTab): Boolean {
     return (
         (tab.title == HomeTab.SETTINGS.title) || // Всегда показываем настройки
-//        (tab.title == HomeTab.ASSETS.title && bmList.any { it.name == "Assets" }) ||
+        ((tab.title == HomeTab.ASSETS.title && bmList.any { it.name == "Assets" }) && TAB_VISIBLE) ||
         (tab.title == HomeTab.ORDERS.title && bmList.any { it.name == "AfterSales" }) ||
         (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
     )
@@ -210,7 +211,7 @@ fun HomeScreenContent(
                         subtitle = "Доступные типы активов",
                         icon = Icons.Default.Category,
                         onClick = { onNavigate("asset_types") },
-//                        isVisible = true
+                        isVisible = TAB_VISIBLE
                     )
 
                 val isReadAndroid = permissions.any { it.nameGroup == "android_data" && it.read }
@@ -220,7 +221,7 @@ fun HomeScreenContent(
                         subtitle = "Мобильные устройства Android\nHoneywell, Zebra",
                         icon = Icons.Default.PhoneAndroid,
                         onClick = { onNavigate("mobile_devices") },
-//                        isVisible = true
+                        isVisible = TAB_VISIBLE
                     )
 
                 MenuButton(
@@ -228,7 +229,7 @@ fun HomeScreenContent(
                     subtitle = "Список вашего оборудования",
                     icon = Icons.Default.AutoAwesomeMosaic,
                     onClick = { onNavigate("my_assets_list") },
-//                    isVisible = true
+                    isVisible = TAB_VISIBLE
                 )
 
                 val isReadComputers = permissions.any { it.nameGroup == "computer" && it.read }
@@ -238,7 +239,7 @@ fun HomeScreenContent(
                         subtitle = "Компьютеры и их конфигурация",
                         icon = Icons.Default.Computer,
                         onClick = { onNavigate("my_pcs") },
-//                        isVisible = true
+                        isVisible = TAB_VISIBLE
                     )
 
                 MenuButton(
@@ -246,14 +247,14 @@ fun HomeScreenContent(
                     subtitle = "Сессии инвентаризации по типам",
                     icon = Icons.Default.RequestPage,
                     onClick = { onNavigate("inventorization_sessions") },
-//                    isVisible = true
+                    isVisible = TAB_VISIBLE
                 )
                 MenuButton(
                     title = "Карта активов",
                     subtitle = "Карта цехов и активов",
                     icon = Icons.Default.Map,
                     onClick = { onNavigate("assets_map_web") },
-//                    isVisible = true
+                    isVisible = TAB_VISIBLE
                 )
             }
             // Вкладка "Настройки"
@@ -290,7 +291,7 @@ fun MenuButton(
     nameRule: String = "",
     // если true, тогда показываем все вкладки без учета прав,
     // чтобы увидеть все вкладки надо изменить (isTabFilter(bmList, tab) на true
-    isVisible: Boolean = false // true - только для тестов
+    isVisible: Boolean = TAB_VISIBLE // true - только для тестов (Constants.TAB_VISIBLE)
 ) {
     if (bmList.any { it.nameRule == nameRule || it.name1 == nameRule } || isVisible) {
 

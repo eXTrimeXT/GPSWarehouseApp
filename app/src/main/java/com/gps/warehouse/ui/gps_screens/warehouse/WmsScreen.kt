@@ -180,7 +180,7 @@ fun WmsScreen(
             showOnlyNonZeroQty = false
             viewModel.updateWmsFilters(null, "", false)
         },
-        availableWarehouses = availableWarehouses // ✅ Передаём список вместо ViewModel
+        availableWarehouses = availableWarehouses // Передаём список вместо ViewModel
     )
 }
 
@@ -212,7 +212,7 @@ fun WmsContent(
     showOnlyNonZeroQty: Boolean,
     onShowOnlyNonZeroQtyChange: (Boolean) -> Unit,
     onResetFilters: () -> Unit,
-    availableWarehouses: List<WarehousePermissionDto> // ✅ Заменено viewModel
+    availableWarehouses: List<WarehousePermissionDto>
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         MyCustomActionBar(
@@ -258,9 +258,6 @@ fun WmsContent(
             }
             is MainViewModel.UiState.WmsLoaded -> {
                 val allItems = state.items
-//                val isLoadingMore by (uiState as? MainViewModel.UiState.WmsLoaded)?.let {
-//                    // В реальном приложении isLoadingMore берётся из ViewModel, здесь упрощено для превью
-//                } ?: { false }
                 val lazyListState = rememberLazyListState()
 
                 // Автозагрузка (если включена пагинация в ViewModel)
@@ -335,52 +332,6 @@ fun WmsItemCard(item: WmsItemDto, onClick: () -> Unit) {
         }
     }
 }
-
-// --- PREVIEWS ---
-//@Preview(showBackground = true, name = "WMS Screen - Loaded")
-//@Composable
-//fun WmsPreviewLoaded() {
-//    val fakeItems = listOf(
-//        WmsItemDto(id = 66, material = "LA0602600443", max = 2, min = 0, position = "BUFF", price = 150.0, qty = 4.0, sapA = 1, storage = "3051", storageId = 1, name = "СИГНАЛИЗАЦИОННАЯ ЛАМПА"),
-//        WmsItemDto(id = 67, material = "LA0713000190", max = 5, min = 1, position = "A-01", price = 1200.0, qty = 10.0, sapA = 1, storage = "4007", storageId = 2, name = "Станция зарядки")
-//    )
-//    MaterialTheme {
-//        Surface {
-//            WmsContent(
-//                uiState = MainViewModel.UiState.WmsLoaded(fakeItems),
-//                searchQuery = "",
-//                onSearchQueryChange = {},
-//                selectedStorageFilterId = null,
-//                onStorageFilterSelected = {},
-//                isFiltersExpanded = false,
-//                showDialogSuccess = true,
-//                onToggleFilters = {},
-//                onBackClick = {},
-//                onNavigateToRequests = {},
-//                onRetryClick = {},
-//                onItemClick = {},
-//                showMoveDialog = false,
-//                itemToMove = null,
-//                moveQty = "1",
-//                onMoveQtyChange = {},
-//                targetStorage = "",
-//                onTargetStorageChange = {},
-//                dialogError = null,
-//                onClearDialogError = {},
-//                onDismissMoveDialog = {},
-//                onConfirmMove = { _, _, _ -> },
-//                onSuccessAcknowledge = {},
-//                showOnlyNonZeroQty = true,
-//                onShowOnlyNonZeroQtyChange = {},
-//                onResetFilters = {},
-//                availableWarehouses = listOf(
-//                    WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
-//                    WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0")
-//                )
-//            )
-//        }
-//    }
-//}
 
 /**
  * Диалог перемещения с поддержкой отображения успеха и кнопкой ОК.
@@ -601,7 +552,6 @@ fun MoveMaterialDialog(
 }
 
 // --- PREVIEWS ---
-// --- PREVIEWS ---
 @Preview(showBackground = true, name = "WMS Screen - Loaded")
 @Composable
 fun WmsPreviewLoaded() {
@@ -676,4 +626,46 @@ fun DialogPreview() {
         onConfirmMove = {},
         onSuccessAcknowledge = {}
     )
+}
+
+
+@Preview(showBackground = true, name = "WMS Screen - Error")
+@Composable
+fun WmsPreviewError() {
+    MaterialTheme {
+        Surface {
+            WmsContent(
+                uiState = MainViewModel.UiState.Error("Network Error"),
+                searchQuery = "",
+                onSearchQueryChange = {},
+                selectedStorageFilterId = null,
+                onStorageFilterSelected = {},
+                isFiltersExpanded = false,
+                showDialogSuccess = true,
+                onToggleFilters = {},
+                onBackClick = {},
+                onNavigateToRequests = {},
+                onRetryClick = {},
+                onItemClick = {},
+                showMoveDialog = false,
+                itemToMove = null,
+                moveQty = "1",
+                onMoveQtyChange = {},
+                targetStorage = "",
+                onTargetStorageChange = {},
+                dialogError = null,
+                onClearDialogError = {},
+                onDismissMoveDialog = {},
+                onConfirmMove = { _, _, _ -> },
+                onSuccessAcknowledge = {},
+                showOnlyNonZeroQty = true,
+                onShowOnlyNonZeroQtyChange = {},
+                onResetFilters = {},
+                availableWarehouses = listOf(
+                    WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
+                    WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0")
+                )
+            )
+        }
+    }
 }

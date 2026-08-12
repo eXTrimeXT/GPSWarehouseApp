@@ -101,7 +101,8 @@ fun WmsReceiveScreen(
                                 Expi = "",
                                 matPositionSap = scanResult.matPosition,
                                 isPositionFromScan = true,
-                                matName = "" // Временно пусто
+                                matName = "", // Временно пусто,
+                                qtyOrder = scanResult.matQtyScan
                             )
 
                             // Сразу добавляем элемент в список (чтобы он отобразился)
@@ -164,7 +165,8 @@ fun WmsReceiveScreen(
                         Expi = exp,
                         matPositionSap = pos,
                         // Сохраняем флаг: если редактируем отсканированный — позиция остаётся readOnly
-                        isPositionFromScan = isPositionReadOnly
+                        isPositionFromScan = isPositionReadOnly,
+                        qtyOrder = qtyInt,
                     )
                     receiveItems = if (editingIndex != null) {
                         receiveItems.toMutableList().apply { set(editingIndex!!, newItem) }
@@ -425,7 +427,7 @@ fun WmsReceiveScreenContent(
     }
 }
 
-// ====================== 3. СПИСОК МАТЕРИАЛОВ ======================
+// ====================== СПИСОК МАТЕРИАЛОВ ======================
 @Composable
 fun RenderReceiveList(
     items: List<WmsReceiveItem>,
@@ -450,98 +452,110 @@ fun RenderReceiveList(
                 key = { index, item -> "${item.matNumScan} ${item.matQtyScan} $index" },
             ) { index, item ->
                 Card(
-                    Modifier.fillMaxWidth(),
-                    elevation = CardDefaults.cardElevation(2.dp)
+                    Modifier.fillMaxWidth().clickable(onClick = { onEditClick(index) }),
+                    elevation = CardDefaults.cardElevation(2.dp),
                 ) {
-                    Column(
-                        Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
+                    // Box позволяет позиционировать кнопки по углам
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        // === ЛЕВАЯ ЧАСТЬ: Информация о материале ===
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f) // % ширины для контента
+                                .padding(12.dp)         // Отступ для красоты текста
                         ) {
-                            Column(Modifier) {
+                            Text(
+                                "Заказ: ${item.matNumOrder}",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                "Материал: ${item.matNumScan}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            if (item.matName.isNotBlank()) {
                                 Text(
-                                    "Заказ: ${item.matNumOrder}",
-                                    style = MaterialTheme.typography.bodyLarge
+                                    "Наименование: ${item.matName}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
+                            }
+                            Text(
+                                "Кол-во: ${item.matQtyScan}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                "Кол-во в накладной: ${item.qtyOrder}",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            if (!item.matPositionSap.isNullOrBlank()) {
                                 Text(
-                                    "Материал: ${item.matNumScan}",
-                                    style = MaterialTheme.typography.bodyMedium
+                                    "Позиция SAP: ${item.matPositionSap}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
                                 )
-                                if (item.matName != "") {
-                                    Text(
-                                        "Наименование: ${item.matName}",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.primary
+                            }
+                            Spacer(Modifier.height(8.dp))
+
+                            // Нижняя строка: качество + дата
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Checkbox(
+                                        checked = item.checkQuality,
+                                        onCheckedChange = { onToggleQuality(index) }
                                     )
+                                    Text("Качество", style = MaterialTheme.typography.bodySmall)
                                 }
-                                Text(
-                                    "Кол-во: ${item.matQtyScan}",
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                                if (!item.matPositionSap.isNullOrBlank()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { onExpiDateClick(index, item.Expi) }
+                                ) {
+                                    Icon(
+                                        Icons.Default.CalendarToday,
+                                        contentDescription = "Срок годности!",
+                                        tint = if (item.Expi.isNotBlank())
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.error,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
                                     Text(
-                                        "Позиция SAP: ${item.matPositionSap}",
+                                        text = if (item.Expi.isNotBlank()) item.Expi else "Срок годности!",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary
+                                        color = if (item.Expi.isNotBlank())
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.error,
+                                        fontWeight = if (item.Expi.isNotBlank()) FontWeight.Normal else FontWeight.Bold
                                     )
                                 }
                             }
-                            IconButton(onClick = { onEditClick(index) }) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    "Редактировать",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                            IconButton(onClick = { onRemoveItem(index) }) {
+                        }
+
+                        // ПРАВАЯ ЧАСТЬ: Кнопки (вертикально: сверху редактировать, снизу удалить)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxHeight(0.7f) // Занимаем всю высоту для распределения кнопок
+                                .align(Alignment.TopEnd), // Прижимаем к правому краю
+                            verticalArrangement = Arrangement.SpaceBetween, // Кнопки по краям
+                        ) {
+                            // Кнопка удаления — СВЕРХУ справа
+                            IconButton(
+                                onClick = { onRemoveItem(index) },
+                            ) {
                                 Icon(
                                     Icons.Default.Delete,
                                     "Удалить",
                                     tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Checkbox(checked = item.checkQuality, onCheckedChange = { onToggleQuality(index) })
-                                Text("Качество", style = MaterialTheme.typography.bodySmall)
-                            }
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clickable { onExpiDateClick(index, item.Expi) }
-                            ) {
-                                Icon(
-                                    Icons.Default.CalendarToday,
-                                    contentDescription = "Срок годности!",
-                                    tint = if (item.Expi.isNotBlank())
-                                        MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    text = if (item.Expi.isNotBlank()) item.Expi else "Срок годности!",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (item.Expi.isNotBlank())
-                                        MaterialTheme.colorScheme.primary
-                                    else
-                                        MaterialTheme.colorScheme.error,
-                                    fontWeight = if (item.Expi.isNotBlank()) FontWeight.Normal else FontWeight.Bold
                                 )
                             }
                         }
@@ -751,8 +765,9 @@ fun WmsReceivePreviewItems() {
                         true,
                         "10.07.2026",
                         "3051",
-                        true,
-                        "Название 1"
+                        isPositionFromScan = true,
+                        matName = "Название 1",
+                        qtyOrder = 5
                     ),
                     WmsReceiveItem(
                         "LA0610501327",
@@ -761,8 +776,9 @@ fun WmsReceivePreviewItems() {
                         false,
                         "",
                         "",
-                        false,
-                        ""
+                        isPositionFromScan = false,
+                        matName = "Название 2",
+                        qtyOrder = 3
                     )
                 ),
                 orderNumber = "4200011646",
