@@ -2,7 +2,7 @@ package com.gps.warehouse.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gps.warehouse.data.local.TokenStorage
+import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,7 +19,7 @@ sealed class UiState {
 
 @HiltViewModel
 open class MobileDevicesViewModel @Inject constructor(
-    private val tokenStorage: TokenStorage,
+    private val localStorage: LocalStorage,
     private val apiService: AssetApiService
 ) : ViewModel() {
 
@@ -33,7 +33,7 @@ open class MobileDevicesViewModel @Inject constructor(
     val actionMessage: StateFlow<String?> = _actionMessage
 
     private suspend fun getToken(): String {
-        return tokenStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации.")
+        return localStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации.")
     }
 
     fun loadDevices(serialNumber: String? = null) {

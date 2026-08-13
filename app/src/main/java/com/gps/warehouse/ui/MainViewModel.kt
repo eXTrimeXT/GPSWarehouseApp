@@ -4,11 +4,10 @@ import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gps.warehouse.data.local.TokenStorage
+import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.GPSApiService
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
-import com.gps.warehouse.utils.Constants.BASE_URL_API
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
 import com.gps.warehouse.utils.RsaUtils.encryptPassword
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,7 +20,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
-import retrofit2.HttpException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -30,7 +28,7 @@ import kotlin.system.exitProcess
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    private val tokenStorage: TokenStorage,
+    private val localStorage: LocalStorage,
     private val apiService: GPSApiService,
 ) : ViewModel() {
 
@@ -158,10 +156,10 @@ class MainViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             // Собираем поток токена
-            tokenStorage.tokenFlow.collect { token ->
+            localStorage.tokenFlow.collect { token ->
                 isSessionValid(token)
             }
-            tokenStorage.themeModeFlow.collect { mode ->
+            localStorage.themeModeFlow.collect { mode ->
                 _themeMode.value = mode
             }
         }
@@ -178,8 +176,8 @@ class MainViewModel @Inject constructor(
             while (true) {
                 delay(SESSION_DURATION_MS) // Проверка каждые N минут
 
-                val token = tokenStorage.getToken()
-                val timestamp = tokenStorage.getLoginTimestamp()
+                val token = localStorage.getToken()
+                val timestamp = localStorage.getLoginTimestamp()
 
                 if (token != null && timestamp != null) {
                     val currentTime = System.currentTimeMillis()
@@ -213,7 +211,7 @@ class MainViewModel @Inject constructor(
         }
 
         // Если времени нет, считаем сессию невалидной
-        val timestamp = tokenStorage.getLoginTimestamp() ?: return true
+        val timestamp = localStorage.getLoginTimestamp() ?: return true
 
         val currentTime = System.currentTimeMillis()
         if ((currentTime - timestamp) > SESSION_DURATION_MS) {
@@ -249,7 +247,7 @@ class MainViewModel @Inject constructor(
                     val gpsToken = gpsResponse.data.token
 
                     // 4. Сохраняем токен
-                    tokenStorage.saveToken(gpsToken)
+                    localStorage.saveToken(gpsToken)
                     currentToken = gpsToken
                     currentLogin = username
 
@@ -272,7 +270,7 @@ class MainViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
-            tokenStorage.clearToken()
+            localStorage.clearToken()
             currentToken = null
             _uiState.value = UiState.Idle
         }
@@ -1091,7 +1089,7 @@ class MainViewModel @Inject constructor(
 
     // --- Helpers ---
     private suspend fun getTokenOrThrow(): String {
-        return currentToken ?: tokenStorage.getToken()
+        return currentToken ?: localStorage.getToken()
         ?: throw Exception("Пользователь не авторизован")
     }
 

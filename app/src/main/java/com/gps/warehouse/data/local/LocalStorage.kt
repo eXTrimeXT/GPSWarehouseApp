@@ -1,14 +1,16 @@
 package com.gps.warehouse.data.local
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-import com.gps.warehouse.data.local.TokenStorage.PreferencesKeys.LOGIN_TIMESTAMP
-import com.gps.warehouse.data.local.TokenStorage.PreferencesKeys.THEME_MODE_KEY
-import com.gps.warehouse.data.local.TokenStorage.PreferencesKeys.TOKEN
+import com.gps.warehouse.data.local.LocalStorage.PreferencesKeys.KEY_CAMERA_SCAN
+import com.gps.warehouse.data.local.LocalStorage.PreferencesKeys.LOGIN_TIMESTAMP
+import com.gps.warehouse.data.local.LocalStorage.PreferencesKeys.THEME_MODE_KEY
+import com.gps.warehouse.data.local.LocalStorage.PreferencesKeys.TOKEN
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +25,7 @@ import javax.inject.Singleton
 private val Context.dataStore by preferencesDataStore(name = Constants.TOKEN_PREFS_NAME)
 
 @Singleton
-class TokenStorage @Inject constructor(private val context: Context) {
+class LocalStorage @Inject constructor(private val context: Context) {
     object PreferencesKeys {
         // Работа с ТОКЕНОМ
         val TOKEN = stringPreferencesKey(Constants.TOKEN_KEY)
@@ -31,6 +33,9 @@ class TokenStorage @Inject constructor(private val context: Context) {
 
         // Для Темы
         val THEME_MODE_KEY = stringPreferencesKey("theme_mode")
+
+        // Для камеры
+        val KEY_CAMERA_SCAN = booleanPreferencesKey("camera_scan_enabled")
     }
 
     // ======================== ТОКЕН ========================
@@ -62,6 +67,7 @@ class TokenStorage @Inject constructor(private val context: Context) {
     // ======================== ТОКЕН ========================
 
 
+    // ======================== Тема ========================
     suspend fun saveThemeMode(mode: AppThemeMode) {
         context.dataStore.edit {
             it[THEME_MODE_KEY] = mode.value
@@ -90,4 +96,16 @@ class TokenStorage @Inject constructor(private val context: Context) {
             val value = preferences[THEME_MODE_KEY] ?: AppThemeMode.SYSTEM.value
             AppThemeMode.entries.firstOrNull { it.value == value } ?: AppThemeMode.SYSTEM
         }
+    // ======================== Тема ========================
+
+
+    // ======================== Камера ========================
+    val cameraScanEnabled: Flow<Boolean> = context.dataStore.data
+        .map { prefs -> prefs[KEY_CAMERA_SCAN] ?: false }
+
+    suspend fun setCameraScanEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs -> prefs[KEY_CAMERA_SCAN] = enabled }
+    }
+    // ======================== Камера ========================
+
 }

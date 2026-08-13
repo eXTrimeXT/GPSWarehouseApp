@@ -1,10 +1,9 @@
 package com.gps.warehouse.ui
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
-import com.gps.warehouse.data.local.TokenStorage
+import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
@@ -15,8 +14,6 @@ import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
-import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
-import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +26,7 @@ import kotlin.jvm.java
 
 @HiltViewModel
 class AssetViewModel @Inject constructor(
-    private val tokenStorage: TokenStorage,
+    private val localStorage: LocalStorage,
     private val assetApiService: AssetApiService
 ) : ViewModel() {
 
@@ -112,7 +109,7 @@ class AssetViewModel @Inject constructor(
     }
 
     suspend fun getToken(): String {
-        return tokenStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации. Выполните вход заново.")
+        return localStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации. Выполните вход заново.")
     }
 
     fun loadMyAssets() {

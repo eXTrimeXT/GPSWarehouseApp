@@ -63,7 +63,7 @@ android {
 }
 
 dependencies {
-    // Подключение локальной библиотеки для Сканера
+    // Подключение локальной библиотеки для Сканера Honeywell
     implementation(files("libs/DataCollection.aar"))
 
     implementation(libs.androidx.core.ktx)
@@ -113,4 +113,13 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
+
+    // CameraX
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+
+    // ML Kit — распознавание штрихкодов/QR
+    implementation(libs.barcode.scanning)
 }

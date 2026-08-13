@@ -1,8 +1,7 @@
 package com.gps.warehouse.di
 
 import android.content.Context
-import com.gps.warehouse.data.local.TokenStorage
-import com.gps.warehouse.utils.Constants
+import com.gps.warehouse.data.local.LocalStorage
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -16,7 +15,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideTokenStorage(@ApplicationContext context: Context): TokenStorage {
-        return TokenStorage(context)
+    fun provideLocalStorage(@ApplicationContext context: Context): LocalStorage {
+        return LocalStorage(context)
     }
 }
