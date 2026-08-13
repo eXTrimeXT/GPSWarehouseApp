@@ -30,9 +30,12 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.WmsReceiveItem
 import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.CameraScanButton
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.utils.Constants.ROUTE_CAMERA_SCAN
+import com.gps.warehouse.utils.HandleScanResult
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.decodeWmsReceiveScreen
 import com.gps.warehouse.utils.isBase64EncodedJson
@@ -52,6 +55,9 @@ fun WmsReceiveScreen(
     var receiveItems by remember { mutableStateOf<List<WmsReceiveItem>>(emptyList()) }
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+
+    // Подписываемся на настройку
+    val cameraScanEnabled by viewModel.cameraScanEnabled.collectAsState()
 
     // Состояния диалога редактирования
     var showDialog by remember { mutableStateOf(false) }
@@ -144,6 +150,19 @@ fun WmsReceiveScreen(
             }
         }
     }
+
+    // Ловим результат сканирования
+    HandleScanResult(navController) { scannedCode ->
+        val materialCode = scannedCode // Автоматически вставляем в поле
+        // Можно сразу отправить запрос на сервер, если нужно
+    }
+
+    // Единая кнопка. Если cameraScanEnabled = false, она НЕ отрисуется
+    CameraScanButton(
+        cameraScanEnabled = cameraScanEnabled,
+        onClick = { navController.navigate(ROUTE_CAMERA_SCAN) },
+        modifier = Modifier.fillMaxWidth()
+    )
 
     // Инициализация сканера
     DisposableEffect(Unit) {

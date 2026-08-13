@@ -122,4 +122,7 @@ dependencies {
 
     // ML Kit — распознавание штрихкодов/QR
     implementation(libs.barcode.scanning)
+
+    // Lifecycle (для HandleScanResult)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 }

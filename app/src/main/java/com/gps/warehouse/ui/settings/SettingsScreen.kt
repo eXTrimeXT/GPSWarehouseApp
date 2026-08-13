@@ -73,6 +73,8 @@ fun SettingsScreen(
     }
 
     SettingsContent(
+        cameraScanEnabled = true,
+        onCameraScanToggle = {},
         currentVersionName = currentVersionName,
         currentVersionCode = currentVersionCode,
         savedTabIndex = savedTabIndex,
@@ -129,6 +131,8 @@ fun SettingsScreen(
 // ====================== 2. CONTENT (Чистый UI) ======================
 @Composable
 fun SettingsContent(
+    cameraScanEnabled: Boolean,
+    onCameraScanToggle: (Boolean) -> Unit,
     currentVersionName: String,
     currentVersionCode: Int,
     savedTabIndex: Int,
@@ -202,6 +206,29 @@ fun SettingsContent(
                             }
                         }
                     }
+                }
+            }
+
+            // === НОВЫЙ БЛОК: Сканирование камерой ===
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Сканирование камерой", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Использовать камеру телефона для сканирования",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = cameraScanEnabled,
+                        onCheckedChange = onCameraScanToggle
+                    )
                 }
             }
 
@@ -293,6 +320,8 @@ fun SettingsContentPreview_Downloading() {
     MaterialTheme {
         Surface {
             SettingsContent(
+                cameraScanEnabled = false,
+                onCameraScanToggle = {},
                 currentVersionName = "1.2.3",
                 currentVersionCode = 42,
                 savedTabIndex = 1,
@@ -319,6 +348,8 @@ fun SettingsContentPreview_UpdateAvailable() {
     MaterialTheme {
         Surface {
             SettingsContent(
+                cameraScanEnabled = true,
+                onCameraScanToggle = {},
                 currentVersionName = "1.2.3",
                 currentVersionCode = 42,
                 savedTabIndex = 1,

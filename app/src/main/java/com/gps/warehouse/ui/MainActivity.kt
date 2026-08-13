@@ -55,8 +55,10 @@ import com.gps.warehouse.ui.gps_screens.warehouse.WmsReceiveScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsRequestsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsWriteOffScreen
+import com.gps.warehouse.ui.scanner.CameraScannerScreen
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants
+import com.gps.warehouse.utils.Constants.ROUTE_CAMERA_SCAN
 import com.gps.warehouse.utils.DataWedgeProfileManager
 import com.gps.warehouse.utils.UpdateManager
 import dagger.hilt.android.AndroidEntryPoint
@@ -148,6 +150,10 @@ class MainActivity : ComponentActivity() {
                                 viewModel = mainViewModel
                             )
                         }
+                        composable(ROUTE_CAMERA_SCAN) {
+                            CameraScannerScreen(navController = navController)
+                        }
+
                         composable("home") {
                             HomeScreen(
                                 navController = navController,

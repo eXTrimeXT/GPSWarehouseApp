@@ -24,4 +24,7 @@ object Constants {
     // Константа в миллисекундах: час*минута*секунда*миллисекунда
     const val SESSION_DURATION_MS = 12 * 60 * 60 * 1000L // 12 часов
 
+    // Константа для NavHost (MainActivity)
+    const val ROUTE_CAMERA_SCAN = "camera_scan"
+
 }

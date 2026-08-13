@@ -15,8 +15,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONException
 import org.json.JSONObject
@@ -153,6 +155,9 @@ class MainViewModel @Inject constructor(
     private val _bmList = MutableStateFlow<List<BmListDto>>(emptyList())
     val bmList: StateFlow<List<BmListDto>> = _bmList.asStateFlow()
 
+    val cameraScanEnabled: StateFlow<Boolean> = localStorage.cameraScanEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     init {
         viewModelScope.launch {
             // Собираем поток токена
@@ -273,6 +278,12 @@ class MainViewModel @Inject constructor(
             localStorage.clearToken()
             currentToken = null
             _uiState.value = UiState.Idle
+        }
+    }
+
+    fun setCameraScanEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            localStorage.setCameraScanEnabled(enabled)
         }
     }
 
