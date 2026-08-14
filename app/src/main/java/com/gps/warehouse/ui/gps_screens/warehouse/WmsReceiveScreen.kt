@@ -1,7 +1,9 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
+import android.R
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
@@ -17,6 +19,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -87,82 +90,85 @@ fun WmsReceiveScreen(
 
     val honeywellHelper = remember { ScannerManager(context) }
 
-    // Слушаем сканер
-    LaunchedEffect(Unit) {
-        honeywellHelper.barcodeFlow.collect { scannedData ->
-            if (scannedData.isNotEmpty()) {
-                val trimmedData = scannedData.trim()
-                if (isBase64EncodedJson(trimmedData)) {
-                    val scanResult = decodeWmsReceiveScreen(trimmedData)
-                    Log.d(TAG, "scanResult = $scanResult")
-                    if (scanResult != null) {
-                        if (showDialog) {
-                            // Если диалог открыт — заполняем ТОЛЬКО артикул
-                            dialogMaterial = scanResult.matNumScan
-                        } else {
-                            // Сначала создаём элемент ВРЕМЕННО без имени
-                            val orderNumberToUse =
-                                if (scanResult.matNumOrder == orderNumber || orderNumber.isEmpty()) {
-                                    scanResult.matNumOrder
-                                } else {
-                                    orderNumber
-                                }
-
-                            val tempItem = WmsReceiveItem(
-                                matNumScan = scanResult.matNumScan,
-                                matNumOrder = orderNumberToUse,
-                                matQtyOrder = scanResult.matQtyScan,
-                                checkQuality = true,
-                                Expi = "",
-                                matPositionSap = scanResult.matPosition,
-                                isPositionFromScan = true,
-                                matName = "", // Временно пусто,
-                                qtyOrder = scanResult.matQtyScan
-                            )
-
-                            // Сразу добавляем элемент в список (чтобы он отобразился)
-                            receiveItems = receiveItems + tempItem
-
-                            // Асинхронно запрашиваем имя и обновляем элемент в списке
-                            scope.launch {
-                                val nameMaterial = viewModel.getNameMaterial(scanResult.matNumScan)
-                                Log.d(TAG, "MATERIAL NAME: $nameMaterial")
-
-                                // Находим индекс элемента по артикулу и обновляем с именем
-                                val index = receiveItems.indexOfFirst {
-                                    it.matNumScan == scanResult.matNumScan && it.matName.isEmpty()
-                                }
-                                if (index != -1) {
-                                    receiveItems = receiveItems.toMutableList().apply {
-                                        set(index, get(index).copy(matName = nameMaterial))
-                                    }
+    fun processScannedData(scannedData: String) {
+        if (scannedData.isNotEmpty()) {
+            val trimmedData = scannedData.trim()
+            if (isBase64EncodedJson(trimmedData)) {
+                val scanResult = decodeWmsReceiveScreen(trimmedData)
+                Log.d(TAG, "scanResult = $scanResult")
+                if (scanResult != null) {
+                    if (showDialog) {
+                        // Если диалог открыт — заполняем ТОЛЬКО артикул
+                        dialogMaterial = scanResult.matNumScan
+                    } else {
+                        // Сначала создаём элемент ВРЕМЕННО без имени
+                        val orderNumberToUse =
+                            if (scanResult.matNumOrder == orderNumber || orderNumber.isEmpty()) {
+                                scanResult.matNumOrder
+                            } else {
+                                orderNumber
+                            }
+                        val tempItem = WmsReceiveItem(
+                            matNumScan = scanResult.matNumScan,
+                            matNumOrder = orderNumberToUse,
+                            matQtyOrder = scanResult.matQtyScan,
+                            checkQuality = true,
+                            Expi = "",
+                            matPositionSap = scanResult.matPosition,
+                            isPositionFromScan = true,
+                            matName = "", // Временно пусто,
+                            qtyOrder = scanResult.matQtyScan
+                        )
+                        // Сразу добавляем элемент в список (чтобы он отобразился)
+                        receiveItems = receiveItems + tempItem
+                        // Асинхронно запрашиваем имя и обновляем элемент в списке
+                        scope.launch {
+                            val nameMaterial = viewModel.getNameMaterial(scanResult.matNumScan)
+                            Log.d(TAG, "MATERIAL NAME: $nameMaterial")
+                            // Находим индекс элемента по артикулу и обновляем с именем
+                            val index = receiveItems.indexOfFirst {
+                                it.matNumScan == scanResult.matNumScan && it.matName.isEmpty()
+                            }
+                            if (index != -1) {
+                                receiveItems = receiveItems.toMutableList().apply {
+                                    set(index, get(index).copy(matName = nameMaterial))
                                 }
                             }
                         }
-                    } else {
-                        Toast.makeText(
-                            context,
-                            "Ошибка распознавания данных скана!",
-                            Toast.LENGTH_SHORT
-                        ).show()
+                    }
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Ошибка распознавания данных скана!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                // Не base64 JSON — просто артикул
+                if (showDialog) {
+                    dialogMaterial = trimmedData
+                    // Автозапрос имени
+                    scope.launch {
+                        isUpdatingName = true
+                        dialogMatName = viewModel.getNameMaterial(trimmedData)
+                        isUpdatingName = false
                     }
                 }
             }
         }
     }
 
-    // Ловим результат сканирования
-    HandleScanResult(navController) { scannedCode ->
-        val materialCode = scannedCode // Автоматически вставляем в поле
-        // Можно сразу отправить запрос на сервер, если нужно
+    // Слушаем сканер Honeywell
+    LaunchedEffect(Unit) {
+        honeywellHelper.barcodeFlow.collect { scannedData ->
+            processScannedData(scannedData)
+        }
     }
 
-    // Единая кнопка. Если cameraScanEnabled = false, она НЕ отрисуется
-    CameraScanButton(
-        cameraScanEnabled = cameraScanEnabled,
-        onClick = { navController.navigate(ROUTE_CAMERA_SCAN) },
-        modifier = Modifier.fillMaxWidth()
-    )
+    // Ловим результат сканирования с КАМЕРЫ
+    HandleScanResult(navController) { scannedCode ->
+        processScannedData(scannedCode)
+    }
 
     // Инициализация сканера
     DisposableEffect(Unit) {
@@ -359,6 +365,8 @@ fun WmsReceiveScreen(
     WmsReceiveScreenContent(
         receiveItems = receiveItems,
         orderNumber = orderNumber,
+        cameraScanEnabled = cameraScanEnabled,
+        onCameraScanClick = { navController.navigate(ROUTE_CAMERA_SCAN) },
         onEditClick = { index ->
             val item = receiveItems[index]
             dialogMaterial = item.matNumScan
@@ -442,6 +450,8 @@ private fun formatDate(timestamp: Long): String {
 fun WmsReceiveScreenContent(
     receiveItems: List<WmsReceiveItem>,
     orderNumber: String,
+    cameraScanEnabled: Boolean,
+    onCameraScanClick: () -> Unit,
     onEditClick: (Int) -> Unit,
     onRequestDelete: (Int) -> Unit,
     onToggleQuality: (Int) -> Unit,
@@ -452,59 +462,67 @@ fun WmsReceiveScreenContent(
     onRetryClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        MyCustomActionBar(
-            onBackClick = onBackClick,
-            text = "Приемка",
-            actionButton = {
-                IconButton(onClick = onAddManualClick) {
-                    Icon(
-                        Icons.Default.AddBox,
-                        contentDescription = "Добавить вручную",
-                        tint = MaterialTheme.colorScheme.primary,
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            MyCustomActionBar(
+                onBackClick = onBackClick,
+                text = "Приемка",
+                actionButton = {
+                    IconButton(onClick = onAddManualClick) {
+                        Icon(
+                            Icons.Default.AddBox,
+                            contentDescription = "Добавить вручную",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            )
+
+            if (uiState !is MainViewModel.UiState.WmsReceiveSuccess &&
+                uiState !is MainViewModel.UiState.Loading &&
+                uiState !is MainViewModel.UiState.Error
+            ) {
+                Column(modifier = Modifier.padding(8.dp)) {
+                    // === ЛОГИКА ДЛЯ КНОПКИ ===
+                    val isReadyToComplete = receiveItems.isNotEmpty() &&
+                            receiveItems.all { it.matPositionSap.isNotBlank() }
+
+                    Button(
+                        onClick = onReceiveClick,
+                        enabled = isReadyToComplete,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Завершить приемку (${receiveItems.sumOf { it.matQtyOrder }} шт.)")
+                    }
+                }
+            }
+
+            when (uiState) {
+                is MainViewModel.UiState.Loading -> CustomLoadingView()
+                is MainViewModel.UiState.Error -> ErrorStateView(
+                    message = uiState.message,
+                    onRetry = onRetryClick,
+                    modifier = Modifier.weight(1f)
+                )
+
+                else -> {
+                    RenderReceiveList(
+                        items = receiveItems,
+                        onEditClick = onEditClick,
+                        onRequestDelete = onRequestDelete,
+                        onToggleQuality = onToggleQuality,
+                        onExpiDateClick = onExpiDateClick,
                     )
                 }
             }
+        }
+
+        // Плавающая кнопка сканирования (только если включено в настройках)
+        CameraScanButton(
+            onClick = onCameraScanClick,
+            cameraScanEnabled = cameraScanEnabled,
+            modifier = Modifier.align(Alignment.BottomEnd)
         )
-
-        if (uiState !is MainViewModel.UiState.WmsReceiveSuccess &&
-            uiState !is MainViewModel.UiState.Loading &&
-            uiState !is MainViewModel.UiState.Error
-        ) {
-            Column(modifier = Modifier.padding(8.dp)) {
-
-                // === ЛОГИКА ДЛЯ КНОПКИ ===
-                val isReadyToComplete = receiveItems.isNotEmpty() &&
-                        receiveItems.all { it.matPositionSap.isNotBlank() }
-
-                Button(
-                    onClick = onReceiveClick,
-                    enabled = isReadyToComplete,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Завершить приемку (${receiveItems.sumOf { it.matQtyOrder }} шт.)")
-                }
-            }
-        }
-
-        when (uiState) {
-            is MainViewModel.UiState.Loading -> CustomLoadingView()
-            is MainViewModel.UiState.Error -> ErrorStateView(
-                message = uiState.message,
-                onRetry = onRetryClick,
-                modifier = Modifier.weight(1f)
-            )
-
-            else -> {
-                RenderReceiveList(
-                    items = receiveItems,
-                    onEditClick = onEditClick,
-                    onRequestDelete = onRequestDelete,
-                    onToggleQuality = onToggleQuality,
-                    onExpiDateClick = onExpiDateClick
-                )
-            }
-        }
     }
 }
 
@@ -989,6 +1007,8 @@ fun WmsReceivePreviewEmpty() {
             WmsReceiveScreenContent(
                 receiveItems = emptyList(),
                 orderNumber = "4200011646",
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
                 onEditClick = {}, onRequestDelete = {}, onToggleQuality = {},
                 onExpiDateClick = { _, _ -> },
                 onAddManualClick = {}, uiState = MainViewModel.UiState.Idle,
@@ -1031,6 +1051,8 @@ fun WmsReceivePreviewItems() {
                     )
                 ),
                 orderNumber = "4200011646",
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
                 onEditClick = {}, onRequestDelete = {}, onToggleQuality = {},
                 onExpiDateClick = { _, _ -> },
                 onAddManualClick = {}, uiState = MainViewModel.UiState.Idle,

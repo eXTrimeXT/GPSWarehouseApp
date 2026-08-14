@@ -51,6 +51,8 @@ fun SettingsScreen(
     val isUserAssetsAdmin by viewModel.userIsAssetsAdmin.collectAsState()
     val bmList by viewModel.bmList.collectAsState()
 
+    // Для камеры
+    val cameraScanEnabled by viewModel.cameraScanEnabled.collectAsState()
 
     // Флаг: есть ли права доступа
     val hasPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
@@ -73,8 +75,8 @@ fun SettingsScreen(
     }
 
     SettingsContent(
-        cameraScanEnabled = true,
-        onCameraScanToggle = {},
+        cameraScanEnabled = cameraScanEnabled,
+        onCameraScanToggle = { viewModel.setCameraScanEnabled(it) },
         currentVersionName = currentVersionName,
         currentVersionCode = currentVersionCode,
         savedTabIndex = savedTabIndex,
@@ -161,8 +163,9 @@ fun SettingsContent(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Иконка приложения
-            if (Constants.BASE_URL_API.contains("gps-rs"))
-            AppIconDisplay()
+            if (Constants.BASE_URL_API.contains("gps-rs")) {
+                AppIconDisplay()
+            }
 
             // ================== НАСТРОЙКА ВКЛАДКИ ПО УМОЛЧАНИЮ ==================
             Card(modifier = Modifier.fillMaxWidth()) {
