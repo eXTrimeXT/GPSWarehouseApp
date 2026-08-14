@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui.scanner
+package com.gps.warehouse.utils
 
 import android.annotation.SuppressLint
 import androidx.camera.core.ImageAnalysis
@@ -7,7 +7,7 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.atomic.AtomicBoolean
 
-class BarcodeAnalyzer(
+class CameraBarcodeAnalyzer(
     private val onBarcodeDetected: (String) -> Unit
 ) : ImageAnalysis.Analyzer {
 

@@ -27,6 +27,8 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.CameraScanButton
+import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.BarcodeParser
@@ -42,6 +44,11 @@ fun PackagingScreen(
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
+    // Подписываемся на настройку
+    val cameraScanEnabled by viewModel.cameraScanEnabled.collectAsState()
+    // Флаг показа диалога камеры
+    var showCameraDialog by remember { mutableStateOf(false) }
+
     // Состояние для диалога редактирования/добавления
     var showDialog by remember { mutableStateOf(false) }
     var editingIndex by remember { mutableStateOf<Int?>(null) }
@@ -56,29 +63,33 @@ fun PackagingScreen(
     // Инициализируем хелпер Honeywell AIDC
     val honeywellHelper = remember { ScannerManager(context) }
 
+    fun processScannedData(scannedData: String){
+        if (scannedData.isNotEmpty()) {
+            // Используем новый парсер
+            val parsedData = BarcodeParser.parse(scannedData)
+
+            if (parsedData != null) {
+                val material = parsedData.material
+                val qty = parsedData.qty
+
+                if (showDialog) {
+                    // Если диалог открыт, заполняем ТОЛЬКО поле артикула
+                    dialogMaterial = material
+                } else {
+                    // Если диалог закрыт, добавляем в список
+                    val newList = addOrUpdateMaterial(orderMaterials, material, qty)
+                    orderMaterials = newList
+                }
+            } else {
+                Toast.makeText(context, "Ошибка распознавания штрихкода", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     // Слушаем поток сканера
     LaunchedEffect(Unit) {
         honeywellHelper.barcodeFlow.collect { scannedData ->
-            if (scannedData.isNotEmpty()) {
-                // Используем новый парсер
-                val parsedData = BarcodeParser.parse(scannedData)
-
-                if (parsedData != null) {
-                    val material = parsedData.material
-                    val qty = parsedData.qty
-
-                    if (showDialog) {
-                        // Если диалог открыт, заполняем ТОЛЬКО поле артикула
-                        dialogMaterial = material
-                    } else {
-                        // Если диалог закрыт, добавляем в список
-                        val newList = addOrUpdateMaterial(orderMaterials, material, qty)
-                        orderMaterials = newList
-                    }
-                } else {
-                    Toast.makeText(context, "Ошибка распознавания штрихкода", Toast.LENGTH_SHORT).show()
-                }
-            }
+            processScannedData(scannedData)
         }
     }
 
@@ -112,6 +123,18 @@ fun PackagingScreen(
                     }
                     showDialog = false
                 }
+            }
+        )
+    }
+
+    // Диалог сканирования камерой
+    if (showCameraDialog) {
+        CameraScannerDialog(
+            onDismiss = { showCameraDialog = false },
+            onBarcodeDetected = { scannedCode ->
+                processScannedData(scannedCode)
+                // Диалог закроется автоматически через onDismiss
+                showCameraDialog = false
             }
         )
     }
@@ -210,6 +233,8 @@ fun PackagingScreen(
 
     PackagingScreenContent(
         orderMaterials = orderMaterials,
+        cameraScanEnabled = cameraScanEnabled,
+        onCameraScanClick = { showCameraDialog = true },
         onEditClick = { index ->
             val item = orderMaterials[index]
             dialogMaterial = item.first
@@ -217,11 +242,6 @@ fun PackagingScreen(
             editingIndex = index
             showDialog = true
         },
-//        onRemoveMaterial = { index ->
-//            val newList = orderMaterials.toMutableList()
-//            newList.removeAt(index)
-//            orderMaterials = newList
-//        },
         onRequestDelete = { index ->
             deleteConfirmIndex = index
         },
@@ -269,6 +289,8 @@ private fun addOrUpdateMaterial(
 @Composable
 fun PackagingScreenContent(
     orderMaterials: List<Pair<String, Int>>,
+    cameraScanEnabled: Boolean,
+    onCameraScanClick: () -> Unit,
     onEditClick: (Int) -> Unit,
     onRequestDelete: (Int) -> Unit,
     onAddManualClick: () -> Unit,
@@ -276,78 +298,84 @@ fun PackagingScreenContent(
     onCreateOrderClick: () -> Unit,
     onBackClick: () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Заголовок с кнопкой назад через кастомный ActionBar
-        MyCustomActionBar(
-            onBackClick = onBackClick,
-            text = "Формирование заказа",
-            actionButton = {
-                IconButton(onClick = onAddManualClick) {
-                    Icon(
-                        Icons.Default.AddBox,
-                        contentDescription = "Добавить вручную",
-                        tint = MaterialTheme.colorScheme.primary,
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Заголовок с кнопкой назад через кастомный ActionBar
+            MyCustomActionBar(
+                onBackClick = onBackClick, text = "Формирование заказа", actionButton = {
+                    IconButton(onClick = onAddManualClick) {
+                        Icon(
+                            Icons.Default.AddBox,
+                            contentDescription = "Добавить вручную",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                })
+
+            // Панель действий внизу (всегда видна, если не Loading/Error/Success)
+            // Для состояния Success она будет перекрыта диалогом, что нормально.
+            if (uiState !is MainViewModel.UiState.OrderCreatedAndReadyForReceive && uiState !is MainViewModel.UiState.Loading && uiState !is MainViewModel.UiState.Error) {
+
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Button(
+                        onClick = onCreateOrderClick,
+                        enabled = orderMaterials.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Создать заказ (${orderMaterials.sumOf { it.second }} шт.)")
+                    }
+                }
+            }
+
+            // Основной контент через when
+            when (uiState) {
+                is MainViewModel.UiState.Loading -> {
+                    CustomLoadingView()
+                }
+
+                is MainViewModel.UiState.Error -> {
+                    ErrorStateView(
+                        message = uiState.message,
+                        onRetry = null, // Пользователь может исправить данные и нажать "Создать" снова
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Состояние OrderCreatedAndReadyForReceive теперь обрабатывается AlertDialog'ом выше,
+                // поэтому здесь мы можем либо показать заглушку, либо оставить список видимым под диалогом.
+                // Так как AlertDialog перекрывает экран, здесь можно ничего не делать или показать Loading,
+                // пока диалог не отобразится. Но лучше просто оставить список как есть, он будет виден на фоне.
+                is MainViewModel.UiState.OrderCreatedAndReadyForReceive -> {
+                    // Этот блок выполняется, но поверх него лежит AlertDialog.
+                    // Мы просто рендерим список, как обычно, чтобы он был виден на фоне полупрозрачного затемнения диалога (если оно есть)
+                    // Или можно показать CustomLoadingView(), но лучше оставить список.
+                    RenderMaterialsList(
+                        orderMaterials = orderMaterials,
+                        onEditClick = onEditClick,
+                        onRequestDelete = onRequestDelete,
+                    )
+
+                    // Панель действий внизу блокируется или скрывается, так как процесс завершен
+                    // Но так как диалог перекрывает всё, это не критично.
+                }
+
+                else -> {
+                    // Idle или другие состояния - показываем список материалов
+                    RenderMaterialsList(
+                        orderMaterials = orderMaterials,
+                        onEditClick = onEditClick,
+                        onRequestDelete = onRequestDelete,
                     )
                 }
             }
+        }
+
+        // Плавающая кнопка сканирования (только если включено в настройках)
+        CameraScanButton(
+            onClick = onCameraScanClick,
+            cameraScanEnabled = cameraScanEnabled,
+            modifier = Modifier.align(Alignment.BottomEnd)
         )
-
-        // Панель действий внизу (всегда видна, если не Loading/Error/Success)
-        // Для состояния Success она будет перекрыта диалогом, что нормально.
-        if (uiState !is MainViewModel.UiState.OrderCreatedAndReadyForReceive &&
-            uiState !is MainViewModel.UiState.Loading &&
-            uiState !is MainViewModel.UiState.Error) {
-
-            Column(modifier = Modifier.padding(16.dp)) {
-                Button(
-                    onClick = onCreateOrderClick,
-                    enabled = orderMaterials.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Создать заказ (${orderMaterials.sumOf { it.second }} шт.)")
-                }
-            }
-        }
-
-        // Основной контент через when
-        when (uiState) {
-            is MainViewModel.UiState.Loading -> { CustomLoadingView() }
-
-            is MainViewModel.UiState.Error -> {
-                ErrorStateView(
-                    message = uiState.message,
-                    onRetry = null, // Пользователь может исправить данные и нажать "Создать" снова
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Состояние OrderCreatedAndReadyForReceive теперь обрабатывается AlertDialog'ом выше,
-            // поэтому здесь мы можем либо показать заглушку, либо оставить список видимым под диалогом.
-            // Так как AlertDialog перекрывает экран, здесь можно ничего не делать или показать Loading,
-            // пока диалог не отобразится. Но лучше просто оставить список как есть, он будет виден на фоне.
-            is MainViewModel.UiState.OrderCreatedAndReadyForReceive -> {
-                // Этот блок выполняется, но поверх него лежит AlertDialog.
-                // Мы просто рендерим список, как обычно, чтобы он был виден на фоне полупрозрачного затемнения диалога (если оно есть)
-                // Или можно показать CustomLoadingView(), но лучше оставить список.
-                RenderMaterialsList(
-                    orderMaterials = orderMaterials,
-                    onEditClick = onEditClick,
-                    onRequestDelete = onRequestDelete,
-                )
-
-                // Панель действий внизу блокируется или скрывается, так как процесс завершен
-                // Но так как диалог перекрывает всё, это не критично.
-            }
-
-            else -> {
-                // Idle или другие состояния - показываем список материалов
-                RenderMaterialsList(
-                    orderMaterials = orderMaterials,
-                    onEditClick = onEditClick,
-                    onRequestDelete = onRequestDelete,
-                )
-            }
-        }
     }
 }
 
@@ -507,6 +535,8 @@ fun EditMaterialDialog(
 fun PackagingPreviewEmpty() {
     PackagingScreenContent(
         orderMaterials = listOf(),
+        cameraScanEnabled = true,
+        onCameraScanClick = {},
         uiState = MainViewModel.UiState.Idle,
         onEditClick = {},
         onRequestDelete = {},
@@ -524,6 +554,8 @@ fun PackagingPreviewSuccess() {
     // Или просто проверяет рендеринг списка.
     PackagingScreenContent(
         orderMaterials = listOf(Pair("MAT-001", 5), Pair("2", 3)),
+        cameraScanEnabled = true,
+        onCameraScanClick = {},
         uiState = MainViewModel.UiState.OrderCreatedAndReadyForReceive("GPS_ORDER_282"),
         onEditClick = {},
         onRequestDelete = {},

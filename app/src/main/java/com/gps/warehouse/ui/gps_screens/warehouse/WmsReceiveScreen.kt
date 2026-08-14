@@ -1,12 +1,9 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
-import android.R
 import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -19,7 +16,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
@@ -34,11 +30,10 @@ import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.WmsReceiveItem
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScanButton
+import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
-import com.gps.warehouse.utils.Constants.ROUTE_CAMERA_SCAN
-import com.gps.warehouse.utils.HandleScanResult
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.decodeWmsReceiveScreen
 import com.gps.warehouse.utils.isBase64EncodedJson
@@ -61,6 +56,8 @@ fun WmsReceiveScreen(
 
     // Подписываемся на настройку
     val cameraScanEnabled by viewModel.cameraScanEnabled.collectAsState()
+    // Флаг показа диалога камеры
+    var showCameraDialog by remember { mutableStateOf(false) }
 
     // Состояния диалога редактирования
     var showDialog by remember { mutableStateOf(false) }
@@ -74,7 +71,7 @@ fun WmsReceiveScreen(
     var isPositionReadOnly by remember { mutableStateOf(false) }
     var dialogMatName by remember { mutableStateOf("") }
     var dialogQtyOrder by remember { mutableStateOf("") }
-    var isUpdatingName by remember { mutableStateOf(false) } // Индикатор загрузки имени
+    var isUpdatingName by remember { mutableStateOf(false) }
 
     // Состояния для DatePicker в СПИСКЕ
     var showListDatePicker by remember { mutableStateOf(false) }
@@ -125,7 +122,6 @@ fun WmsReceiveScreen(
                         scope.launch {
                             val nameMaterial = viewModel.getNameMaterial(scanResult.matNumScan)
                             Log.d(TAG, "MATERIAL NAME: $nameMaterial")
-                            // Находим индекс элемента по артикулу и обновляем с именем
                             val index = receiveItems.indexOfFirst {
                                 it.matNumScan == scanResult.matNumScan && it.matName.isEmpty()
                             }
@@ -144,14 +140,43 @@ fun WmsReceiveScreen(
                     ).show()
                 }
             } else {
-                // Не base64 JSON — просто артикул
+                // Не base64 JSON — просто артикул (типичный случай для камеры)
                 if (showDialog) {
+                    // Если открыт диалог редактирования — подставляем артикул в поле
                     dialogMaterial = trimmedData
-                    // Автозапрос имени
+                    // Автозапрос имени для превью в диалоге
                     scope.launch {
                         isUpdatingName = true
                         dialogMatName = viewModel.getNameMaterial(trimmedData)
                         isUpdatingName = false
+                    }
+                } else {
+                    // Диалог ЗАКРЫТ — добавляем материал в список как новый элемент
+                    val tempItem = WmsReceiveItem(
+                        matNumScan = trimmedData,
+                        matNumOrder = orderNumber.ifEmpty { "" },
+                        matQtyOrder = 1,
+                        checkQuality = true,
+                        Expi = "",
+                        matPositionSap = "",
+                        isPositionFromScan = false,
+                        matName = "",
+                        qtyOrder = 1
+                    )
+                    receiveItems = receiveItems + tempItem
+
+                    // Асинхронно запрашиваем имя и обновляем элемент в списке
+                    scope.launch {
+                        val nameMaterial = viewModel.getNameMaterial(trimmedData)
+                        Log.d(TAG, "CAMERA MATERIAL NAME: $nameMaterial")
+                        val index = receiveItems.indexOfFirst {
+                            it.matNumScan == trimmedData && it.matName.isEmpty()
+                        }
+                        if (index != -1) {
+                            receiveItems = receiveItems.toMutableList().apply {
+                                set(index, get(index).copy(matName = nameMaterial))
+                            }
+                        }
                     }
                 }
             }
@@ -163,11 +188,6 @@ fun WmsReceiveScreen(
         honeywellHelper.barcodeFlow.collect { scannedData ->
             processScannedData(scannedData)
         }
-    }
-
-    // Ловим результат сканирования с КАМЕРЫ
-    HandleScanResult(navController) { scannedCode ->
-        processScannedData(scannedCode)
     }
 
     // Инициализация сканера
@@ -200,9 +220,7 @@ fun WmsReceiveScreen(
                 val finalOrder = ord.ifBlank { orderNumber }
 
                 if (qtyInt >= 0 && mat.isNotBlank() && finalOrder.isNotBlank()) {
-                    // логика внутри scope.launch для ожидания результата
                     scope.launch {
-                        // 1. Получаем имя: если пусто — запрашиваем, иначе используем существующее
                         val finalName = if (name.isBlank()) {
                             viewModel.getNameMaterial(mat)
                         } else {
@@ -211,7 +229,6 @@ fun WmsReceiveScreen(
 
                         Log.d(TAG, "Final name for $mat: $finalName")
 
-                        // 2. Создаём элемент с актуальным именем
                         val newItem = WmsReceiveItem(
                             matNumScan = mat,
                             matNumOrder = finalOrder,
@@ -220,18 +237,16 @@ fun WmsReceiveScreen(
                             Expi = exp,
                             matPositionSap = pos,
                             isPositionFromScan = isPositionReadOnly,
-                            matName = finalName, // ← Актуальное имя
+                            matName = finalName,
                             qtyOrder = qtyOrderInt
                         )
 
-                        // 3. Обновляем список
                         receiveItems = if (editingIndex != null) {
                             receiveItems.toMutableList().apply { set(editingIndex!!, newItem) }
                         } else {
                             receiveItems + newItem
                         }
 
-                        // 4. Закрываем диалог
                         showDialog = false
                     }
                 }
@@ -240,7 +255,6 @@ fun WmsReceiveScreen(
                 editDatePickerInitialDate = parseDate(dialogExpi)?.time
                 showEditDatePicker = true
             },
-            // Колбэк для обновления имени материала
             onUpdateMaterialName = { materialCode ->
                 scope.launch {
                     isUpdatingName = true
@@ -248,6 +262,18 @@ fun WmsReceiveScreen(
                     dialogMatName = name
                     isUpdatingName = false
                 }
+            }
+        )
+    }
+
+    // Диалог сканирования камерой
+    if (showCameraDialog) {
+        CameraScannerDialog(
+            onDismiss = { showCameraDialog = false },
+            onBarcodeDetected = { scannedCode ->
+                processScannedData(scannedCode)
+                // Диалог закроется автоматически через onDismiss
+                showCameraDialog = false
             }
         )
     }
@@ -328,7 +354,7 @@ fun WmsReceiveScreen(
         }
     }
 
-    // === ДИАЛОГ УСПЕХА ПРИЕМКИ ===
+    // === Диалог успеха приемки ===
     if (uiState is MainViewModel.UiState.WmsReceiveSuccess) {
         val successState = uiState as MainViewModel.UiState.WmsReceiveSuccess
         AlertDialog(
@@ -366,7 +392,7 @@ fun WmsReceiveScreen(
         receiveItems = receiveItems,
         orderNumber = orderNumber,
         cameraScanEnabled = cameraScanEnabled,
-        onCameraScanClick = { navController.navigate(ROUTE_CAMERA_SCAN) },
+        onCameraScanClick = { showCameraDialog = true },
         onEditClick = { index ->
             val item = receiveItems[index]
             dialogMaterial = item.matNumScan
@@ -389,7 +415,6 @@ fun WmsReceiveScreen(
                 set(index, get(index).copy(checkQuality = !get(index).checkQuality))
             }
         },
-        // Колбэк для открытия DatePicker из списка
         onExpiDateClick = { index, currentExpi ->
             listDatePickerIndex = index
             listDatePickerInitialDate = parseDate(currentExpi)?.time
@@ -411,15 +436,13 @@ fun WmsReceiveScreen(
         uiState = uiState,
         onReceiveClick = {
             if (receiveItems.isNotEmpty()) {
-                // === Автоматически проставляем дату для элементов без Expi ===
                 val itemsWithDefaultDate = receiveItems.map { item ->
                     if (item.Expi.isBlank()) {
-                        item.copy(Expi = "01.01.2222") // Дата по умолчанию
+                        item.copy(Expi = "01.01.2222")
                     } else {
                         item
                     }
                 }
-                // Отправляем на сервер список с заполненными датами
                 viewModel.receiveWmsMaterials(itemsWithDefaultDate)
             } else {
                 Toast.makeText(context, "Добавьте хотя бы один материал", Toast.LENGTH_SHORT).show()
