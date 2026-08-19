@@ -15,17 +15,19 @@ data class InventorizationItemDto(
     @SerializedName("inventorization_id") val inventorizationId: Int,
     @SerializedName("session_id") val sessionId: Int,
     @SerializedName("asset_id") val assetId: Int,
+    @SerializedName("serial_number") val serialNumber: String,
     @SerializedName("asset_name") val assetName: String,
-    @SerializedName("asset_inventory_id") val assetInventoryId: String,
-    @SerializedName("asset_serial_number") val assetSerialNumber: String,
-    @SerializedName("asset_status") val assetStatus: String?,
-    @SerializedName("is_checked") val isChecked: Boolean
-)
+    @SerializedName("is_checked") val isChecked: Boolean,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("quantity_fact") val quantityFact: Int?,
+
+    )
 
 data class InventorizationSessionCreateRequest(
     @SerializedName("asset_type_id") val assetTypeId: Int
 )
 
 data class CheckItemRequest(
-    @SerializedName("asset_id") val assetId: Int
+    @SerializedName("asset_id") val assetId: Int,
+    @SerializedName("quantity_fact") val quantityFact: Int? = null
 )

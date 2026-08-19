@@ -4,6 +4,8 @@ import android.util.Base64
 import android.util.Log
 import org.json.JSONObject
 
+const val TAG = "WmsScanDecoder"
+
 /**
  * Результат декодирования скана для приемки WMS
  */
@@ -19,21 +21,46 @@ data class WmsWriteOffScan(
 )
 
 /**
+ * Проверяет, является ли строка потенциально Base64-кодированным JSON
+ */
+fun isBase64EncodedJson(input: String): Boolean {
+    return input.length > 20 && // Минимальная длина для полезного Base64
+            input.all { it.isLetterOrDigit() || it == '+' || it == '/' || it == '=' } &&
+            try {
+                val decoded = String(Base64.decode(input.trim(), Base64.NO_WRAP), Charsets.UTF_8)
+                decoded.trim().startsWith("{") && decoded.trim().endsWith("}")
+            } catch (e: Exception) {
+                false
+            }
+}
+
+fun decodeBase64ToJson(input: String): JSONObject {
+    try {
+        // Декодируем Base64 в строку
+        val jsonString = String(
+            Base64.decode(input.trim(), Base64.NO_WRAP),
+            Charsets.UTF_8
+        )
+
+        // Парсим JSON
+        val json = JSONObject(jsonString)
+        Log.d(TAG, "json = $json")
+        return json
+    }catch (e: Exception){
+        Log.e(TAG, "error decodeToJson: $e")
+        // Возвращаем пустой json
+        return JSONObject("")
+    }
+}
+
+/**
  * Декодирует Base64-строку в объект WmsScanResult
  * @param base64String Строка в формате Base64 с JSON внутри
  * @return WmsScanResult или null при ошибке
  */
 fun decodeWmsReceiveScreen(base64String: String): WmsReceiveScan? {
     return try {
-        // Декодируем Base64 в строку
-        val jsonString = String(
-            Base64.decode(base64String.trim(), Base64.NO_WRAP),
-            Charsets.UTF_8
-        )
-
-        // Парсим JSON
-        val json = JSONObject(jsonString)
-        Log.d("decodeWmsReceiveScreen", json.toString())
+        val json = decodeBase64ToJson(base64String)
 
         WmsReceiveScan(
             matNumScan = json.getString("mat_num_scan"),
@@ -50,15 +77,7 @@ fun decodeWmsReceiveScreen(base64String: String): WmsReceiveScan? {
 
 fun decodeWmsWriteOffScreen(base64String: String): WmsWriteOffScan? {
     return try {
-        // Декодируем Base64 в строку
-        val jsonString = String(
-            Base64.decode(base64String.trim(), Base64.NO_WRAP),
-            Charsets.UTF_8
-        )
-
-        // Парсим JSON
-        val json = JSONObject(jsonString)
-        Log.d("decodeWmsWriteOffScreen", json.toString())
+        val json = decodeBase64ToJson(base64String)
 
         WmsWriteOffScan(
             matNumScan = json.getString("mat_num_scan"),
@@ -68,18 +87,4 @@ fun decodeWmsWriteOffScreen(base64String: String): WmsWriteOffScan? {
         Log.e("decodeWmsWriteOffScreen", "Ошибка декодирования: $base64String", e)
         null
     }
-}
-
-/**
- * Проверяет, является ли строка потенциально Base64-кодированным JSON
- */
-fun isBase64EncodedJson(input: String): Boolean {
-    return input.length > 20 && // Минимальная длина для полезного Base64
-            input.all { it.isLetterOrDigit() || it == '+' || it == '/' || it == '=' } &&
-            try {
-                val decoded = String(Base64.decode(input.trim(), Base64.NO_WRAP), Charsets.UTF_8)
-                decoded.trim().startsWith("{") && decoded.trim().endsWith("}")
-            } catch (e: Exception) {
-                false
-            }
 }

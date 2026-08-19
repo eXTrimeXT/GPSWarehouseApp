@@ -205,7 +205,7 @@ class MainActivity : ComponentActivity() {
                             InventoryCheckScreen(
                                 orderNumber = orderNumber,
                                 navController = navController,
-                                viewModel = mainViewModel
+                                mainViewModel = mainViewModel
                             )
                         }
                         composable("wms") {

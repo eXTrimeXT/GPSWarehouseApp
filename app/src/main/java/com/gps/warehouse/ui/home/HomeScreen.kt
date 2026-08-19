@@ -59,8 +59,8 @@ fun HomeScreen(
     }
 
     // Флаг прав, есть ли хотя бы 1 элемент доступа
-    val isPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
-    Log.d("isPermissions", isPermissions.toString())
+//    val isPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
+//    Log.d("isPermissions", isPermissions.toString())
 
     Scaffold(
         bottomBar = {
@@ -243,7 +243,7 @@ fun HomeScreenContent(
                     )
 
                 MenuButton(
-                    title = "Инвентаризация активов",
+                    title = "Инвентаризация",
                     subtitle = "Сессии инвентаризации по типам",
                     icon = Icons.Default.RequestPage,
                     onClick = { onNavigate("inventorization_sessions") },

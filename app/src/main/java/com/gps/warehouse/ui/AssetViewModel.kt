@@ -266,13 +266,15 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    fun checkInventorizationItem(sessionId: Int, assetId: Int) {
+    fun checkInventorizationItem(sessionId: Int, assetId: Int, quantityFact: Int?) {
         viewModelScope.launch {
             try {
+                val safeQuantity = quantityFact ?: 0
+
                 assetApiService.checkInventorizationItem(
-                    "Bearer ${getToken()}",
-                    sessionId,
-                    CheckItemRequest(assetId)
+                    token = "Bearer ${getToken()}",
+                    sessionId = sessionId,
+                    request = CheckItemRequest(assetId, safeQuantity)
                 )
                 // Перезагружаем элементы
                 loadInventorizationItems(sessionId)
