@@ -28,8 +28,8 @@ android {
         minSdk = 30
         targetSdk = 36
         versionCode = 15        // 15 (текущая на сервере) -> 16 // - Обновление приложения происходит по этому параметру!!!
-        versionName = "1.1.5"   // TEST v1.1.5 (текущая) -> v1.1.6
-//        versionName = "1.0.1"   // PROD v1.0.2 (текущая) -> v1.0.3
+        versionName = "1.1.6"   // TEST v1.1.6 (текущая) -> v1.1.7
+//        versionName = "1.0.3"   // PROD v1.0.3 (текущая) -> v1.0.4
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

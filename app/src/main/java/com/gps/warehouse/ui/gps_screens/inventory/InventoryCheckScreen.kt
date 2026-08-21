@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -25,8 +26,11 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -53,6 +57,8 @@ fun InventoryCheckScreen(
     val scannerManager = remember { ScannerManager(context) }
     // Получаем FocusManager для управления клавиатурой
     val focusManager = LocalFocusManager.current
+    // Создаём FocusRequester для инлайн-поля
+    val quantityFocusRequester = remember { FocusRequester() }
 
     val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
     var showCameraDialog by remember { mutableStateOf(false) }
@@ -95,6 +101,13 @@ fun InventoryCheckScreen(
     DisposableEffect(Unit) {
         scannerManager.init()
         onDispose { scannerManager.release() }
+    }
+
+    LaunchedEffect(selectedMaterial) {
+        if (selectedMaterial != null) {
+            kotlinx.coroutines.delay(50) // Небольшая задержка для надёжности
+            quantityFocusRequester.requestFocus()
+        }
     }
 
     // Диалог завершения
@@ -163,7 +176,8 @@ fun InventoryCheckScreen(
         },
         onBackClick = { navController.popBackStack() },
         onFinishClick = { showFinishConfirmDialog = true },
-        onRetryClick = { mainViewModel.loadInventoryMaterials(orderNumber) }
+        onRetryClick = { mainViewModel.loadInventoryMaterials(orderNumber) },
+        quantityFocusRequester = quantityFocusRequester
     )
 }
 
@@ -198,6 +212,7 @@ fun InventoryCheckContent(
     cameraScanEnabled: Boolean,
     onCameraScanClick: () -> Unit,
     isOrderActive: Boolean,
+    quantityFocusRequester: FocusRequester,
     selectedMaterial: InventoryMaterialDto?,
     inputQty: String,
     onQtyChange: (String) -> Unit,
@@ -338,21 +353,12 @@ fun InventoryCheckContent(
                                 InventoryMaterialCard(
                                     material = material,
                                     isSelected = selectedMaterial?.material == material.material,
-                                    onClick = { if (isOrderActive) onMaterialSelect(material) }
+                                    onClick = { if (isOrderActive) onMaterialSelect(material) },
+                                    inputQty = if (selectedMaterial?.material == material.material) inputQty else "",
+                                    onQtyChange = if (selectedMaterial?.material == material.material) onQtyChange else { _ -> },
+                                    onConfirmClick = onConfirmClick,
+                                    focusRequester = if (selectedMaterial?.material == material.material) quantityFocusRequester else null,
                                 )
-
-                                if (isOrderActive && selectedMaterial?.material == material.material) {
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    // Добавляем animateItem() для плавного появления
-                                    ActionPanel(
-                                        selectedMaterial = selectedMaterial,
-                                        inputQty = inputQty,
-                                        onQtyChange = onQtyChange,
-                                        onConfirmClick = onConfirmClick,
-                                        isLoading = uiState is MainViewModel.UiState.Loading,
-                                        modifier = Modifier.animateItem()
-                                    )
-                                }
                             }
                         }
                     }
@@ -411,17 +417,40 @@ fun InventoryCheckContent(
 fun InventoryMaterialCard(
     material: InventoryMaterialDto,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    inputQty: String = "",
+    onQtyChange: (String) -> Unit = {},
+    onConfirmClick: () -> Unit = {},
+    focusRequester: FocusRequester? = null,
+    isLoading: Boolean = false
 ) {
     // Логика цветов
     val plan = material.count.toIntOrNull() ?: 0
     val fact = material.countFact.toIntOrNull() ?: 0
     val isComplete = plan >= 0 && plan == fact
 
+    // Локальный TextFieldValue для управления курсором
+    var textFieldValue by remember(inputQty) {
+        mutableStateOf(
+            TextFieldValue(
+                text = inputQty,
+                selection = TextRange(inputQty.length) // Курсор в конце
+            )
+        )
+    }
+
+    // Синхронизация: внешний inputQty → локальный textFieldValue
+    LaunchedEffect(inputQty) {
+        textFieldValue = TextFieldValue(
+            text = inputQty,
+            selection = TextRange(inputQty.length)
+        )
+    }
+
     // Цвет фона карточки
     val containerColor = when {
-        material.isJustChecked -> Color.Green.copy(alpha = 0.2f) // Зеленый при успехе
-        material.hasError -> Color.Red.copy(alpha = 0.2f)       // Красный при ошибке
+        material.isJustChecked -> Color.Green.copy(alpha = 0.2f)
+        material.hasError -> Color.Red.copy(alpha = 0.2f)
         isSelected -> MaterialTheme.colorScheme.primaryContainer
         else -> MaterialTheme.colorScheme.surface
     }
@@ -433,47 +462,103 @@ fun InventoryMaterialCard(
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Артикул: ${material.material}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Заголовок + статус
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Артикул: ${material.material}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.width(8.dp))
+                if (isComplete) {
+                    Icon(
+                        Icons.Default.CheckCircle,
+                        contentDescription = "Сверено",
+                        tint = Color(0, 150, 0, 255),
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
-                    // Галочка, если план равен факту
-                    if (isComplete) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = "Сверено",
-                            tint = Color(0, 150, 0, 255),
-                            modifier = Modifier.size(20.dp)
+                } else {
+                    Icon(
+                        Icons.Default.Error,
+                        contentDescription = "Не сверено",
+                        tint = Color.Red,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            if (material.name != null) {
+                Text(
+                    "Наименование: ${material.name}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // План / Факт строка
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("План: ${material.count}", style = MaterialTheme.typography.bodySmall)
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // ✅ Факт — текст или инлайн-редактор
+                if (isSelected) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("Факт:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+
+                        OutlinedTextField(
+                            value = textFieldValue,
+                            onValueChange = { newValue ->
+                                textFieldValue = newValue
+                                onQtyChange(newValue.text)
+                            },
+                            placeholder = { Text("0", style = MaterialTheme.typography.bodySmall) },
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = { onConfirmClick() }
+                            ),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                                .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+                            enabled = !isLoading,
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            ),
+                            shape = MaterialTheme.shapes.small
                         )
-                    } else {
-                        Icon(
-                            Icons.Default.Error,
-                            contentDescription = "Не сверено",
-                            tint = Color.Red,
-                            modifier = Modifier.size(20.dp)
-                        )
+
+                        IconButton(
+                            onClick = onConfirmClick,
+                            enabled = textFieldValue.text.toIntOrNull() != null && !isLoading,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Подтвердить",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (textFieldValue.text.toIntOrNull() != null)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
                     }
-                }
-
-                if (material.name != null) {
-                    Text(
-                        "Наименование: ${material.name}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text("План: ${material.count}", style = MaterialTheme.typography.bodySmall)
+                } else {
                     Text(
                         "Факт: ${material.countFact}",
                         style = MaterialTheme.typography.bodySmall,
@@ -483,8 +568,9 @@ fun InventoryMaterialCard(
                 }
             }
 
-            // Индикатор ошибки справа, если есть
-            if (material.hasError) {
+            // Индикатор ошибки справа (если есть)
+            if (material.hasError && !isSelected) {
+                Spacer(modifier = Modifier.weight(1f))
                 Icon(
                     Icons.Default.Close,
                     contentDescription = "Ошибка",
@@ -492,61 +578,6 @@ fun InventoryMaterialCard(
                     modifier = Modifier.size(24.dp)
                 )
             }
-        }
-    }
-}
-
-@Composable
-fun ActionPanel(
-    selectedMaterial: InventoryMaterialDto?,
-    inputQty: String,
-    onQtyChange: (String) -> Unit,
-    onConfirmClick: () -> Unit,
-    isLoading: Boolean,
-    modifier: Modifier
-) {
-    val quantityFocusRequester = remember { FocusRequester() }
-
-    LaunchedEffect(selectedMaterial) {
-        if (selectedMaterial != null) {
-            quantityFocusRequester.requestFocus()
-        }
-    }
-
-    // Без Card — просто Row с разделителем
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 2.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.shapes.small)
-    ) {
-        OutlinedTextField(
-            value = inputQty,
-            onValueChange = onQtyChange,
-            placeholder = { Text("0", style = MaterialTheme.typography.bodySmall) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            modifier = Modifier
-                .weight(1f)
-                .height(50.dp)
-                .focusRequester(quantityFocusRequester),
-            enabled = selectedMaterial != null && !isLoading,
-            singleLine = true,
-            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface
-            ),
-            shape = MaterialTheme.shapes.small
-        )
-
-        IconButton(
-            onClick = onConfirmClick,
-            enabled = selectedMaterial != null && inputQty.toIntOrNull() != null && !isLoading,
-            modifier = Modifier.size(36.dp)
-        ) {
-            Icon(Icons.Default.Check, contentDescription = "OK", modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -593,7 +624,8 @@ fun PreviewInventoryList() {
                 onBackClick = {},
                 onRetryClick = {},
                 isOrderActive = true,
-                onFinishClick = {}
+                onFinishClick = {},
+                quantityFocusRequester = FocusRequester.Default
             )
         }
     }
