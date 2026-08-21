@@ -12,11 +12,11 @@ data class WmsReceiveRequest(
 data class WmsReceiveItem(
     @SerializedName("mat_num_scan") val matNumScan: String,     // Отсканированный номер материала
     @SerializedName("mat_num_order") val matNumOrder: String,   // Номер заказа (передаётся один для всех)
-    @SerializedName("mat_qty_order") val matQtyOrder: Int,      // Фактическое количество
+    @SerializedName("mat_qty_order") val matQtyOrder: Int,      // Количество в заказе
     @SerializedName("check_quality") val checkQuality: Boolean, // Чекбокс "Качество"
     @SerializedName("date_expi") val Expi: String,              // Дата "Срок годности"
     @SerializedName("position") val matPositionSap: String,     // Позиция в SAP
-    @SerializedName("qty_order") val qtyOrder: Int,             // Количество в накладной
+    @SerializedName("mat_qty_scan") val qtyOrder: Int,             // Количество в накладной (факт)
     val isPositionFromScan: Boolean = false,                            // Не отправляем этот параметр!
     val matName: String = "",                                           // Не отправляем этот параметр!
 )
