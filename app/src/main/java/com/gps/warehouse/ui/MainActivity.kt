@@ -34,6 +34,7 @@ import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcsScreen
+import com.gps.warehouse.ui.assets_screens.NotificationsScreen
 import com.gps.warehouse.ui.assets_screens.inventory.InventorizationSessionsScreen
 import com.gps.warehouse.ui.assets_screens.inventory.InventorizationItemsScreen
 import com.gps.warehouse.ui.assets_screens.map.AssetMapWebViewScreen
@@ -354,6 +355,22 @@ class MainActivity : ComponentActivity() {
 
                         composable("assets_map_web") {
                             AssetMapWebViewScreen(navController = navController)
+                        }
+
+                        composable("asset_notifications"){
+//                            NotificationsScreen(
+//                                onNotificationClick = { notification ->
+//                                    when {
+//                                        // Переход в актив, если есть asset_id
+//                                        notification.assetId != null -> navController.navigate("asset_details/${notification.assetId}")
+//                                        // Переход в инвентаризацию, если есть session_id (isCompleted = false по умолчанию)
+//                                        notification.sessionId != null -> navController.navigate("inventorization_items/${notification.sessionId}/false")
+//                                    }
+//                                }
+//                            )
+                            NotificationsScreen(
+                                navController = navController
+                            )
                         }
                     }
 

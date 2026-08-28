@@ -119,6 +119,7 @@ dependencies {
     implementation(libs.converter.gson)
     implementation(libs.okhttp)
     implementation(libs.logging.interceptor)
+    implementation(libs.okhttp.sse)
 
     // JSON - TEXT
     implementation(libs.converter.scalars)

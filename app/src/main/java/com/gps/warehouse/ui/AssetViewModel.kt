@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
@@ -14,11 +15,18 @@ import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
+import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.sse.EventSource
+import okhttp3.sse.EventSourceListener
+import okhttp3.sse.EventSources
 import org.json.JSONException
 import retrofit2.HttpException
 import javax.inject.Inject
@@ -55,6 +63,10 @@ class AssetViewModel @Inject constructor(
             val items: List<InventorizationItemDto>,
             val sessionId: Int
         ) : AssetUiState()
+
+        // ====================== Уведомления ======================
+        data class NotificationsLoaded(val notifications: List<NotificationDto>) : AssetUiState()
+        // =========================================================
     }
 
     sealed class InventorizationUiState {
@@ -87,6 +99,8 @@ class AssetViewModel @Inject constructor(
 
     private val _inventorizationItems = MutableStateFlow<List<InventorizationItemDto>>(emptyList())
     val inventorizationItems: StateFlow<List<InventorizationItemDto>> = _inventorizationItems.asStateFlow()
+
+    private var eventSource: EventSource? = null
 
 
     // ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПАРСИНГА ОШИБОК
@@ -295,5 +309,70 @@ class AssetViewModel @Inject constructor(
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка завершения сессии")
             }
         }
+    }
+
+    fun loadNotifications() {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                // Загружаем ответ-обертку
+                val response = assetApiService.getNotifications("Bearer ${getToken()}")
+
+                // Передаем в состояние именно список items
+                _uiState.value = AssetUiState.NotificationsLoaded(response.items)
+
+                // Запускаем прослушивание SSE-потока для новых уведомлений
+                startSseStream(getToken())
+
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки уведомлений", e)
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка сети")
+            }
+        }
+    }
+
+    private fun startSseStream(token: String) {
+        // Закрываем предыдущее соединение, если оно было
+        eventSource?.cancel()
+
+        val client = OkHttpClient.Builder().build()
+        val request = Request.Builder()
+            .url("${com.gps.warehouse.utils.Constants.BASE_URL_API}notifications/stream")
+            .addHeader("Authorization", "Bearer $token")
+            .build()
+
+        eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
+            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                try {
+                    val gson = Gson()
+                    val newNotification = gson.fromJson(data, NotificationDto::class.java)
+
+                    // Добавляем новое уведомление в начало списка
+                    val currentState = _uiState.value
+                    if (currentState is AssetUiState.NotificationsLoaded) {
+                        val updatedList = listOf(newNotification) + currentState.notifications
+                        _uiState.value = AssetUiState.NotificationsLoaded(updatedList)
+                    }
+                } catch (e: Exception) {
+                    Log.e("MainViewModel", "Ошибка парсинга SSE: ${e.message}")
+                }
+            }
+
+            override fun onClosed(eventSource: EventSource) {
+                super.onClosed(eventSource)
+                Log.d("MainViewModel", "SSE поток закрыт сервером")
+            }
+
+            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                Log.e("MainViewModel", "Ошибка SSE соединения: ${t?.message}")
+                // При необходимости здесь можно добавить логику автоматического реконнекта
+            }
+        })
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // Обязательно закрываем SSE-соединение при уничтожении ViewModel для избежания утечек памяти
+        eventSource?.cancel()
     }
 }

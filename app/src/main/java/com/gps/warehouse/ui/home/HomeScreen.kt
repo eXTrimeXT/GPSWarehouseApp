@@ -256,6 +256,14 @@ fun HomeScreenContent(
                     onClick = { onNavigate("assets_map_web") },
                     isVisible = TAB_VISIBLE
                 )
+
+                MenuButton(
+                    title = "Уведомления",
+                    subtitle = "Ваши входящие и исходящие уведомления",
+                    icon = Icons.Default.CircleNotifications,
+                    onClick = { onNavigate("asset_notifications") },
+                    isVisible = TAB_VISIBLE
+                )
             }
             // Вкладка "Настройки"
             3 -> {
