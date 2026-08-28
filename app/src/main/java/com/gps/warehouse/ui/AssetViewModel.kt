@@ -30,6 +30,7 @@ import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import org.json.JSONException
 import retrofit2.HttpException
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.jvm.java
 
@@ -319,6 +320,7 @@ class AssetViewModel @Inject constructor(
 
                 // 1. Делаем ОДИН обычный запрос через Retrofit для получения начального списка
                 val response = assetApiService.getNotifications("Bearer ${getToken()}")
+//                Log.d("SSE_DEBUG", "loadNotifications: response = $response")
 
                 // 2. Сохраняем список в состояние
                 _uiState.value = AssetUiState.NotificationsLoaded(response.items)
@@ -327,38 +329,42 @@ class AssetViewModel @Inject constructor(
                 startSseStream(getToken())
 
             } catch (e: Exception) {
-                Log.e("SSE_DEBUG", "Ошибка загрузки начальных уведомлений", e)
+                Log.e("SSE_DEBUG", "loadNotifications: Ошибка загрузки начальных уведомлений", e)
                 _uiState.value = AssetUiState.Error(e.message ?: "Ошибка сети")
             }
         }
     }
 
-// AssetViewModel.kt
-
     fun startSseStream(token: String) {
         eventSource?.cancel()
 
-        val client = OkHttpClient.Builder().build()
+        // НАСТРАИВАЕМ ТАЙМАУТЫ: 0 означает "бесконечно", что критично для SSE
+        val client = OkHttpClient.Builder()
+            .readTimeout(0, TimeUnit.SECONDS)      // Ждать данные от сервера бесконечно
+            .writeTimeout(0, TimeUnit.SECONDS)     // Бесконечный таймаут на запись
+            .connectTimeout(10, TimeUnit.SECONDS)  // На подключение даем стандартные 10 сек
+            .build()
+
         val request = Request.Builder()
-            .url("${com.gps.warehouse.utils.Constants.BASE_URL_API}notifications/stream")
+            // param: direction=all || outgoing || incoming
+            .url("${com.gps.warehouse.utils.Constants.ASSET_URL}notifications/stream")
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Accept", "text/event-stream") // Обязательно для SSE
             .build()
 
-        Log.d("SSE_DEBUG", "🔌 Попытка подключения к SSE потоку...")
+        Log.d("SSE_DEBUG", "Попытка подключения к SSE потоку...")
 
         eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                Log.d("SSE_DEBUG", "📩 Получены сырые данные SSE (длина: ${data.length})")
+                Log.d("SSE_DEBUG", "Получены сырые данные SSE (длина: ${data.length})")
                 try {
                     val gson = Gson()
-                    // ИСПРАВЛЕНИЕ: Парсим как NotificationResponseDto, а не как одиночный NotificationDto!
                     val responseDto = gson.fromJson(data, NotificationResponseDto::class.java)
 
-                    Log.d("SSE_DEBUG", "🔄 Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
+                    Log.d("SSE_DEBUG", "Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
 
                     val currentState = _uiState.value
-                    if (currentState is AssetViewModel.AssetUiState.NotificationsLoaded) {
+                    if (currentState is AssetUiState.NotificationsLoaded) {
                         val currentList = currentState.notifications.toMutableList()
 
                         // Обновляем существующие или добавляем новые
@@ -375,27 +381,27 @@ class AssetViewModel @Inject constructor(
                                 currentList.add(0, incoming)
                             }
                         }
-                        _uiState.value = AssetViewModel.AssetUiState.NotificationsLoaded(currentList)
-                        Log.d("SSE_DEBUG", "✅ Список уведомлений обновлен. Всего: ${currentList.size}")
+                        _uiState.value = AssetUiState.NotificationsLoaded(currentList)
+                        Log.d("SSE_DEBUG", "Список уведомлений обновлен. Всего: ${currentList.size}")
                     } else {
-                        _uiState.value = AssetViewModel.AssetUiState.NotificationsLoaded(responseDto.items)
-                        Log.d("SSE_DEBUG", "✅ Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
+                        _uiState.value = AssetUiState.NotificationsLoaded(responseDto.items)
+                        Log.d("SSE_DEBUG", "Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
                     }
                 } catch (e: Exception) {
-                    Log.e("SSE_DEBUG", "❌ Ошибка парсинга JSON из SSE: ${e.message}", e)
-                    Log.e("SSE_DEBUG", "❌ Проблемная строка data: $data")
+                    Log.e("SSE_DEBUG", "Ошибка парсинга JSON из SSE: ${e.message}", e)
+                    Log.e("SSE_DEBUG", "Проблемная строка data: $data")
                 }
             }
 
             override fun onClosed(eventSource: EventSource) {
                 super.onClosed(eventSource)
-                Log.d("SSE_DEBUG", "🔌 SSE поток закрыт сервером штатно")
+                Log.d("SSE_DEBUG", "SSE поток закрыт сервером штатно")
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                 val code = response?.code
                 val errorBody = try { response?.body?.string() } catch (e: Exception) { "Не удалось прочитать" }
-                Log.e("SSE_DEBUG", "❌ Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
+                Log.e("SSE_DEBUG", "Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
             }
         })
     }
@@ -403,6 +409,6 @@ class AssetViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         eventSource?.cancel()
-        Log.d("SSE_DEBUG", "🧹 ViewModel уничтожен, SSE соединение разорвано")
+        Log.d("SSE_DEBUG", " onCleared: ViewModel уничтожен, SSE соединение разорвано")
     }
 }

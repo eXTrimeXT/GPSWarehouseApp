@@ -1,15 +1,24 @@
 package com.gps.warehouse.ui.assets_screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -22,6 +31,28 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 // ==========================================
+// МОДЕЛИ ФИЛЬТРОВ
+// ==========================================
+enum class DirectionFilter(val title: String, val apiValue: String?) {
+    ALL("Все", null),
+    INCOMING("Входящие", "incoming"),
+    OUTGOING("Исходящие", "outgoing")
+}
+
+enum class StatusFilter(val title: String, val apiValue: String?) {
+    ALL("Все", null),
+    UNREAD("Не прочитанные", "unread"),
+    READ("Прочитанные", "read"),
+    DECLINED("Отклоненные", "declined")
+}
+
+data class NotificationFilterState(
+    val searchQuery: String = "",
+    val direction: DirectionFilter = DirectionFilter.ALL,
+    val status: StatusFilter = StatusFilter.ALL
+)
+
+// ==========================================
 // SCREEN: Управление состоянием и навигацией
 // ==========================================
 @Composable
@@ -31,7 +62,9 @@ fun NotificationsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Загружаем уведомления при первом открытии экрана
+    // Состояние фильтров храним на уровне экрана
+    var filterState by remember { mutableStateOf(NotificationFilterState()) }
+
     LaunchedEffect(Unit) {
         if (uiState !is AssetViewModel.AssetUiState.NotificationsLoaded &&
             uiState !is AssetViewModel.AssetUiState.Loading) {
@@ -50,15 +83,15 @@ fun NotificationsScreen(
         NotificationsContent(
             modifier = Modifier.padding(paddingValues),
             uiState = uiState,
+            filterState = filterState,
+            onFilterStateChange = { filterState = it },
             onRetry = { viewModel.loadNotifications() },
             onNotificationClick = { notification ->
-                // Логика навигации согласно ТЗ:
                 when {
                     notification.assetId != null -> {
                         navController.navigate("asset_details/${notification.assetId}")
                     }
                     notification.sessionId != null -> {
-                        // isCompleted = false по умолчанию для активных сессий
                         navController.navigate("inventorization_items/${notification.sessionId}/false")
                     }
                 }
@@ -68,12 +101,14 @@ fun NotificationsScreen(
 }
 
 // ==========================================
-// CONTENT: Чистый UI без побочных эффектов
+// CONTENT: Чистый UI с логикой фильтрации
 // ==========================================
 @Composable
 fun NotificationsContent(
     modifier: Modifier = Modifier,
     uiState: AssetViewModel.AssetUiState,
+    filterState: NotificationFilterState,
+    onFilterStateChange: (NotificationFilterState) -> Unit,
     onRetry: () -> Unit,
     onNotificationClick: (NotificationDto) -> Unit
 ) {
@@ -99,31 +134,70 @@ fun NotificationsContent(
             }
         }
         is AssetViewModel.AssetUiState.NotificationsLoaded -> {
-            if (state.notifications.isEmpty()) {
-                Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "Уведомлений нет",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(state.notifications, key = { it.notificationId }) { notification ->
-                        NotificationItem(
-                            notification = notification,
-                            onClick = { onNotificationClick(notification) }
+            // 1. Применяем фильтрацию
+            val filteredList = state.notifications.filter { notification ->
+                val matchesDirection = filterState.direction.apiValue == null ||
+                        notification.direction == filterState.direction.apiValue
+                val matchesStatus = filterState.status.apiValue == null ||
+                        notification.status == filterState.status.apiValue
+
+                val query = filterState.searchQuery.trim()
+                val matchesSearch = query.isBlank() ||
+                        notification.eventTypeRu.contains(query, ignoreCase = true) ||
+                        (notification.assetName?.contains(query, ignoreCase = true) == true) ||
+                        (notification.initiatorFullName?.contains(query, ignoreCase = true) == true) ||
+                        (notification.sessionId?.toString()?.contains(query) == true)
+
+                matchesDirection && matchesStatus && matchesSearch
+            }.sortedByDescending { it.createdAt } // 2. Сортируем от новых к старым
+
+            Column(modifier = modifier.fillMaxSize()) {
+                // Панель фильтров
+                NotificationFilterBar(
+                    filterState = filterState,
+                    onFilterStateChange = onFilterStateChange
+                )
+
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    thickness = DividerDefaults.Thickness,
+                    color = DividerDefaults.color
+                )
+
+                // Список
+                if (filteredList.isEmpty() && state.notifications.isNotEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Ничего не найдено",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                } else if (filteredList.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Уведомлений нет",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(filteredList, key = { it.notificationId }) { notification ->
+                            NotificationItem(
+                                notification = notification,
+                                onClick = { onNotificationClick(notification) }
+                            )
+                        }
                     }
                 }
             }
         }
         else -> {
-            // Idle или другие состояния: показываем пустой экран или лоадер
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
@@ -132,7 +206,77 @@ fun NotificationsContent(
 }
 
 // ==========================================
-// UI КОМПОНЕНТЫ
+// UI КОМПОНЕНТЫ: Панель фильтров
+// ==========================================
+@Composable
+fun NotificationFilterBar(
+    filterState: NotificationFilterState,
+    onFilterStateChange: (NotificationFilterState) -> Unit
+) {
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        // Поле поиска
+        OutlinedTextField(
+            value = filterState.searchQuery,
+            onValueChange = { onFilterStateChange(filterState.copy(searchQuery = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Поиск по активу, сессии...") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = {
+                if (filterState.searchQuery.isNotEmpty()) {
+                    IconButton(onClick = {
+                        onFilterStateChange(filterState.copy(searchQuery = ""))
+                        keyboardController?.hide()
+                    }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Очистить")
+                    }
+                }
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() })
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Фильтр по направлению
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            DirectionFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = filterState.direction == filter,
+                    onClick = { onFilterStateChange(filterState.copy(direction = filter)) },
+                    label = { Text(filter.title, style = MaterialTheme.typography.labelMedium) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Фильтр по статусу (горизонтальная прокрутка для экономии места на ТСД)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            StatusFilter.entries.forEach { filter ->
+                FilterChip(
+                    selected = filterState.status == filter,
+                    onClick = { onFilterStateChange(filterState.copy(status = filter)) },
+                    label = { Text(filter.title, style = MaterialTheme.typography.labelMedium) }
+                )
+            }
+        }
+    }
+}
+
+// ==========================================
+// UI КОМПОНЕНТЫ: Элемент списка
 // ==========================================
 @Composable
 fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
@@ -160,6 +304,11 @@ fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
                     modifier = Modifier.weight(1f)
                 )
                 Text(
+                    text = "id = ${notification.notificationId} | ",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
                     text = formatDateTime(notification.createdAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -173,14 +322,24 @@ fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            if (!notification.assetName.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Актив: ${notification.assetName}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
-                )
+            // Улучшенная визуализация ссылки на актив или сессию
+            if (!notification.assetName.isNullOrEmpty() || notification.sessionId != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (notification.assetId != null) Icons.Default.Link else Icons.Default.RequestPage,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (notification.assetName != null) "Актив: ${notification.assetName}" else "Сессия инвентаризации: №${notification.sessionId}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -189,16 +348,15 @@ fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
                 Badge(
                     containerColor = if (notification.status == "unread")
                         MaterialTheme.colorScheme.primary
+                    else if (notification.status == "declined")
+                        MaterialTheme.colorScheme.error
                     else
                         Color.Gray
                 ) {
                     Text(
                         text = notification.statusRu,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (notification.status == "unread")
-                            MaterialTheme.colorScheme.onPrimary
-                        else
-                            Color.White
+                        color = MaterialTheme.colorScheme.onPrimary.takeIf { notification.status != "read" } ?: Color.White
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -215,7 +373,6 @@ fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
 // Безопасное форматирование даты для Android 11+ (java.time доступен с API 26)
 fun formatDateTime(isoString: String): String {
     return try {
-        // Берем первые 19 символов: "2026-08-27T16:01:39" (игнорируем доли секунды)
         val dateTime = LocalDateTime.parse(isoString.take(19))
         val outputFormatter = DateTimeFormatter.ofPattern("dd.MM HH:mm", Locale.getDefault())
         dateTime.format(outputFormatter)
@@ -232,103 +389,40 @@ fun formatDateTime(isoString: String): String {
 private fun NotificationsContentPreview() {
     val mockNotifications = listOf(
         NotificationDto(
-            notificationId = 101,
-            employeeId = "0000010680",
-            employeeFullName = "Малых Андрей Владимирович",
-            assetId = null,
-            sessionId = 12,
-            eventType = "inventory_started",
-            initiatorId = "0000015370",
-            status = "unread",
-            respondedAt = null,
-            createdAt = "2026-08-27T16:01:39.042276",
-            assetName = null,
-            assetInventoryId = null,
-            initiatorFullName = "Малышев Тимур Максимович",
-            direction = "outgoing",
-            directionRu = "Исходящее",
-            eventTypeRu = "Вы запустили новую сессию инвентаризации",
-            statusRu = "Не прочитано"
+            notificationId = 111, employeeId = "0000010680", employeeFullName = "Малых Андрей Владимирович",
+            assetId = null, sessionId = 12, eventType = "inventory_started", initiatorId = "0000015370",
+            status = "unread", respondedAt = null, createdAt = "2026-08-27T16:01:39.042276",
+            assetName = null, assetInventoryId = null, initiatorFullName = "Малышев Тимур Максимович",
+            direction = "outgoing", directionRu = "Исходящее", eventTypeRu = "Запущена новая сессия", statusRu = "Не прочитано"
         ),
         NotificationDto(
-            notificationId = 64,
-            employeeId = "0000012657",
-            employeeFullName = "Евсиков Константин Александрович",
-            assetId = 49,
-            sessionId = null,
-            eventType = "user_declined",
-            initiatorId = "0000015370",
-            status = "read",
-            respondedAt = null,
-            createdAt = "2026-08-26T12:29:14.756052",
-            assetName = "Актив №3",
-            assetInventoryId = "3333",
-            initiatorFullName = "Малышев Тимур Максимович",
-            direction = "outgoing",
-            directionRu = "Исходящее",
-            eventTypeRu = "Сотрудник отклонил ваше назначение пользователем",
-            statusRu = "Прочитано"
+            notificationId = 74, employeeId = "0000012657", employeeFullName = "Евсиков Константин Александрович",
+            assetId = 49, sessionId = null, eventType = "user_declined", initiatorId = "0000015370",
+            status = "declined", respondedAt = null, createdAt = "2026-08-26T12:29:14.756052",
+            assetName = "Актив №3", assetInventoryId = "3333", initiatorFullName = "Малышев Тимур Максимович",
+            direction = "outgoing", directionRu = "Исходящее", eventTypeRu = "Сотрудник отклонил назначение", statusRu = "Отклонено"
         ),
         NotificationDto(
-            notificationId = 62,
-            employeeId = "0000015370",
-            employeeFullName = "Малышев Тимур Максимович",
-            assetId = 48,
-            sessionId = null,
-            eventType = "write_off_approved",
-            initiatorId = "0000012657",
-            status = "unread",
-            respondedAt = null,
-            createdAt = "2026-08-26T12:26:04.199824",
-            assetName = "Актив №2",
-            assetInventoryId = "INV_NUMBER_48",
-            initiatorFullName = "Евсиков Константин Александрович",
-            direction = "incoming",
-            directionRu = "Входящее",
-            eventTypeRu = "Ваша заявка на списание утверждена",
-            statusRu = "Не прочитано"
+            notificationId = 62, employeeId = "0000015370", employeeFullName = "Малышев Тимур Максимович",
+            assetId = 48, sessionId = null, eventType = "write_off_approved", initiatorId = "0000012657",
+            status = "read", respondedAt = null, createdAt = "2026-08-26T12:26:04.199824",
+            assetName = "Актив №2", assetInventoryId = "INV_NUMBER_48", initiatorFullName = "Евсиков Константин Александрович",
+            direction = "incoming", directionRu = "Входящее", eventTypeRu = "Заявка на списание утверждена", statusRu = "Прочитано"
         )
     )
 
     MaterialTheme {
         Surface(color = MaterialTheme.colorScheme.background) {
-            MyCustomActionBar(
-                text = "Уведомления",
-                onBackClick = {}
-            )
-            NotificationsContent(
-                uiState = AssetViewModel.AssetUiState.NotificationsLoaded(mockNotifications),
-                onRetry = {},
-                onNotificationClick = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
-@Composable
-private fun NotificationsContentEmptyPreview() {
-    MaterialTheme {
-        Surface(color = MaterialTheme.colorScheme.background) {
-            NotificationsContent(
-                uiState = AssetViewModel.AssetUiState.NotificationsLoaded(emptyList()),
-                onRetry = {},
-                onNotificationClick = {}
-            )
-        }
-    }
-}
-
-@Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
-@Composable
-private fun NotificationsContentErrorPreview() {
-    MaterialTheme {
-        Surface(color = MaterialTheme.colorScheme.background) {
-            NotificationsContent(
-                uiState = AssetViewModel.AssetUiState.Error("Ошибка сети. Проверьте подключение."),
-                onRetry = {},
-                onNotificationClick = {}
-            )
+            Column {
+                MyCustomActionBar(text = "Уведомления", onBackClick = {})
+                NotificationsContent(
+                    uiState = AssetViewModel.AssetUiState.NotificationsLoaded(mockNotifications),
+                    filterState = NotificationFilterState(),
+                    onFilterStateChange = {},
+                    onRetry = {},
+                    onNotificationClick = {}
+                )
+            }
         }
     }
 }

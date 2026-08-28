@@ -358,19 +358,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("asset_notifications"){
-//                            NotificationsScreen(
-//                                onNotificationClick = { notification ->
-//                                    when {
-//                                        // Переход в актив, если есть asset_id
-//                                        notification.assetId != null -> navController.navigate("asset_details/${notification.assetId}")
-//                                        // Переход в инвентаризацию, если есть session_id (isCompleted = false по умолчанию)
-//                                        notification.sessionId != null -> navController.navigate("inventorization_items/${notification.sessionId}/false")
-//                                    }
-//                                }
-//                            )
-                            NotificationsScreen(
-                                navController = navController
-                            )
+                            NotificationsScreen(navController = navController)
                         }
                     }
 

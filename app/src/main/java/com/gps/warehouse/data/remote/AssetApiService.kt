@@ -135,9 +135,9 @@ interface AssetApiService {
     ): Response<PlaySoundResponse>
 
     // Уведомления
-    @GET("notifications/stream")
+    @GET("notifications/my")
     suspend fun getNotifications(
         @Header("Authorization") token: String,
-//        @Query("direction") direction: String  = "all" // default = all, incoming, outgoing
+        @Query("direction") direction: String  = "all" // default = all, incoming, outgoing
     ): NotificationResponseDto
 }
