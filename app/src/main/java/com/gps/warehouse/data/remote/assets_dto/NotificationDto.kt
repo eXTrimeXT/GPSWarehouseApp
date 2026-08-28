@@ -35,5 +35,5 @@ data class NotificationResponseDto(
     @SerializedName("unchecked_count") val uncheckedCount: Int,
     @SerializedName("checked_count") val checkedCount: Int,
     @SerializedName("declined_count") val declinedCount: Int,
-    val source: String
+    val source: String? = null
 )

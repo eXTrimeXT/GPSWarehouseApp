@@ -16,6 +16,7 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
+import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -315,64 +316,93 @@ class AssetViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
-                // Загружаем ответ-обертку
+
+                // 1. Делаем ОДИН обычный запрос через Retrofit для получения начального списка
                 val response = assetApiService.getNotifications("Bearer ${getToken()}")
 
-                // Передаем в состояние именно список items
+                // 2. Сохраняем список в состояние
                 _uiState.value = AssetUiState.NotificationsLoaded(response.items)
 
-                // Запускаем прослушивание SSE-потока для новых уведомлений
+                // 3. Запускаем OkHttp SSE для прослушивания обновлений в реальном времени
                 startSseStream(getToken())
 
             } catch (e: Exception) {
-                Log.e("MainViewModel", "Ошибка загрузки уведомлений", e)
+                Log.e("SSE_DEBUG", "Ошибка загрузки начальных уведомлений", e)
                 _uiState.value = AssetUiState.Error(e.message ?: "Ошибка сети")
             }
         }
     }
 
-    private fun startSseStream(token: String) {
-        // Закрываем предыдущее соединение, если оно было
+// AssetViewModel.kt
+
+    fun startSseStream(token: String) {
         eventSource?.cancel()
 
         val client = OkHttpClient.Builder().build()
         val request = Request.Builder()
             .url("${com.gps.warehouse.utils.Constants.BASE_URL_API}notifications/stream")
             .addHeader("Authorization", "Bearer $token")
+            .addHeader("Accept", "text/event-stream") // Обязательно для SSE
             .build()
+
+        Log.d("SSE_DEBUG", "🔌 Попытка подключения к SSE потоку...")
 
         eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                Log.d("SSE_DEBUG", "📩 Получены сырые данные SSE (длина: ${data.length})")
                 try {
                     val gson = Gson()
-                    val newNotification = gson.fromJson(data, NotificationDto::class.java)
+                    // ИСПРАВЛЕНИЕ: Парсим как NotificationResponseDto, а не как одиночный NotificationDto!
+                    val responseDto = gson.fromJson(data, NotificationResponseDto::class.java)
 
-                    // Добавляем новое уведомление в начало списка
+                    Log.d("SSE_DEBUG", "🔄 Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
+
                     val currentState = _uiState.value
-                    if (currentState is AssetUiState.NotificationsLoaded) {
-                        val updatedList = listOf(newNotification) + currentState.notifications
-                        _uiState.value = AssetUiState.NotificationsLoaded(updatedList)
+                    if (currentState is AssetViewModel.AssetUiState.NotificationsLoaded) {
+                        val currentList = currentState.notifications.toMutableList()
+
+                        // Обновляем существующие или добавляем новые
+                        for (incoming in responseDto.items) {
+                            val existingIndex = currentList.indexOfFirst { it.notificationId == incoming.notificationId }
+                            if (existingIndex != -1) {
+                                val existing = currentList[existingIndex]
+                                currentList[existingIndex] = existing.copy(
+                                    status = incoming.status.ifEmpty { existing.status },
+                                    statusRu = incoming.statusRu.ifEmpty { existing.statusRu },
+                                    respondedAt = incoming.respondedAt ?: existing.respondedAt
+                                )
+                            } else {
+                                currentList.add(0, incoming)
+                            }
+                        }
+                        _uiState.value = AssetViewModel.AssetUiState.NotificationsLoaded(currentList)
+                        Log.d("SSE_DEBUG", "✅ Список уведомлений обновлен. Всего: ${currentList.size}")
+                    } else {
+                        _uiState.value = AssetViewModel.AssetUiState.NotificationsLoaded(responseDto.items)
+                        Log.d("SSE_DEBUG", "✅ Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
                     }
                 } catch (e: Exception) {
-                    Log.e("MainViewModel", "Ошибка парсинга SSE: ${e.message}")
+                    Log.e("SSE_DEBUG", "❌ Ошибка парсинга JSON из SSE: ${e.message}", e)
+                    Log.e("SSE_DEBUG", "❌ Проблемная строка data: $data")
                 }
             }
 
             override fun onClosed(eventSource: EventSource) {
                 super.onClosed(eventSource)
-                Log.d("MainViewModel", "SSE поток закрыт сервером")
+                Log.d("SSE_DEBUG", "🔌 SSE поток закрыт сервером штатно")
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                Log.e("MainViewModel", "Ошибка SSE соединения: ${t?.message}")
-                // При необходимости здесь можно добавить логику автоматического реконнекта
+                val code = response?.code
+                val errorBody = try { response?.body?.string() } catch (e: Exception) { "Не удалось прочитать" }
+                Log.e("SSE_DEBUG", "❌ Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
             }
         })
     }
 
     override fun onCleared() {
         super.onCleared()
-        // Обязательно закрываем SSE-соединение при уничтожении ViewModel для избежания утечек памяти
         eventSource?.cancel()
+        Log.d("SSE_DEBUG", "🧹 ViewModel уничтожен, SSE соединение разорвано")
     }
 }

@@ -9,7 +9,6 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequ
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
-import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedAssetResponse
 import com.gps.warehouse.data.remote.assets_dto.PlaySoundResponse
@@ -136,7 +135,7 @@ interface AssetApiService {
     ): Response<PlaySoundResponse>
 
     // Уведомления
-    @GET("notifications/my")
+    @GET("notifications/stream")
     suspend fun getNotifications(
         @Header("Authorization") token: String,
 //        @Query("direction") direction: String  = "all" // default = all, incoming, outgoing
