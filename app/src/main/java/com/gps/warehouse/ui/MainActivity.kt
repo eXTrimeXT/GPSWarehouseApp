@@ -154,7 +154,7 @@ class MainActivity : ComponentActivity() {
                             HomeScreen(
                                 navController = navController,
                                 viewModel = mainViewModel,
-//                                assetModel = assetViewModel
+                                assetViewModel = assetViewModel
                             )
                         }
                         composable("orders") {

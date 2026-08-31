@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.BmListDto
 import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
+import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.AppPreferences
 import com.gps.warehouse.utils.Constants.TAB_VISIBLE
@@ -42,12 +43,14 @@ enum class HomeTab(val title: String, val icon: ImageVector) {
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    viewModel: MainViewModel
+    viewModel: MainViewModel,
+    assetViewModel: AssetViewModel
 ) {
     val tabs = HomeTab.entries.toTypedArray()
     val gpsPermissions by viewModel.gpsPermissions.collectAsState()
     val isUserAssetsAdmin by viewModel.userIsAssetsAdmin.collectAsState()
     val bmList by viewModel.bmList.collectAsState()
+    val uncheckedCount by assetViewModel.notificationUncheckedCount.collectAsState()
 
 
     val context = LocalContext.current
@@ -57,6 +60,7 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadUserProfile()
+        assetViewModel.loadNotifications()
     }
 
     // Флаг прав, есть ли хотя бы 1 элемент доступа
@@ -85,7 +89,8 @@ fun HomeScreen(
             onNavigate = { route -> navController.navigate(route) },
             permissions = gpsPermissions,
             isUserAssetsAdmin = isUserAssetsAdmin,
-            bmList = bmList
+            bmList = bmList,
+            notificationCount = uncheckedCount
         )
     }
 }
@@ -109,7 +114,8 @@ fun HomeScreenContent(
     onNavigate: (String) -> Unit,
     permissions: List<GpsPermissionDto>,
     isUserAssetsAdmin: Boolean,
-    bmList: List<BmListDto>
+    bmList: List<BmListDto>,
+    notificationCount: Int?
 ) {
     Column(
         modifier = modifier
@@ -263,7 +269,9 @@ fun HomeScreenContent(
                     subtitle = "Ваши входящие и исходящие уведомления",
                     icon = Icons.Default.CircleNotifications,
                     onClick = { onNavigate("asset_notifications") },
-                    isVisible = TAB_VISIBLE
+                    isVisible = TAB_VISIBLE,
+                    badgeCount = notificationCount
+
                 )
             }
             // Вкладка "Настройки"
@@ -298,12 +306,10 @@ fun MenuButton(
     containerColor: Color? = null,
     bmList: List<BmListDto> = emptyList(),
     nameRule: String = "",
-    // если true, тогда показываем все вкладки без учета прав,
-    // чтобы увидеть все вкладки надо изменить (isTabFilter(bmList, tab) на true
-    isVisible: Boolean = TAB_VISIBLE // true - только для тестов (Constants.TAB_VISIBLE)
+    isVisible: Boolean = TAB_VISIBLE,
+    badgeCount: Int? = null
 ) {
     if (bmList.any { it.nameRule == nameRule || it.name1 == nameRule } || isVisible) {
-
         Card(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
@@ -319,13 +325,33 @@ fun MenuButton(
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(32.dp),
-                    tint = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer
-                    else MaterialTheme.colorScheme.primary
-                )
+                // Обертка Box для иконки и бейджа
+                Box {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                        tint = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer
+                        else MaterialTheme.colorScheme.primary
+                    )
+
+                    // Отображаем бейдж только если count > 0
+                    if (badgeCount != null && badgeCount > 0) {
+                        Badge(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp),
+                            containerColor = MaterialTheme.colorScheme.error
+                        ) {
+                            Text(
+                                text = if (badgeCount > 99) "99+" else badgeCount.toString(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onError
+                            )
+                        }
+                    }
+                }
+
                 Spacer(modifier = Modifier.width(16.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -340,9 +366,7 @@ fun MenuButton(
                         Text(
                             text = subtitle,
                             style = MaterialTheme.typography.bodySmall,
-                            color = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer.copy(
-                                alpha = 0.7f
-                            )
+                            color = if (isDangerous) MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -419,7 +443,8 @@ private fun HomeScreenPreview() {
                     name1 = "warehouse_store_history",
                     nameRule = "qrcode_pda",
                 )
-            )
+            ),
+            notificationCount = 1
         )
     }
 }
@@ -449,7 +474,8 @@ private fun HomeScreenPreview2() {
             onNavigate = { },
             permissions = emptyList(),
             isUserAssetsAdmin = true,
-            bmList = emptyList()
+            bmList = emptyList(),
+            notificationCount = 1
         )
     }
 }

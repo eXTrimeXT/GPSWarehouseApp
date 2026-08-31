@@ -105,6 +105,10 @@ class AssetViewModel @Inject constructor(
     private val _notificationItems = MutableStateFlow<List<NotificationDto>>(emptyList())
     val notificationItems: StateFlow<List<NotificationDto>> = _notificationItems.asStateFlow()
 
+    private val _notificationUncheckedCount = MutableStateFlow(0)
+    val notificationUncheckedCount: StateFlow<Int> = _notificationUncheckedCount.asStateFlow()
+
+
     private var eventSource: EventSource? = null
 
 
@@ -329,6 +333,7 @@ class AssetViewModel @Inject constructor(
                 _uiState.value = AssetUiState.NotificationsLoaded(response.items)
 
                 _notificationItems.value = response.items
+                _notificationUncheckedCount.value = response.uncheckedCount
 
                 // 3. Запускаем OkHttp SSE для прослушивания обновлений в реальном времени
                 startSseStream(getToken())
@@ -339,6 +344,8 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+
+
 
     fun startSseStream(token: String) {
         eventSource?.cancel()
