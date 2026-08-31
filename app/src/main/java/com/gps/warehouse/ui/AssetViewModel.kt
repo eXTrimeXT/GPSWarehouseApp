@@ -102,6 +102,9 @@ class AssetViewModel @Inject constructor(
     private val _inventorizationItems = MutableStateFlow<List<InventorizationItemDto>>(emptyList())
     val inventorizationItems: StateFlow<List<InventorizationItemDto>> = _inventorizationItems.asStateFlow()
 
+    private val _notificationItems = MutableStateFlow<List<NotificationDto>>(emptyList())
+    val notificationItems: StateFlow<List<NotificationDto>> = _notificationItems.asStateFlow()
+
     private var eventSource: EventSource? = null
 
 
@@ -324,6 +327,8 @@ class AssetViewModel @Inject constructor(
 
                 // 2. Сохраняем список в состояние
                 _uiState.value = AssetUiState.NotificationsLoaded(response.items)
+
+                _notificationItems.value = response.items
 
                 // 3. Запускаем OkHttp SSE для прослушивания обновлений в реальном времени
                 startSseStream(getToken())

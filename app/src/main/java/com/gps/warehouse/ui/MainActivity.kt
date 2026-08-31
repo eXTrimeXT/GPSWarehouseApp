@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
                     val mainViewModel: MainViewModel = hiltViewModel()
+                    val assetViewModel: AssetViewModel = hiltViewModel()
 
                     // Добавим observer для отслеживания изменений состояния ViewModel
                     LaunchedEffect(Unit) {
@@ -152,7 +153,8 @@ class MainActivity : ComponentActivity() {
                         composable("home") {
                             HomeScreen(
                                 navController = navController,
-                                viewModel = mainViewModel
+                                viewModel = mainViewModel,
+//                                assetModel = assetViewModel
                             )
                         }
                         composable("orders") {
