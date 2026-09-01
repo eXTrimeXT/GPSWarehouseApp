@@ -1,9 +1,11 @@
 package com.gps.warehouse.ui
 
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -59,6 +61,7 @@ import com.gps.warehouse.ui.gps_screens.warehouse.WmsWriteOffScreen
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants
 import com.gps.warehouse.utils.DataWedgeProfileManager
+import com.gps.warehouse.utils.NotificationHelper
 import com.gps.warehouse.utils.UpdateManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -70,15 +73,22 @@ class MainActivity : ComponentActivity() {
         // Автоматическая настройка DataWedge для Zebra-устройств
         DataWedgeProfileManager.ensureProfileExists(this)
 
+        NotificationHelper.createNotificationChannel(this)
+        // Обработка Intent при холодном старте
+        handleIncomingIntent(intent)
+
         setContent {
             // Наблюдаем за темой из ViewModel
             val viewModel: MainViewModel = hiltViewModel()
+            val uiState by viewModel.uiState.collectAsState()
             val themeMode by viewModel.themeMode.collectAsState()
 
             var showUpdateDialog by remember { mutableStateOf<UpdateManager.VersionInfo?>(null) }
             var currentVersionName by remember { mutableStateOf("1.0.0") }
             val updateManager = remember { UpdateManager(this) }
             val scope = rememberCoroutineScope()
+
+            val pendingHighlightId by viewModel.pendingHighlightNotificationId.collectAsState()
 
             // Определяем DarkTheme на основе выбранного режима
             val darkTheme = when (themeMode) {
@@ -88,6 +98,14 @@ class MainActivity : ComponentActivity() {
                     // Используем системную настройку
                     val config = LocalConfiguration.current
                     config.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+                }
+            }
+
+            LaunchedEffect(uiState) {
+                if (uiState is MainViewModel.UiState.LoggedIn) {
+                    viewModel.startGlobalNotifications()
+                } else if (uiState is MainViewModel.UiState.Idle || uiState is MainViewModel.UiState.SessionExpired) {
+                    viewModel.stopGlobalNotifications()
                 }
             }
 
@@ -121,6 +139,17 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     val mainViewModel: MainViewModel = hiltViewModel()
                     val assetViewModel: AssetViewModel = hiltViewModel()
+
+                    LaunchedEffect(pendingHighlightId) {
+                        if (pendingHighlightId != null) {
+                            val currentRoute = navController.currentDestination?.route
+                            if (currentRoute != "asset_notifications") {
+                                navController.navigate("asset_notifications") {
+                                    launchSingleTop = true // Не создаем дубликат экрана
+                                }
+                            }
+                        }
+                    }
 
                     // Добавим observer для отслеживания изменений состояния ViewModel
                     LaunchedEffect(Unit) {
@@ -360,7 +389,13 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("asset_notifications"){
-                            NotificationsScreen(navController = navController)
+                            val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
+
+                            NotificationsScreen(
+                                navController = navController,
+                                highlightNotificationId = highlightId,
+                                onHighlightHandled = { mainViewModel.setPendingHighlightId(null) }
+                            )
                         }
                     }
 
@@ -395,6 +430,32 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    // Обработка Intent при теплом старте (когда приложение уже запущено)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent) // Обновляем intent
+        intent.getIntExtra("highlight_notification_id", -1).takeIf { it != -1 }?.let { id ->
+            val vm: MainViewModel by viewModels()
+            vm.setPendingHighlightId(id)
+        }
+        handleIncomingIntent(intent)
+    }
+
+    fun handleIncomingIntent(intent: Intent?) {
+        val highlightId = intent?.getIntExtra(NotificationHelper.EXTRA_HIGHLIGHT_NOTIFICATION_ID, -1)
+        val navigateTo = intent?.getStringExtra(NotificationHelper.EXTRA_NAVIGATE_TO)
+
+        if (highlightId != null && highlightId != -1 && navigateTo != null) {
+            // Получаем ViewModel через Hilt
+            val viewModel: MainViewModel by viewModels()
+            viewModel.setPendingHighlightId(highlightId)
+
+            // Очищаем intent, чтобы не сработало повторно при повороте экрана
+            intent.removeExtra(NotificationHelper.EXTRA_HIGHLIGHT_NOTIFICATION_ID)
+            intent.removeExtra(NotificationHelper.EXTRA_NAVIGATE_TO)
         }
     }
 }

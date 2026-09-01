@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.GPSApiService
+import com.gps.warehouse.data.remote.NotificationSseManager
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
@@ -32,6 +33,7 @@ import kotlin.system.exitProcess
 class MainViewModel @Inject constructor(
     private val localStorage: LocalStorage,
     private val apiService: GPSApiService,
+    private val notificationSseManager: NotificationSseManager
 ) : ViewModel() {
 
     sealed class UiState {
@@ -158,6 +160,9 @@ class MainViewModel @Inject constructor(
     val cameraScanEnabled: StateFlow<Boolean> = localStorage.cameraScanEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    private val _pendingHighlightNotificationId = MutableStateFlow<Int?>(null)
+    val pendingHighlightNotificationId: StateFlow<Int?> = _pendingHighlightNotificationId.asStateFlow()
+
     init {
         viewModelScope.launch {
             // Собираем поток токена
@@ -257,6 +262,7 @@ class MainViewModel @Inject constructor(
                     currentLogin = username
 
                     _uiState.value = UiState.LoggedIn(gpsToken)
+                    startGlobalNotifications()
                 } else {
                     // Ошибка авторизации - показываем сообщение от сервера
                     _uiState.value = UiState.Error(gpsResponse.msg.ifEmpty { "Ошибка авторизации" })
@@ -279,6 +285,30 @@ class MainViewModel @Inject constructor(
             currentToken = null
             _uiState.value = UiState.Idle
         }
+        stopGlobalNotifications()
+    }
+
+    // Вызываем этот метод при успешной авторизации
+    fun startGlobalNotifications() {
+        viewModelScope.launch {
+            // Создаем канал уведомлений
+            notificationSseManager.startListening()
+            Log.d("MainViewModel", "Глобальный SSE менеджер запущен")
+        }
+    }
+
+    // Вызовите этот метод при выходе из системы (logout)
+    fun stopGlobalNotifications() {
+        notificationSseManager.stopListening()
+    }
+
+    fun setPendingHighlightId(id: Int?) {
+        _pendingHighlightNotificationId.value = id
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopGlobalNotifications()
     }
 
     fun setCameraScanEnabled(enabled: Boolean) {

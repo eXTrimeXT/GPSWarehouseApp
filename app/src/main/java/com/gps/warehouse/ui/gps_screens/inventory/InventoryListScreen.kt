@@ -84,7 +84,7 @@ fun InventoryListContent(
         ) {
             // Контент фильтров внутри шторки
 
-            // 1. Фильтр по статусу
+            // Фильтр по статусу
             Text("Статус:", style = MaterialTheme.typography.labelMedium)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -112,7 +112,7 @@ fun InventoryListContent(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 2. Фильтр по складу
+            // Фильтр по складу
             if (uiState is MainViewModel.UiState.InventoryOrdersLoaded) {
                 val warehouses = uiState.orders.map { it.warehouse }.distinct().sorted()
                 if (warehouses.isNotEmpty()) {

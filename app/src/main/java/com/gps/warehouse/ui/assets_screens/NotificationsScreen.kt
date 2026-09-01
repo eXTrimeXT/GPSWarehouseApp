@@ -1,10 +1,16 @@
 package com.gps.warehouse.ui.assets_screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,6 +32,7 @@ import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -48,8 +55,8 @@ enum class StatusFilter(val title: String, val apiValue: String?) {
 
 data class NotificationFilterState(
     val searchQuery: String = "",
-    val direction: DirectionFilter = DirectionFilter.INCOMING,
-    val status: StatusFilter = StatusFilter.UNREAD
+    val direction: DirectionFilter = DirectionFilter.ALL,
+    val status: StatusFilter = StatusFilter.ALL
 )
 
 // ==========================================
@@ -58,17 +65,56 @@ data class NotificationFilterState(
 @Composable
 fun NotificationsScreen(
     navController: NavHostController,
+    highlightNotificationId: Int? = null,
+    onHighlightHandled: () -> Unit = {},
     viewModel: AssetViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
     // Состояние фильтров храним на уровне экрана
     var filterState by remember { mutableStateOf(NotificationFilterState()) }
+    // Состояние раскрытия шторки фильтров
+    var isFiltersExpanded by remember { mutableStateOf(false) }
+    // Состояние списка для скролла
+    val listState = rememberLazyListState()
+    var highlightedId by remember { mutableStateOf<Int?>(null) }
 
+    // Загружаем уведомления при первом открытии экрана
     LaunchedEffect(Unit) {
         if (uiState !is AssetViewModel.AssetUiState.NotificationsLoaded &&
             uiState !is AssetViewModel.AssetUiState.Loading) {
             viewModel.loadNotifications()
+        }
+    }
+
+    // Обработка прокрутки и включения подсветки
+    LaunchedEffect(highlightNotificationId, uiState) {
+        if (highlightNotificationId != null &&
+            uiState is AssetViewModel.AssetUiState.NotificationsLoaded &&
+            highlightedId != highlightNotificationId) {
+
+            // Сбрасываем фильтры, чтобы элемент гарантированно попал в видимый список
+            filterState = NotificationFilterState()
+
+            // Короткая пауза, чтобы UI успел перерисовать список без фильтров
+            delay(100)
+
+            val currentList = (uiState as AssetViewModel.AssetUiState.NotificationsLoaded).notifications
+            val index = currentList.indexOfFirst { it.notificationId == highlightNotificationId }
+
+            if (index != -1) {
+                listState.animateScrollToItem(index)
+                highlightedId = highlightNotificationId
+                onHighlightHandled() // Сбрасываем ID в ViewModel
+            }
+        }
+    }
+
+    // Таймер для снятия подсветки
+    LaunchedEffect(highlightedId) {
+        if (highlightedId != null) {
+            delay(3000)
+            highlightedId = null // Через 3 секунды цвет плавно вернется к исходному
         }
     }
 
@@ -83,7 +129,11 @@ fun NotificationsScreen(
         NotificationsContent(
             modifier = Modifier.padding(paddingValues),
             uiState = uiState,
+            listState = listState,
+            highlightedId = highlightedId,
             filterState = filterState,
+            isFiltersExpanded = isFiltersExpanded,
+            onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
             onFilterStateChange = { filterState = it },
             onRetry = { viewModel.loadNotifications() },
             onNotificationClick = { notification ->
@@ -107,12 +157,16 @@ fun NotificationsScreen(
 fun NotificationsContent(
     modifier: Modifier = Modifier,
     uiState: AssetViewModel.AssetUiState,
+    listState: LazyListState,
+    highlightedId: Int? = null,
     filterState: NotificationFilterState,
+    isFiltersExpanded: Boolean,
+    onToggleFilters: () -> Unit,
     onFilterStateChange: (NotificationFilterState) -> Unit,
     onRetry: () -> Unit,
     onNotificationClick: (NotificationDto) -> Unit
 ) {
-    when (val state = uiState) {
+    when (uiState) {
         is AssetViewModel.AssetUiState.Loading -> {
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
@@ -122,7 +176,7 @@ fun NotificationsContent(
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "Ошибка: ${state.message}",
+                        text = "Ошибка: ${uiState.message}",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -134,8 +188,8 @@ fun NotificationsContent(
             }
         }
         is AssetViewModel.AssetUiState.NotificationsLoaded -> {
-            // 1. Применяем фильтрацию
-            val filteredList = state.notifications.filter { notification ->
+            // Применяем фильтрацию
+            val filteredList = uiState.notifications.filter { notification ->
                 val matchesDirection = filterState.direction.apiValue == null ||
                         notification.direction == filterState.direction.apiValue
                 val matchesStatus = filterState.status.apiValue == null ||
@@ -149,12 +203,14 @@ fun NotificationsContent(
                         (notification.sessionId?.toString()?.contains(query) == true)
 
                 matchesDirection && matchesStatus && matchesSearch
-            }.sortedByDescending { it.createdAt } // 2. Сортируем от новых к старым
+            }.sortedByDescending { it.createdAt }
 
             Column(modifier = modifier.fillMaxSize()) {
                 // Панель фильтров
                 NotificationFilterBar(
                     filterState = filterState,
+                    isFiltersExpanded = isFiltersExpanded,
+                    onToggleFilters = onToggleFilters,
                     onFilterStateChange = onFilterStateChange
                 )
 
@@ -165,7 +221,7 @@ fun NotificationsContent(
                 )
 
                 // Список
-                if (filteredList.isEmpty() && state.notifications.isNotEmpty()) {
+                if (filteredList.isEmpty() && uiState.notifications.isNotEmpty()) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = "Ничего не найдено",
@@ -183,6 +239,7 @@ fun NotificationsContent(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -190,6 +247,7 @@ fun NotificationsContent(
                         items(filteredList, key = { it.notificationId }) { notification ->
                             NotificationItem(
                                 notification = notification,
+                                isHighlighted = notification.notificationId == highlightedId,
                                 onClick = { onNotificationClick(notification) }
                             )
                         }
@@ -211,65 +269,84 @@ fun NotificationsContent(
 @Composable
 fun NotificationFilterBar(
     filterState: NotificationFilterState,
+    isFiltersExpanded: Boolean,
+    onToggleFilters: () -> Unit,
     onFilterStateChange: (NotificationFilterState) -> Unit
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        // Поле поиска
-        OutlinedTextField(
-            value = filterState.searchQuery,
-            onValueChange = { onFilterStateChange(filterState.copy(searchQuery = it)) },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Поиск по активу, сессии...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            trailingIcon = {
-                if (filterState.searchQuery.isNotEmpty()) {
-                    IconButton(onClick = {
-                        onFilterStateChange(filterState.copy(searchQuery = ""))
-                        keyboardController?.hide()
-                    }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Очистить")
-                    }
-                }
-            },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() })
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Фильтр по направлению
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            DirectionFilter.entries.forEach { filter ->
-                FilterChip(
-                    selected = filterState.direction == filter,
-                    onClick = { onFilterStateChange(filterState.copy(direction = filter)) },
-                    label = { Text(filter.title, style = MaterialTheme.typography.labelMedium) },
-                    modifier = Modifier.weight(1f)
+            OutlinedTextField(
+                value = filterState.searchQuery,
+                onValueChange = { onFilterStateChange(filterState.copy(searchQuery = it)) },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Поиск...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (filterState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = {
+                            onFilterStateChange(filterState.copy(searchQuery = ""))
+                            keyboardController?.hide()
+                        }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Очистить")
+                        }
+                    }
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() })
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            // Кнопка сворачивания/разворачивания фильтров
+            IconButton(onClick = onToggleFilters) {
+                Icon(
+                    imageVector = if (isFiltersExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isFiltersExpanded) "Скрыть фильтры" else "Показать фильтры"
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        // Анимированное раскрытие фильтров
+        AnimatedVisibility(visible = isFiltersExpanded) {
+            Column {
+                Spacer(modifier = Modifier.height(8.dp))
 
-        // Фильтр по статусу (горизонтальная прокрутка для экономии места на ТСД)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            StatusFilter.entries.forEach { filter ->
-                FilterChip(
-                    selected = filterState.status == filter,
-                    onClick = { onFilterStateChange(filterState.copy(status = filter)) },
-                    label = { Text(filter.title, style = MaterialTheme.typography.labelMedium) }
-                )
+                // Фильтр по направлению
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DirectionFilter.entries.forEach { filter ->
+                        FilterChip(
+                            selected = filterState.direction == filter,
+                            onClick = { onFilterStateChange(filterState.copy(direction = filter)) },
+                            label = { Text(filter.title, style = MaterialTheme.typography.labelMedium) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Фильтр по статусу (горизонтальная прокрутка для экономии места на ТСД)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    StatusFilter.entries.forEach { filter ->
+                        FilterChip(
+                            selected = filterState.status == filter,
+                            onClick = { onFilterStateChange(filterState.copy(status = filter)) },
+                            label = { Text(filter.title, style = MaterialTheme.typography.labelMedium) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -279,18 +356,36 @@ fun NotificationFilterBar(
 // UI КОМПОНЕНТЫ: Элемент списка
 // ==========================================
 @Composable
-fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
+fun NotificationItem(notification: NotificationDto, isHighlighted: Boolean = false, onClick: () -> Unit) {
+    val highlightColor = when (notification.eventType) {
+        "write_off_approved" -> Color(0xFF4CAF50)
+        "write_off_rejected", "user_declined" -> Color(0xFFE53935)
+        "inventory_started" -> Color(0xFF2196F3)
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+    val bgColor by animateColorAsState(
+        targetValue = when {
+            isHighlighted -> highlightColor.copy(alpha = 0.15f)
+            notification.status == "unread" -> MaterialTheme.colorScheme.surfaceVariant
+            else -> MaterialTheme.colorScheme.surface
+        },
+        animationSpec = tween(800),
+        label = "bg"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isHighlighted) highlightColor else Color.Transparent,
+        animationSpec = tween(800),
+        label = "border"
+    )
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .border(if (isHighlighted) 2.dp else 0.dp, borderColor, MaterialTheme.shapes.medium)
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = if (notification.status == "unread")
-                MaterialTheme.colorScheme.surfaceVariant
-            else
-                MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isHighlighted) 4.dp else 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -305,13 +400,11 @@ fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
                 )
                 Text(
                     text = "id = ${notification.notificationId} | ",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
                 )
                 Text(
                     text = formatDateTime(notification.createdAt),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
@@ -322,7 +415,6 @@ fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            // Улучшенная визуализация ссылки на актив или сессию
             if (!notification.assetName.isNullOrEmpty() || notification.sessionId != null) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -346,12 +438,11 @@ fun NotificationItem(notification: NotificationDto, onClick: () -> Unit) {
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Badge(
-                    containerColor = if (notification.status == "unread")
-                        MaterialTheme.colorScheme.primary
-                    else if (notification.status == "declined")
-                        MaterialTheme.colorScheme.error
-                    else
-                        Color.Gray
+                    containerColor = when (notification.status) {
+                        "unread" -> MaterialTheme.colorScheme.primary
+                        "declined" -> MaterialTheme.colorScheme.error
+                        else -> Color.Gray
+                    }
                 ) {
                     Text(
                         text = notification.statusRu,
@@ -400,7 +491,7 @@ private fun NotificationsContentPreview() {
             assetId = 49, sessionId = null, eventType = "user_declined", initiatorId = "0000015370",
             status = "declined", respondedAt = null, createdAt = "2026-08-26T12:29:14.756052",
             assetName = "Актив №3", assetInventoryId = "3333", initiatorFullName = "Малышев Тимур Максимович",
-            direction = "outgoing", directionRu = "Исходящее", eventTypeRu = "Сотрудник отклонил назначение", statusRu = "Отклонено"
+            direction = "outgoing", directionRu = "Входящее", eventTypeRu = "Сотрудник отклонил назначение", statusRu = "Отклонено"
         ),
         NotificationDto(
             notificationId = 62, employeeId = "0000015370", employeeFullName = "Малышев Тимур Максимович",
@@ -417,7 +508,54 @@ private fun NotificationsContentPreview() {
                 MyCustomActionBar(text = "Уведомления", onBackClick = {})
                 NotificationsContent(
                     uiState = AssetViewModel.AssetUiState.NotificationsLoaded(mockNotifications),
+                    listState = LazyListState(),
                     filterState = NotificationFilterState(),
+                    isFiltersExpanded = false,
+                    onToggleFilters = {},
+                    onFilterStateChange = {},
+                    onRetry = {},
+                    onNotificationClick = {}
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
+@Composable
+private fun NotificationsContentEmptyPreview() {
+    MaterialTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column {
+                MyCustomActionBar(text = "Уведомления", onBackClick = {})
+                NotificationsContent(
+                    uiState = AssetViewModel.AssetUiState.NotificationsLoaded(emptyList()),
+                    listState = LazyListState(),
+                    filterState = NotificationFilterState(),
+                    isFiltersExpanded = false,
+                    onToggleFilters = {},
+                    onFilterStateChange = {},
+                    onRetry = {},
+                    onNotificationClick = {}
+                )
+            }
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
+@Composable
+private fun NotificationsContentErrorPreview() {
+    MaterialTheme {
+        Surface(color = MaterialTheme.colorScheme.background) {
+            Column {
+                MyCustomActionBar(text = "Уведомления", onBackClick = {})
+                NotificationsContent(
+                    uiState = AssetViewModel.AssetUiState.Error("Ошибка сети. Проверьте подключение."),
+                    listState = LazyListState(),
+                    filterState = NotificationFilterState(),
+                    isFiltersExpanded = false,
+                    onToggleFilters = {},
                     onFilterStateChange = {},
                     onRetry = {},
                     onNotificationClick = {}
