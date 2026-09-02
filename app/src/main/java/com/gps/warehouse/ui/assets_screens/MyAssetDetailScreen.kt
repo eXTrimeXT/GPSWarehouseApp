@@ -127,6 +127,7 @@ fun MyAssetDetailContent(
         }
 
         // Локация
+        val location: LocationInfoDto? = asset.location
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -139,11 +140,12 @@ fun MyAssetDetailContent(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
-                val location = asset.location
-                DetailRow("Город", location?.city)
-                DetailRow("Адрес", location?.address)
-                DetailRow("Помещение", location?.room)
-                DetailRow("Этаж", location?.floor)
+//                DetailRow("Город", location?.city)
+//                DetailRow("Адрес", location?.address)
+//                DetailRow("Помещение", location?.room)
+                DetailRow("workshop_id", location?.workshopId.toString())
+                DetailRow("Место", location?.place)
+                DetailRow("Этаж", location?.level.toString())
             }
         }
 
@@ -293,6 +295,7 @@ fun getSampleFullMyAssetDto(): MyAssetDto {
         inventoryId = "инвентарный номер ноута",
         serialNumber = "серийный номер ноута",
         assetStatus = "Приемка",
+        assetStatusId = 1,
         comment = "коммент для ноута",
         dateIssue = "2026-07-08",
         datePurchasing = "2026-07-08",
@@ -302,11 +305,16 @@ fun getSampleFullMyAssetDto(): MyAssetDto {
         createdAt = "2026-07-08T14:19:56.207098",
         updatedAt = "2026-07-14T14:09:30.775238",
         location = LocationInfoDto(
-            locationId = 1,
-            city = "Тула",
-            address = "Тульская улица, дом 71",
-            room = "Помещение № 28",
-            floor = "Этаж 3"
+//            locationId = 1,
+//            city = "Тула",
+//            address = "Тульская улица, дом 71",
+//            room = "Помещение № 28",
+//            floor = "Этаж 3"
+            workshopId = 1,
+            place = "Место",
+            level = 3,
+            x = 0,
+            y = 0
         ),
         users = listOf(
             AssignedUserDto(
@@ -346,6 +354,7 @@ private fun getSampleMinimalMyAssetDto(): MyAssetDto {
         inventoryId = "TEST-001",
         serialNumber = null,
         assetStatus = "Приемка",
+        assetStatusId = 1,
         comment = null,
         dateIssue = null,
         datePurchasing = null,

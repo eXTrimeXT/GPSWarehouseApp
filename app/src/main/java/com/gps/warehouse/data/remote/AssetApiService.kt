@@ -1,6 +1,7 @@
 package com.gps.warehouse.data.remote
 
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
@@ -74,6 +75,12 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Path("asset_id") assetId: Int
     ): AssetResponseDto
+
+    // ====================== Статус актива ======================
+    @GET("asset-status/")
+    suspend fun getAssetStatuses(
+        @Header("Authorization") token: String
+    ): List<AssetStatusDto>
 
     // ====================== Карта активов ======================
     @GET("workshops")

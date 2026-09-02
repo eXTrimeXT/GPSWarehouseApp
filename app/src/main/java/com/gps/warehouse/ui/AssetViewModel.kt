@@ -11,6 +11,7 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
@@ -85,6 +86,10 @@ class AssetViewModel @Inject constructor(
     private val _myAssetsList = MutableStateFlow<List<MyAssetDto>>(emptyList())
     val myAssetsList: StateFlow<List<MyAssetDto>> = _myAssetsList.asStateFlow()
 
+    private val _assetStatuses = MutableStateFlow<List<AssetStatusDto>>(emptyList())
+    val assetStatuses: StateFlow<List<AssetStatusDto>> = _assetStatuses.asStateFlow()
+
+
     private val _myPcsList = MutableStateFlow<List<MyPcDto>>(emptyList())
     val myPcsList: StateFlow<List<MyPcDto>> = _myPcsList.asStateFlow()
 
@@ -107,6 +112,7 @@ class AssetViewModel @Inject constructor(
 
     private val _notificationUncheckedCount = MutableStateFlow(0)
     val notificationUncheckedCount: StateFlow<Int> = _notificationUncheckedCount.asStateFlow()
+
 
 
     private var eventSource: EventSource? = null
@@ -185,6 +191,19 @@ class AssetViewModel @Inject constructor(
                 _uiState.value = AssetUiState.AssetTypesLoaded(types)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+            }
+        }
+    }
+
+    // Метод загрузки статусов
+    fun loadAssetStatuses() {
+        viewModelScope.launch {
+            try {
+                val statuses = assetApiService.getAssetStatuses("Bearer ${getToken()}")
+                _assetStatuses.value = statuses
+            } catch (e: Exception) {
+                // Логируем, но не показываем пользователю — фильтры могут работать и без статусов
+                Log.e("AssetViewModel", "Ошибка загрузки статусов: ${e.message}")
             }
         }
     }

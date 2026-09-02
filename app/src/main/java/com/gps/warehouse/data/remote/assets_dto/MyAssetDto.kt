@@ -8,6 +8,7 @@ data class MyAssetDto(
     @SerializedName("inventory_id") val inventoryId: String,
     @SerializedName("serial_number") val serialNumber: String?,
     @SerializedName("asset_status") val assetStatus: String,
+    @SerializedName("asset_status_id") val assetStatusId: Int?,
     @SerializedName("asset_type_name") val assetTypeName: String?,
     @SerializedName("model_name") val modelName: String?,
     val comment: String?,
@@ -22,11 +23,16 @@ data class MyAssetDto(
 )
 
 data class LocationInfoDto(
-    @SerializedName("location_id") val locationId: Int?,
-    val city: String?,
-    val address: String?,
-    val room: String?,
-    val floor: String?
+//    @SerializedName("location_id") val locationId: Int?,
+//    val city: String?,
+//    val address: String?,
+//    val room: String?,
+//    val floor: String?
+    @SerializedName("workshop_id") val workshopId: Int?,
+    val place: String,
+    val level: Int?,
+    val x: Int?,
+    val y: Int?,
 )
 
 data class AssignedUserDto(

@@ -107,8 +107,9 @@ fun AssetDetailsContent(asset: AssetResponseDto, modifier: Modifier = Modifier) 
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text("Локация", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.height(12.dp))
-                    DetailRow("Название", loc.name)
-                    DetailRow("Адрес", loc.address)
+                    DetailRow("workshop_id", loc.workshopId.toString())
+                    DetailRow("Место", loc.place)
+                    DetailRow("Этаж", loc.level.toString())
                 }
             }
         }
@@ -189,9 +190,13 @@ private fun getSampleFullAssetResponseDto(): AssetResponseDto {
         updatedAt = "2024-01-15T12:30:00Z",
         assetTypeName = "Компьютер",
         location = LocationResponseDto(
-            locationId = 1,
-            name = "Центральный склад",
-            address = "г. Тула, ул. Ленина, д. 10"
+//            locationId = 1,
+//            name = "Центральный склад",
+//            address = "г. Тула, ул. Ленина, д. 10"
+            workshopId = 1,
+            place = "mesto",
+            level = 4,
+            x = 0, y = 0
         ),
         users = listOf(
             AssetUserResponseDto(

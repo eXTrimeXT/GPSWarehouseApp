@@ -43,9 +43,11 @@ data class AssetResponseDto(
 )
 
 data class LocationResponseDto(
-    @SerializedName("location_id") val locationId: Int,
-    val name: String?,
-    val address: String?
+    @SerializedName("workshop_id") val workshopId: Int?,
+    val place: String,
+    val level: Int?,
+    val x: Int?,
+    val y: Int?,
 )
 
 data class AssetUserResponseDto(
