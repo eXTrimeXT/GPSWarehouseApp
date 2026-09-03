@@ -115,7 +115,8 @@ class AssetViewModel @Inject constructor(
     private val _notificationUncheckedCount = MutableStateFlow(0)
     val notificationUncheckedCount: StateFlow<Int> = _notificationUncheckedCount.asStateFlow()
 
-
+    private val _assetHistory = MutableStateFlow<List<AssetHistoryDto>>(emptyList())
+    val assetHistory: StateFlow<List<AssetHistoryDto>> = _assetHistory.asStateFlow()
 
     private var eventSource: EventSource? = null
 
@@ -197,11 +198,6 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    // В AssetViewModel.kt добавьте:
-
-    // StateFlow для истории актива
-    private val _assetHistory = MutableStateFlow<List<AssetHistoryDto>>(emptyList())
-    val assetHistory: StateFlow<List<AssetHistoryDto>> = _assetHistory.asStateFlow()
 
     // Загрузка истории актива
     fun loadAssetHistory(assetId: Int) {

@@ -17,8 +17,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import com.gps.warehouse.data.remote.assets_dto.AssetLocationResponse
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
+import com.gps.warehouse.data.remote.assets_dto.AssetUserFullResponse
+import com.gps.warehouse.data.remote.assets_dto.PositionResponse
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScanButton
@@ -432,9 +435,9 @@ fun AssetCardPaginated(asset: AssetResponseDto, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = asset.assetStatus,
+                    text = asset.assetStatus.toString(),
                     style = MaterialTheme.typography.labelMedium,
-                    color = when (asset.assetStatus.lowercase()) {
+                    color = when (asset.assetStatus?.lowercase()) {
                         "приемка", "в эксплуатации", "active" -> MaterialTheme.colorScheme.primary; "списан", "inactive" -> MaterialTheme.colorScheme.error; else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )
@@ -450,10 +453,7 @@ fun AssetCardPaginated(asset: AssetResponseDto, onClick: () -> Unit) {
     }
 }
 
-// ============================================================================
 // PREVIEW ФУНКЦИИ
-// ============================================================================
-
 @Preview(showBackground = true, name = "Экран: Список активов")
 @Composable
 fun AssetsByTypeScreenContentPreview_Loaded() {
@@ -463,7 +463,7 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                 assetTypeName = "Компьютеры",
                 uiState = AssetViewModel.AssetUiState.AssetsLoadedPaginated(
                     assets = listOf(
-                        getSampleFullAssetResponseDto(),
+                        getSampleAsset(),
                         getSampleScrappedAssetResponseDto()
                     ),
                     total = 2,
@@ -580,7 +580,7 @@ fun AssetCardPaginatedPreview_Full() {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxWidth()) {
             AssetCardPaginated(
-                asset = getSampleFullAssetResponseDto(),
+                asset = getSampleAsset(),
                 onClick = { }
             )
         }
@@ -593,7 +593,7 @@ fun AssetCardPaginatedPreview_WithParent() {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxWidth()) {
             AssetCardPaginated(
-                asset = getSampleFullAssetResponseDto().copy(
+                asset = getSampleAsset().copy(
                     name = "Процессор Intel Core i7",
                     inventoryId = "INV-002",
                     serialNumber = "SN-998877",
@@ -608,40 +608,144 @@ fun AssetCardPaginatedPreview_WithParent() {
 }
 
 // MOCK ДАННЫЕ
-private fun getSampleFullAssetResponseDto(): AssetResponseDto {
+private fun getSampleAsset(): AssetResponseDto {
     return AssetResponseDto(
-        assetId = 2,
-        name = "Ноутбук Lenovo ThinkPad X1",
-        inventoryId = "INV-2024-00158",
-        serialNumber = "SN-9876543210",
-        assetStatus = "В эксплуатации",
-        comment = "Выдан системному администратору",
-        dateIssue = "2024-01-15",
-        datePurchasing = "2024-01-10",
-        modelId = 55,
-        modelName = "ThinkPad X1 Carbon Gen 11",
-        assetTypeId = 1,
-        parentId = 4,
-        locationId = 3,
-        preparedBy = "0000015370",
-        checkedBy = "0000015370",
-        parentName = "Рабочая станция №12",
-        manufacturerName = "Lenovo",
-        vendorName = "ООО ТехноПоставка",
-        osName = "Windows 11 Pro",
-        createdBy = "0000015370",
+        assetId = 48,
+        name = "Актив 2",
+        inventoryId = "INV_NUMBER_48",
+        serialNumber = "SER_NUMBER_48",
+        assetStatus = "В работе",
+        assetStatusId = 10,
+        comment = "Описание123123",
+        dateIssue = "2026-08-19",
+        datePurchasing = null,
+        modelId = null,
+        modelName = "модель 3",
+        assetTypeId = 10,
+        parentId = null,
+        locationId = null,
+        quantity = 120,
+        preparedBy = null,
+        checkedBy = null,
+        parentName = "чего то там",
+        manufacturerName = "китай",
+        vendorName = "Z",
+        osName = "окнО",
+
+        // ✅ Сервисная информация
+        everyWeekCheck = false,
+        nextService = "2026-09-08",
+        servicePeriod = 5,
+
+        // ✅ Мета
+        createdBy = "0000012657",
         updatedBy = "0000015370",
-        createdAt = "2024-01-01T10:00:00Z",
-        updatedAt = "2024-01-15T12:30:00Z",
-        assetTypeName = "Компьютер",
-        location = null,
-        users = null,
+        createdAt = "2026-07-14T19:23:04.784110",
+        updatedAt = "2026-09-03T09:26:16.840853",
+        assetTypeName = "Оборудование MU",
+
+        // ✅ Вложенные объекты
+        location = AssetLocationResponse(
+            workshopId = 6,
+            workshopName = "Логистика",
+            place = "mesto213111111111111",
+            level = 4,
+            x = 237,
+            y = 415
+        ),
+
+        users = listOf(
+            AssetUserFullResponse(
+                guid = "974f470d-a7cd-11ef-a3b2-000c290ca5c4",
+                employeeId = "0000010680",
+                birthDate = "1994-12-30",
+                employmentDate = "2024-11-21",
+                dismissalDate = null,
+                phone = "+79805882104",
+                email = "Andrey.Malykh@hmmr.ru",
+                comment = null,
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "80911547-78ee-11f0-a3c1-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:34.650680",
+                updatedAt = "2026-09-03T02:00:11.229864",
+                fullNameRu = "Малых Андрей Владимирович",
+                fullNameEn = "Malykh Andrey Vladimirovich",
+                society = null,
+                department = null,
+                division = null,
+                group = null,
+                position = PositionResponse(name = "Системный администратор", nameEn = null),
+                startDate = "2026-08-24",
+                endDate = null,
+                assignmentType = "user"
+            )
+        ),
+
+        responsibleUsers = listOf(
+            AssetUserFullResponse(
+                guid = "14ba77ab-2d91-11f1-a3cb-000c290ca5c4",
+                employeeId = "0000015370",
+                birthDate = "2002-09-06",
+                employmentDate = "2026-04-01",
+                dismissalDate = null,
+                phone = "+79190809746",
+                email = "Timur.Malyshev@hmmr.ru",
+                comment = "Проверка",
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:44.545594",
+                updatedAt = "2026-09-03T02:00:11.229864",
+                fullNameRu = "Малышев Тимур Максимович",
+                fullNameEn = "Malyshev Timur Maksimovich",
+                society = null,
+                department = null,
+                division = null,
+                group = null,
+                position = PositionResponse(name = "Инженер", nameEn = null),
+                startDate = "2026-08-26",
+                endDate = null,
+                assignmentType = "responsible"
+            )
+        ),
+
+        servingUsers = listOf(
+            AssetUserFullResponse(
+                guid = "c0ed588f-1c4a-11f1-a3ca-000c290ca5c4",
+                employeeId = "0000014942",
+                birthDate = "2003-04-19",
+                employmentDate = "2026-03-10",
+                dismissalDate = null,
+                phone = "+79805882044",
+                email = "Oleg.Feshchenko@hmmr.ru",
+                comment = null,
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:43.360340",
+                updatedAt = "2026-09-03T02:00:11.229864",
+                fullNameRu = "Фещенко Олег Игоревич",
+                fullNameEn = "Feshchenko Oleg Igorevich",
+                society = null,
+                department = null,
+                division = null,
+                group = null,
+                position = PositionResponse(name = "Техник", nameEn = null),
+                startDate = "2026-09-02",
+                endDate = null,
+                assignmentType = "serving"
+            )
+        ),
+
+        // ✅ Текущий пользователь
+        currentUser = "0000012657",
+        currentUserFullName = "Евсиков Константин Александрович",
+
+        // ✅ Родительский актив
         parent = null
     )
 }
 
 private fun getSampleScrappedAssetResponseDto(): AssetResponseDto {
-    return getSampleFullAssetResponseDto().copy(
+    return getSampleAsset().copy(
         name = "Старый монитор Dell",
         inventoryId = "INV-2020-9999",
         serialNumber = "DL-999888",

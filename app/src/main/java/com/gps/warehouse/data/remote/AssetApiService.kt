@@ -21,6 +21,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -154,7 +155,8 @@ interface AssetApiService {
     @GET("asset-history/{assetId}")
     suspend fun getAssetHistory(@Header("Authorization") token: String, @Path("assetId") assetId: Int): List<AssetHistoryDto>
 
-    @PUT("assets/{assetId}")
+    // Обновление актива
+    @PATCH("assets/{assetId}")
     suspend fun updateAsset(
         @Header("Authorization") token: String,
         @Path("assetId") assetId: Int,

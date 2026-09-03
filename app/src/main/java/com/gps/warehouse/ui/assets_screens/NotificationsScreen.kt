@@ -55,8 +55,8 @@ enum class StatusFilter(val title: String, val apiValue: String?) {
 
 data class NotificationFilterState(
     val searchQuery: String = "",
-    val direction: DirectionFilter = DirectionFilter.ALL,
-    val status: StatusFilter = StatusFilter.ALL
+    val direction: DirectionFilter = DirectionFilter.INCOMING,
+    val status: StatusFilter = StatusFilter.UNREAD
 )
 
 // ==========================================

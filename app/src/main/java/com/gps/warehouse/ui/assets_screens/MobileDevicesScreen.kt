@@ -32,6 +32,7 @@ import com.gps.warehouse.ui.viewmodels.UiState
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.utils.isRecentWithinOneMinute
 import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDateTime
@@ -192,31 +193,6 @@ fun DeviceListItem(device: DeviceResponse, onClick: () -> Unit) {
                 Text(text = "🕒 ${device.request_time}", style = MaterialTheme.typography.bodySmall)
             }
         }
-    }
-}
-
-/**
- * Проверяет, что переданная дата-время отличается от текущего времени устройства менее чем на 1 минуту.
- * @return true, если разница < 60 секунд, false в противном случае или при ошибке парсинга.
- */
-fun String.isRecentWithinOneMinute(): Boolean {
-    return try {
-        // Формат строки: "2026-07-22 14:15:50"
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        val parsedTime = LocalDateTime.parse(this, formatter)
-        val currentTime = LocalDateTime.now()
-
-        // Вычисляем абсолютную разницу во времени
-        val duration = Duration.between(parsedTime, currentTime).abs()
-
-        // Возвращаем true, если разница меньше 5 минут
-        duration.seconds < 5 * 60
-    } catch (e: DateTimeParseException) {
-        // Если строка не соответствует формату, безопасно возвращаем false
-        false
-    } catch (e: Exception) {
-        // Ловим любые другие непредвиденные ошибки
-        false
     }
 }
 

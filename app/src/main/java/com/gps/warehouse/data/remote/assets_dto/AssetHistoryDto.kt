@@ -11,7 +11,7 @@ data class AssetHistoryDto(
     @SerializedName("old_value") val oldValue: String?,
     @SerializedName("new_value") val newValue: String?,
     @SerializedName("changed_by") val changedBy: String?,
-    @SerializedName("changed_at") val changedAt: Instant?,
+    @SerializedName("changed_at") val changedAt: String?,
     @SerializedName("comment") val comment: String?,
     @SerializedName("session_id") val sessionId: String?,
     @SerializedName("changer_full_name_ru") val changerFullNameRu: String?,
