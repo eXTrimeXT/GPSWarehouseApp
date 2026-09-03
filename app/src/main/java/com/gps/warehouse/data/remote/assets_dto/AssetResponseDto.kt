@@ -44,6 +44,7 @@ data class AssetResponseDto(
 
 data class LocationResponseDto(
     @SerializedName("workshop_id") val workshopId: Int?,
+    @SerializedName("workshop_name") val workshopName: String?,
     val place: String,
     val level: Int?,
     val x: Int?,
