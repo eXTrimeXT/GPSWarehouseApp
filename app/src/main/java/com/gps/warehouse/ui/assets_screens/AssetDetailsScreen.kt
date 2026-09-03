@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
@@ -15,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -24,8 +26,6 @@ import com.gps.warehouse.data.remote.assets_dto.*
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.formatIsoToReadable
-import com.gps.warehouse.utils.isRecentWithinOneMinute
-import kotlin.collections.isNullOrEmpty
 
 // ==================== SCREEN: Логика + Навигация ====================
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +42,9 @@ fun AssetDetailsScreen(
     var isEditing by remember { mutableStateOf(false) }
     var showHistoryDialog by remember { mutableStateOf(false) }
 
+    // Единое состояние для редактирования
+    var editState by remember { mutableStateOf<AssetEditState?>(null) }
+
     // Загружаем данные при открытии
     LaunchedEffect(assetId) {
         viewModel.loadAssetDetails(assetId)
@@ -50,14 +53,41 @@ fun AssetDetailsScreen(
         viewModel.loadAssetHistory(assetId)
     }
 
+    // Инициализируем editState при загрузке актива
+    LaunchedEffect(uiState) {
+        (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
+            editState = AssetEditState.fromAsset(original)
+        }
+        // Отключаем редактирование только после получения новых данных
+        if (isEditing) {
+            isEditing = false
+        }
+    }
+
     AssetDetailsContent(
         uiState = uiState,
         assetStatuses = assetStatuses,
         assetTypes = assetTypes,
         isEditing = isEditing,
+        editState = editState,
+        onEditStateChange = { editState = it },
         onToggleEdit = { isEditing = !isEditing },
-        onSave = { updatedAsset -> viewModel.updateAsset(assetId, updatedAsset) },
-        onCancelEdit = { isEditing = false },
+        onSave = {
+            editState?.let { state ->
+                // Безопасное приведение + let
+                (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
+                    viewModel.updateAsset(assetId, state.toUpdate(original))
+                }
+                viewModel.loadAssetDetails(assetId)
+            }
+        },
+        onCancelEdit = {
+            isEditing = false
+            // Восстанавливаем editState из оригинала
+            (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
+                editState = AssetEditState.fromAsset(original)
+            }
+        },
         onShowHistory = { showHistoryDialog = true },
         onBackClick = { navController.popBackStack() },
         onNavigateToParent = { parentId -> navController.navigate("asset_details/$parentId") }
@@ -80,8 +110,10 @@ fun AssetDetailsContent(
     assetStatuses: List<AssetStatusDto>,
     assetTypes: List<AssetTypeDto>,
     isEditing: Boolean,
+    editState: AssetEditState?,
+    onEditStateChange: (AssetEditState) -> Unit,
     onToggleEdit: () -> Unit,
-    onSave: (AssetUpdate) -> Unit,
+    onSave: () -> Unit,  // Больше не принимает AssetUpdate
     onCancelEdit: () -> Unit,
     onShowHistory: () -> Unit,
     onBackClick: () -> Unit,
@@ -108,9 +140,7 @@ fun AssetDetailsContent(
                             }
                             // Кнопка редактирования / сохранения
                             if (isEditing) {
-                                IconButton(onClick = {
-                                    onSave(buildAssetUpdate(asset))
-                                }) {
+                                IconButton(onClick = onSave) {
                                     Icon(Icons.Default.Save, "Сохранить", tint = MaterialTheme.colorScheme.primary)
                                 }
                                 IconButton(onClick = onCancelEdit) {
@@ -133,13 +163,27 @@ fun AssetDetailsContent(
                 ) {
                     // Карточка статуса
                     item {
-                        StatusCard(asset = asset, isEditing = isEditing, assetStatuses = assetStatuses)
+                        StatusCard(
+                            asset = asset,
+                            isEditing = isEditing,
+                            assetStatuses = assetStatuses,
+                            editState = editState,
+                            onStatusChange = { newStatusId ->
+                                onEditStateChange(editState?.copy(assetStatusId = newStatusId) ?: AssetEditState())
+                            }
+                        )
                     }
 
                     // Основная информация
                     item {
                         if (isEditing) {
-                            EditableInfoSection(asset = asset, assetTypes = assetTypes)
+                            // Передаём editState и callback
+                            EditableInfoSection(
+                                asset = asset,
+                                assetTypes = assetTypes,
+                                editState = editState ?: AssetEditState.fromAsset(asset),
+                                onEditStateChange = onEditStateChange
+                            )
                         } else {
                             ReadOnlyInfoSection(asset = asset, onNavigateToParent = onNavigateToParent)
                         }
@@ -160,7 +204,9 @@ fun AssetDetailsContent(
                         UsersSection(
                             title = "Пользователи",
                             users = asset.users,
-                            icon = Icons.Default.Person
+                            icon = Icons.Default.Person,
+                            isEditing = isEditing,
+                            onAddUser = if (isEditing) { { /* TODO: открыть диалог выбора */ } } else null
                         )
                     }
                     item {
@@ -168,7 +214,9 @@ fun AssetDetailsContent(
                             title = "Ответственные",
                             users = asset.responsibleUsers,
                             icon = Icons.Default.VerifiedUser,
-                            color = MaterialTheme.colorScheme.primaryContainer
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            isEditing = isEditing,
+                            onAddUser = if (isEditing) { { /* TODO: открыть диалог выбора */ } } else null
                         )
                     }
                     item {
@@ -176,7 +224,9 @@ fun AssetDetailsContent(
                             title = "Обслуживающий персонал",
                             users = asset.servingUsers,
                             icon = Icons.Default.Build,
-                            color = MaterialTheme.colorScheme.tertiaryContainer
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            isEditing = isEditing,
+                            onAddUser = if (isEditing) { { /* TODO: открыть диалог выбора */ } } else null
                         )
                     }
 
@@ -201,19 +251,33 @@ fun AssetDetailsContent(
 }
 
 // ==================== КАРТОЧКА СТАТУСА ====================
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatusCard(asset: AssetResponseDto, isEditing: Boolean, assetStatuses: List<AssetStatusDto>) {
+fun StatusCard(
+    asset: AssetResponseDto,
+    isEditing: Boolean,
+    assetStatuses: List<AssetStatusDto>,
+    editState: AssetEditState? = null,  // Новый параметр
+    onStatusChange: (Int?) -> Unit = {}  // Callback для обновления статуса
+) {
+    val statusText = if (isEditing) {
+        // В режиме редактирования берём статус из editState или из asset
+        assetStatuses.find { it.id == (editState?.assetStatusId ?: asset.assetStatusId) }?.status
+            ?: asset.assetStatus ?: "Не указан"
+    } else {
+        asset.assetStatus ?: "Не указан"
+    }
+
     val statusColor = when (asset.assetStatus?.lowercase()) {
-        "в работе", "active", "приемка" -> Color(0, 150, 0, 170)
-        "списан", "inactive", "удален" -> Color(220, 0, 0, 170)
-        "в ремонте", "ожидает зч" -> Color(255, 193, 7, 170)
+        "приемка", "отремонтирован", "на складе", "в работе" -> Color(0, 150, 0, 170)
+        "удален", "списан" -> Color(220, 0, 0, 170)
+        "на обслуживании", "ожидает зч", "требует проверки", "в ремонте" -> Color(255, 193, 7, 170)
         else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.15f)),
-//        elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -237,17 +301,57 @@ fun StatusCard(asset: AssetResponseDto, isEditing: Boolean, assetStatuses: List<
             Column(modifier = Modifier.weight(1f)) {
                 Text("Статус", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (isEditing) {
-                    // TODO: Dropdown для выбора статуса
-                    Text(asset.assetStatus ?: "Не указан", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    // DROPDOWN для выбора статуса
+                    var expanded by remember { mutableStateOf(false) }
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
+                    ) {
+                        OutlinedTextField(
+                            value = statusText,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Выберите статус") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            )
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            assetStatuses.forEach { statusDto ->
+                                DropdownMenuItem(
+                                    text = { Text(statusDto.status) },
+                                    onClick = {
+                                        onStatusChange(statusDto.id)  // Обновляем статус через callback
+                                        expanded = false
+                                    },
+                                    leadingIcon = {
+                                        if (statusDto.id == (editState?.assetStatusId ?: asset.assetStatusId)) {
+                                            Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
                 } else {
-                    Text(asset.assetStatus ?: "Не указан", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    // Режим просмотра — просто текст
+                    Text(statusText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
-//            Text(
-//                "ID: ${asset.assetId}",
-//                style = MaterialTheme.typography.labelSmall,
-//                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-//            )
+            Text(
+                "ID: ${asset.assetId}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
         }
     }
 }
@@ -292,33 +396,34 @@ fun ReadOnlyInfoSection(asset: AssetResponseDto, onNavigateToParent: (Int) -> Un
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditableInfoSection(asset: AssetResponseDto, assetTypes: List<AssetTypeDto>) {
-    var name by remember { mutableStateOf(asset.name) }
-    var inventoryId by remember { mutableStateOf(asset.inventoryId) }
-    var serialNumber by remember { mutableStateOf(asset.serialNumber ?: "") }
-    var quantity by remember { mutableStateOf(asset.quantity?.toString() ?: "") }
-    var comment by remember { mutableStateOf(asset.comment ?: "") }
-
+fun EditableInfoSection(
+    asset: AssetResponseDto,
+    assetTypes: List<AssetTypeDto>,
+    editState: AssetEditState,
+    onEditStateChange: (AssetEditState) -> Unit
+) {
     InfoSectionCard(icon = Icons.Default.Edit, title = "Редактирование") {
         OutlinedTextField(
-            value = name,
-            onValueChange = { name = it },
+            value = editState.name ?: "",
+            onValueChange = { onEditStateChange(editState.copy(name = it)) },
             label = { Text("Название") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
         Spacer(modifier = Modifier.height(8.dp))
+
         OutlinedTextField(
-            value = inventoryId,
-            onValueChange = { inventoryId = it },
+            value = editState.inventoryId ?: "",
+            onValueChange = { onEditStateChange(editState.copy(inventoryId = it)) },
             label = { Text("Инв. номер") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
         Spacer(modifier = Modifier.height(8.dp))
+
         OutlinedTextField(
-            value = serialNumber,
-            onValueChange = { serialNumber = it },
+            value = editState.serialNumber ?: "",
+            onValueChange = { onEditStateChange(editState.copy(serialNumber = it)) },
             label = { Text("Серийный номер") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
@@ -329,21 +434,22 @@ fun EditableInfoSection(asset: AssetResponseDto, assetTypes: List<AssetTypeDto>)
         var expanded by remember { mutableStateOf(false) }
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
             OutlinedTextField(
-                value = assetTypes.find { it.assetTypeId == asset.assetTypeId }?.name ?: "Выберите тип",
+                value = assetTypes.find { it.assetTypeId == editState.assetTypeId }?.name ?: "Выберите тип",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Тип актива") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(),
+                modifier = Modifier.fillMaxWidth().menuAnchor(),
                 singleLine = true
             )
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                 assetTypes.forEach { type ->
                     DropdownMenuItem(
                         text = { Text(type.name) },
-                        onClick = { /* TODO: update asset_type_id */ expanded = false }
+                        onClick = {
+                            onEditStateChange(editState.copy(assetTypeId = type.assetTypeId))
+                            expanded = false
+                        }
                     )
                 }
             }
@@ -351,8 +457,8 @@ fun EditableInfoSection(asset: AssetResponseDto, assetTypes: List<AssetTypeDto>)
 
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
-            value = quantity,
-            onValueChange = { quantity = it },
+            value = editState.quantity?.toString() ?: "",
+            onValueChange = { onEditStateChange(editState.copy(quantity = it.toIntOrNull())) },
             label = { Text("Количество") },
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
             modifier = Modifier.fillMaxWidth(),
@@ -360,8 +466,8 @@ fun EditableInfoSection(asset: AssetResponseDto, assetTypes: List<AssetTypeDto>)
         )
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
-            value = comment,
-            onValueChange = { comment = it },
+            value = editState.comment ?: "",
+            onValueChange = { onEditStateChange(editState.copy(comment = it)) },
             label = { Text("Комментарий") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 3,
@@ -386,8 +492,6 @@ fun InfoSectionCard(icon: ImageVector, title: String, content: @Composable Colum
                 Text(
                     title,
                     style = MaterialTheme.typography.titleLarge,
-//                    fontWeight = FontWeight.SemiBold,
-//                    modifier = Modifier.padding(bottom = 12.dp)
                 )
             }
             content()
@@ -416,16 +520,26 @@ fun LocationCard(location: AssetLocationResponse?, isEditing: Boolean) {
     if (location == null) return
 
     InfoSectionCard(icon = Icons.Default.LocationOn, title = "Локация") {
-        InfoRow(label = "Цех", value = location.workshopName)
-        InfoRow(label = "Место", value = location.place)
-        InfoRow(label = "Этаж", value = location.level?.toString())
-//        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-//            Text("Координаты", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-//            Text("X: ${location.x}, Y: ${location.y}", style = MaterialTheme.typography.bodyMedium)
-//        }
-        if (isEditing) {
+        // ReadOnly-версия
+        if (!isEditing) {
+            InfoRow(label = "Цех", value = location.workshopName)
+            InfoRow(label = "Место", value = location.place)
+            InfoRow(label = "Этаж", value = location.level?.toString())
+        }
+        // Editable-версия (заглушка — редактирование на карте)
+        else {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocationOn, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Редактирование локации доступно на карте", style = MaterialTheme.typography.bodyMedium)
+            }
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Редактирование локации доступно на карте", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            OutlinedButton(
+                onClick = { /* TODO: открыть карту */ },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Открыть карту")
+            }
         }
     }
 }
@@ -433,58 +547,123 @@ fun LocationCard(location: AssetLocationResponse?, isEditing: Boolean) {
 // ==================== СЕРВИСНАЯ ИНФОРМАЦИЯ ====================
 @Composable
 fun ServiceCard(asset: AssetResponseDto, isEditing: Boolean) {
-    InfoSectionCard(icon = Icons.Default.MiscellaneousServices , title = "Сервис") {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Column {
-                Text("Еженедельная проверка", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(if (asset.everyWeekCheck == true) "Да" else "Нет", style = MaterialTheme.typography.bodyMedium)
-            }
-            if (isEditing) {
-                // TODO: Switch для every_week_check
-            }
+    InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
+        if (!isEditing) {
+            // ReadOnly-версия
+            InfoRow(label = "Еженедельная проверка", value = if (asset.everyWeekCheck == true) "Да" else "Нет")
+            InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
+            InfoRow(label = "Период (дни)", value = asset.servicePeriod?.toString())
+        } else {
+            // Editable-версия
+            OutlinedTextField(
+                value = if (asset.everyWeekCheck == true) "Да" else "Нет",
+                onValueChange = { /* TODO: update editState */ },
+                label = { Text("След. обслуживание") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = asset.nextService ?: "",
+                onValueChange = { /* TODO: update editState */ },
+                label = { Text("След. обслуживание") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OutlinedTextField(
+                value = asset.servicePeriod?.toString() ?: "",
+                onValueChange = { /* TODO: update editState */ },
+                label = { Text("Период (дни)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
-        InfoRow(label = "Период (дни)", value = asset.servicePeriod?.toString())
     }
 }
 
 // ==================== ПОЛЬЗОВАТЕЛИ ====================
 @Composable
-fun UsersSection(title: String, users: List<AssetUserFullResponse>?, icon: ImageVector, color: Color = MaterialTheme.colorScheme.surfaceVariant) {
-    if (users.isNullOrEmpty()) return
+fun UsersSection(
+    title: String,
+    users: List<AssetUserFullResponse>?,
+    icon: ImageVector,
+    color: Color = MaterialTheme.colorScheme.surfaceVariant,
+    isEditing: Boolean = false,  // Новый параметр
+    onAddUser: (() -> Unit)? = null  // Callback для добавления (в режиме редактирования)
+) {
+    if (users.isNullOrEmpty() && !isEditing) return
 
     InfoSectionCard(icon = icon, title = title) {
-        users.forEach { user ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(shape = RoundedCornerShape(50), color = color, modifier = Modifier.size(40.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
+        if (!isEditing) {
+            // ReadOnly-версия: список пользователей
+            users?.forEach { user ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(shape = RoundedCornerShape(50), color = color, modifier = Modifier.size(40.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(user.fullNameRu ?: user.employeeId, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        user.position?.name?.let { position ->
+                            Text(position, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        user.phone?.let { phone -> Text(phone, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
+                        user.email?.let { email -> Text(email, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(user.fullNameRu ?: user.employeeId, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    user.position?.name?.let { position ->
-                        Text(position, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    user.phone?.let { phone ->
-                        Text(phone, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                    }
-                    user.email?.let { email ->
-                        Text(email, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                if (user != users.last()) {
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp))
                 }
             }
-            if (user != users.last()) {
-                HorizontalDivider(modifier = Modifier.padding(start = 52.dp))
+        } else {
+            // Editable-версия: список + кнопка добавления
+            users?.forEach { user ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(shape = RoundedCornerShape(50), color = color, modifier = Modifier.size(40.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(user.fullNameRu ?: user.employeeId, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    }
+                    // Кнопка удаления пользователя (TODO)
+                    IconButton(onClick = { /* TODO: remove user */ }) {
+                        Icon(Icons.Default.Close, "Удалить", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                    }
+                }
+                if (user != users.last()) {
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp))
+                }
+            }
+
+            // Кнопка добавления пользователя
+            if (onAddUser != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onAddUser,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Добавить")
+                }
             }
         }
     }
@@ -544,36 +723,6 @@ fun AssetHistoryDialog(
     )
 }
 
-// ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
-private fun buildAssetUpdate(
-    original: AssetResponseDto,
-    newName: String? = null,
-    newInventoryId: String? = null,
-    newSerialNumber: String? = null,
-    newAssetStatusId: Int? = null,
-    newQuantity: Int? = null,
-    newComment: String? = null,
-    newAssetTypeId: Int? = null,
-    newEveryWeekCheck: Boolean? = null,
-    newNextService: String? = null,
-    newServicePeriod: Int? = null
-): AssetUpdate {
-    return AssetUpdate(
-        // Используем takeIf: передаём значение только если оно отличается от оригинала
-        name = newName?.takeIf { it != original.name },
-        inventoryId = newInventoryId?.takeIf { it != original.inventoryId },
-        serialNumber = newSerialNumber?.takeIf { it != original.serialNumber },
-        assetStatusId = newAssetStatusId?.takeIf { it != original.assetStatusId },
-        quantity = newQuantity?.takeIf { it != original.quantity },
-        comment = newComment?.takeIf { it != original.comment },
-        assetTypeId = newAssetTypeId?.takeIf { it != original.assetTypeId },
-        everyWeekCheck = newEveryWeekCheck?.takeIf { it != original.everyWeekCheck },
-        nextService = newNextService?.takeIf { it != original.nextService },
-        servicePeriod = newServicePeriod?.takeIf { it != original.servicePeriod }
-        // Остальные поля можно добавить по аналогии
-    )
-}
-
 // ==================== PREVIEWS ====================
 @Preview(
     showBackground = true,
@@ -590,6 +739,8 @@ private fun AssetDetailsPreview_ViewMode() {
                 assetStatuses = emptyList(),
                 assetTypes = emptyList(),
                 isEditing = false,
+                editState = AssetEditState.fromAsset(getSampleAsset()),
+                onEditStateChange = {},
                 onToggleEdit = {},
                 onSave = {},
                 onCancelEdit = {},
@@ -616,6 +767,8 @@ private fun AssetDetailsPreview_EditMode() {
                 assetStatuses = emptyList(),
                 assetTypes = emptyList(),
                 isEditing = true,
+                editState = AssetEditState.fromAsset(getSampleAsset()),
+                onEditStateChange = {},
                 onToggleEdit = {},
                 onSave = {},
                 onCancelEdit = {},
