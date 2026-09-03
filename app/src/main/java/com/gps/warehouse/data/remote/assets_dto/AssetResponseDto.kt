@@ -18,6 +18,7 @@ data class AssetResponseDto(
     @SerializedName("inventory_id") val inventoryId: String,
     @SerializedName("serial_number") val serialNumber: String?,
     @SerializedName("asset_status") val assetStatus: String,
+    @SerializedName("asset_status_id") val assetStatusId: Int,
     val comment: String?,
     @SerializedName("date_issue") val dateIssue: String?,
     @SerializedName("date_purchasing") val datePurchasing: String?,
@@ -26,6 +27,7 @@ data class AssetResponseDto(
     @SerializedName("asset_type_id") val assetTypeId: Int?,
     @SerializedName("parent_id") val parentId: Int?,
     @SerializedName("location_id") val locationId: Int?,
+    @SerializedName("quantity") val quantity: Int?,
     @SerializedName("prepared_by") val preparedBy: String?,
     @SerializedName("checked_by") val checkedBy: String?,
     @SerializedName("parent_name") val parentName: String?,
@@ -39,6 +41,8 @@ data class AssetResponseDto(
     @SerializedName("asset_type_name") val assetTypeName: String?,
     val location: LocationResponseDto?,
     val users: List<AssetUserResponseDto>?,
+    @SerializedName("responsible_users") val responsibleUsers: List<AssetUserResponseDto>?,
+    @SerializedName("serving_users") val servingUsers: List<AssetUserResponseDto>?,
     val parent: AssetParentResponseDto?
 )
 
@@ -86,3 +90,4 @@ data class AssetParentResponseDto(
     @SerializedName("updated_at") val updatedAt: String?,
     @SerializedName("asset_type_name") val assetTypeName: String?
 )
+

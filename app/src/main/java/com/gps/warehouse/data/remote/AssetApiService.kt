@@ -1,8 +1,10 @@
 package com.gps.warehouse.data.remote
 
+import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
+import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
@@ -20,6 +22,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -147,4 +150,14 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Query("direction") direction: String  = "all" // default = all, incoming, outgoing
     ): NotificationResponseDto
+
+    @GET("asset-history/{assetId}")
+    suspend fun getAssetHistory(@Header("Authorization") token: String, @Path("assetId") assetId: Int): List<AssetHistoryDto>
+
+    @PUT("assets/{assetId}")
+    suspend fun updateAsset(
+        @Header("Authorization") token: String,
+        @Path("assetId") assetId: Int,
+        @Body update: AssetUpdate
+    ): AssetResponseDto
 }

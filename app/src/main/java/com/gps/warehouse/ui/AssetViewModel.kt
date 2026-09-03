@@ -11,7 +11,9 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
+import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
@@ -191,6 +193,37 @@ class AssetViewModel @Inject constructor(
                 _uiState.value = AssetUiState.AssetTypesLoaded(types)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+            }
+        }
+    }
+
+    // В AssetViewModel.kt добавьте:
+
+    // StateFlow для истории актива
+    private val _assetHistory = MutableStateFlow<List<AssetHistoryDto>>(emptyList())
+    val assetHistory: StateFlow<List<AssetHistoryDto>> = _assetHistory.asStateFlow()
+
+    // Загрузка истории актива
+    fun loadAssetHistory(assetId: Int) {
+        viewModelScope.launch {
+            try {
+                val history = assetApiService.getAssetHistory("Bearer ${getToken()}", assetId)
+                _assetHistory.value = history
+            } catch (e: Exception) {
+                // Логируем, но не показываем пользователю
+            }
+        }
+    }
+
+    // Обновление актива
+    fun updateAsset(assetId: Int, update: AssetUpdate) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val updated = assetApiService.updateAsset("Bearer ${getToken()}", assetId, update)
+                _uiState.value = AssetUiState.AssetDetailsLoaded(updated)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка обновления")
             }
         }
     }
