@@ -54,6 +54,8 @@ data class AssetUpdate(
 
     // Вложенные объекты
     @SerializedName("location") val location: AssetLocationUpdate? = null,
+
+    // Пользователи
     @SerializedName("users") val users: List<AssetUserUpdate>? = null,
     @SerializedName("responsible_users") val responsibleUsers: List<AssetUserUpdate>? = null,
     @SerializedName("serving_users") val servingUsers: List<AssetUserUpdate>? = null,

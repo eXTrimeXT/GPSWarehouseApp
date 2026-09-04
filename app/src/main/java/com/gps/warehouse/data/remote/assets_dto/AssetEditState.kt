@@ -1,5 +1,10 @@
 package com.gps.warehouse.data.remote.assets_dto
 
+// Enum для типа пользователя
+enum class UserType {
+    USER, RESPONSIBLE, SERVING
+}
+
 data class AssetEditState(
     val name: String? = null,
     val inventoryId: String? = null,
@@ -17,7 +22,14 @@ data class AssetEditState(
     val nextService: String? = null,
     val servicePeriod: Int? = null,
     val location: AssetLocationUpdate? = null,
-    val currentUser: String? = null
+    val currentUser: String? = null,
+
+    val usersToAdd: List<AssetUserUpdate> = emptyList(),
+    val usersToRemove: List<String> = emptyList(),
+    val responsibleUsersToAdd: List<AssetUserUpdate> = emptyList(),
+    val responsibleUsersToRemove: List<String> = emptyList(),
+    val servingUsersToAdd: List<AssetUserUpdate> = emptyList(),
+    val servingUsersToRemove: List<String> = emptyList()
 ) {
     companion object {
         /** Создаёт состояние из существующего актива */
@@ -41,7 +53,14 @@ data class AssetEditState(
                 currentUser = asset.currentUser,
                 location = asset.location?.let {
                     AssetLocationUpdate(it.workshopId, it.place, it.level, it.x ?: 0, it.y ?: 0)
-                }
+                },
+
+                usersToAdd = emptyList(),
+                usersToRemove = emptyList(),
+                responsibleUsersToAdd = emptyList(),
+                responsibleUsersToRemove = emptyList(),
+                servingUsersToAdd = emptyList(),
+                servingUsersToRemove = emptyList()
             )
         }
     }
@@ -65,7 +84,58 @@ data class AssetEditState(
             nextService = nextService.takeIf { it != original.nextService },
             servicePeriod = servicePeriod.takeIf { it != original.servicePeriod },
             currentUser = currentUser.takeIf { it != original.currentUser },
-            location = location.takeIf { it != original.location }
+            location = location.takeIf { it != original.location },
+
+            // Списки пользователей для обновления
+            users = buildUserUpdateList(
+                original = original.users,
+                toAdd = usersToAdd,
+                toRemove = usersToRemove
+            ),
+            responsibleUsers = buildUserUpdateList(
+                original = original.responsibleUsers,
+                toAdd = responsibleUsersToAdd,
+                toRemove = responsibleUsersToRemove
+            ),
+            servingUsers = buildUserUpdateList(
+                original = original.servingUsers,
+                toAdd = servingUsersToAdd,
+                toRemove = servingUsersToRemove
+            )
         )
+    }
+
+    // Вспомогательный метод для формирования списка пользователей
+    private fun buildUserUpdateList(
+        original: List<AssetUserFullResponse>?,
+        toAdd: List<AssetUserUpdate>,
+        toRemove: List<String>
+    ): List<AssetUserUpdate>? {
+        if (toAdd.isEmpty() && toRemove.isEmpty()) return null
+
+        val existingGuids = original?.map { it.guid }.orEmpty()
+        val remainingGuids = existingGuids - toRemove.toSet()
+
+        // Формируем список: существующие (оставшиеся) + новые
+        return (remainingGuids.map { AssetUserUpdate(employeeId = "") } + toAdd)
+            .takeIf { it.isNotEmpty() }
+    }
+
+    // Методы для управления пользователями
+    fun addUser(type: UserType, employee: EmployeeShortResponse): AssetEditState {
+        val newUpdate = AssetUserUpdate(employeeId = employee.employeeId)
+        return when (type) {
+            UserType.USER -> copy(usersToAdd = usersToAdd + newUpdate)
+            UserType.RESPONSIBLE -> copy(responsibleUsersToAdd = responsibleUsersToAdd + newUpdate)
+            UserType.SERVING -> copy(servingUsersToAdd = servingUsersToAdd + newUpdate)
+        }
+    }
+
+    fun removeUser(type: UserType, userGuid: String): AssetEditState {
+        return when (type) {
+            UserType.USER -> copy(usersToRemove = usersToRemove + userGuid)
+            UserType.RESPONSIBLE -> copy(responsibleUsersToRemove = responsibleUsersToRemove + userGuid)
+            UserType.SERVING -> copy(servingUsersToRemove = servingUsersToRemove + userGuid)
+        }
     }
 }
