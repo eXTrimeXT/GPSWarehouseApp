@@ -8,7 +8,6 @@ import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
-//import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
@@ -43,6 +42,7 @@ class AssetViewModel @Inject constructor(
     private val assetApiService: AssetApiService
 ) : ViewModel() {
 
+    val TAG = "AssetViewModel"
     sealed class AssetUiState {
         object Idle : AssetUiState()
         object Loading : AssetUiState()
@@ -115,6 +115,8 @@ class AssetViewModel @Inject constructor(
 
     private val _assetHistory = MutableStateFlow<List<AssetHistoryDto>>(emptyList())
     val assetHistory: StateFlow<List<AssetHistoryDto>> = _assetHistory.asStateFlow()
+
+
 
     private var eventSource: EventSource? = null
 
@@ -371,27 +373,27 @@ class AssetViewModel @Inject constructor(
     }
     // ================== Инвентаризация ==================
 
-    // Уведомления
+    // ================== Уведомления ==================
     fun loadNotifications() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
 
-                // 1. Делаем ОДИН обычный запрос через Retrofit для получения начального списка
+                // Делаем ОДИН обычный запрос через Retrofit для получения начального списка
                 val response = assetApiService.getNotifications("Bearer ${getToken()}")
 //                Log.d("SSE_DEBUG", "loadNotifications: response = $response")
 
-                // 2. Сохраняем список в состояние
+                // Сохраняем список в состояние
                 _uiState.value = AssetUiState.NotificationsLoaded(response.items)
 
                 _notificationItems.value = response.items
                 _notificationUncheckedCount.value = response.uncheckedCount
 
-                // 3. Запускаем OkHttp SSE для прослушивания обновлений в реальном времени
+                // Запускаем OkHttp SSE для прослушивания обновлений в реальном времени
                 startSseStream(getToken())
 
             } catch (e: Exception) {
-                Log.e("SSE_DEBUG", "loadNotifications: Ошибка загрузки начальных уведомлений", e)
+                Log.e(TAG, "loadNotifications: Ошибка загрузки начальных уведомлений", e)
                 _uiState.value = AssetUiState.Error(e.message ?: "Ошибка сети")
             }
         }
@@ -473,4 +475,9 @@ class AssetViewModel @Inject constructor(
         eventSource?.cancel()
         Log.d("SSE_DEBUG", " onCleared: ViewModel уничтожен, SSE соединение разорвано")
     }
+    // ================== Уведомления ==================
+
+    // ================== Пользователи ==================
+
+    // ================== Пользователи ==================
 }

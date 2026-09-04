@@ -32,7 +32,6 @@ import com.gps.warehouse.ui.assets_screens.AssetTypeListScreen
 import com.gps.warehouse.ui.assets_screens.AssetsByTypeScreen
 import com.gps.warehouse.ui.assets_screens.MobileDeviceDetailScreen
 import com.gps.warehouse.ui.assets_screens.MobileDevicesScreen
-import com.gps.warehouse.ui.assets_screens.MyAssetDetailScreen
 import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcDetailsScreen
 import com.gps.warehouse.ui.assets_screens.MyPcsScreen
@@ -336,7 +335,7 @@ class MainActivity : ComponentActivity() {
                         composable("my_asset_details/{assetId}") { backStackEntry ->
                             val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
                             val assetViewModel: AssetViewModel = hiltViewModel()
-                            MyAssetDetailScreen(
+                            AssetDetailsScreen(
                                 assetId = assetId,
                                 navController = navController,
                                 viewModel = assetViewModel

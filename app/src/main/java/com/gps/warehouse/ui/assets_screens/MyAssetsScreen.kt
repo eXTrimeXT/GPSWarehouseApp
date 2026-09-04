@@ -270,10 +270,9 @@ fun MyAssetsScreenPreview_Loaded() {
             MyAssetsScreenContent(
                 uiState = AssetViewModel.AssetUiState.MyAssetsLoaded(
                     assets = listOf(
-                        getSampleFullMyAssetDto(),
-                        getSampleFullMyAssetDto(),
-                        getSampleFullMyAssetDto(),
-                        getSampleFullMyAssetDto()
+                        getSampleAsset(),
+                        getSampleAsset(),
+                        getSampleAsset(),
                     )
                 ),
                 onNavigate = {},

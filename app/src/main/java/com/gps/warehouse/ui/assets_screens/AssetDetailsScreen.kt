@@ -24,6 +24,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.*
 import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.formatIsoToReadable
 
@@ -47,10 +48,7 @@ fun AssetDetailsScreen(
 
     // Загружаем данные при открытии
     LaunchedEffect(assetId) {
-        viewModel.loadAssetDetails(assetId)
-        viewModel.loadAssetStatuses()
-        viewModel.loadAssetTypes()
-        viewModel.loadAssetHistory(assetId)
+        firstLoadData(viewModel = viewModel, assetId = assetId)
     }
 
     // Инициализируем editState ТОЛЬКО когда asset + статусы + типы загружены
@@ -96,7 +94,8 @@ fun AssetDetailsScreen(
         },
         onShowHistory = { showHistoryDialog = true },
         onBackClick = { navController.popBackStack() },
-        onNavigateToParent = { parentId -> navController.navigate("asset_details/$parentId") }
+        onNavigateToParent = { parentId -> navController.navigate("asset_details/$parentId") },
+        onRetryClick = { firstLoadData(viewModel = viewModel, assetId = assetId) }
     )
 
     // Диалог истории
@@ -106,6 +105,13 @@ fun AssetDetailsScreen(
             onDismiss = { showHistoryDialog = false }
         )
     }
+}
+
+fun firstLoadData(viewModel: AssetViewModel, assetId: Int){
+    viewModel.loadAssetDetails(assetId)
+    viewModel.loadAssetStatuses()
+    viewModel.loadAssetTypes()
+    viewModel.loadAssetHistory(assetId)
 }
 
 // ==================== CONTENT: UI + Preview ====================
@@ -123,245 +129,184 @@ fun AssetDetailsContent(
     onCancelEdit: () -> Unit,
     onShowHistory: () -> Unit,
     onBackClick: () -> Unit,
-    onNavigateToParent: (Int) -> Unit
+    onNavigateToParent: (Int) -> Unit,
+    onRetryClick: () -> Unit
 ) {
-    when (uiState) {
-        is AssetViewModel.AssetUiState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+    Column(modifier = Modifier.fillMaxWidth()) {
+        when (uiState) {
+            is AssetViewModel.AssetUiState.Loading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
             }
-        }
-        is AssetViewModel.AssetUiState.AssetDetailsLoaded -> {
-            val asset = uiState.asset
-            Column(modifier = Modifier.fillMaxSize()) {
-                // ActionBar
-                MyCustomActionBar(
-                    text = asset.name,
-                    onBackClick = onBackClick,
-                    actionButton = {
-                        Row {
-                            // Кнопка истории
-                            IconButton(onClick = onShowHistory) {
-                                Icon(Icons.Default.History, "История", tint = MaterialTheme.colorScheme.primary)
-                            }
-                            // Кнопка редактирования / сохранения
-                            if (isEditing) {
-                                IconButton(onClick = onSave) {
-                                    Icon(Icons.Default.Save, "Сохранить", tint = MaterialTheme.colorScheme.primary)
+
+            is AssetViewModel.AssetUiState.AssetDetailsLoaded -> {
+                val asset = uiState.asset
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // ActionBar
+                    MyCustomActionBar(
+                        text = asset.name,
+                        onBackClick = onBackClick,
+                        actionButton = {
+                            Row {
+                                // Кнопка истории
+                                IconButton(onClick = onShowHistory) {
+                                    Icon(
+                                        Icons.Default.History,
+                                        "История",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
                                 }
-                                IconButton(onClick = onCancelEdit) {
-                                    Icon(Icons.Default.Close, "Отмена", tint = MaterialTheme.colorScheme.error)
-                                }
-                            } else {
-                                IconButton(onClick = onToggleEdit) {
-                                    Icon(Icons.Default.Edit, "Редактировать", tint = MaterialTheme.colorScheme.primary)
+                                // Кнопка редактирования / сохранения
+                                if (isEditing) {
+                                    IconButton(onClick = onSave) {
+                                        Icon(
+                                            Icons.Default.Save,
+                                            "Сохранить",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    IconButton(onClick = onCancelEdit) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            "Отмена",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
+                                    }
+                                } else {
+                                    IconButton(onClick = onToggleEdit) {
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            "Редактировать",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                )
+                    )
 
-                // Контент
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Карточка статуса
-                    item {
-                        StatusCard(
-                            asset = asset,
-                            isEditing = isEditing,
-                            assetStatuses = assetStatuses,
-                            editState = editState,
-                            onStatusChange = { newStatusId ->
-                                onEditStateChange(editState?.copy(assetStatusId = newStatusId) ?: AssetEditState())
-                            }
-                        )
-                    }
-
-                    // Основная информация
-                    item {
-                        if (isEditing) {
-                            // Передаём editState и callback
-                            EditableInfoSection(
+                    // Контент
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Карточка статуса
+                        item {
+                            StatusCard(
                                 asset = asset,
-                                assetTypes = assetTypes,
-                                editState = editState ?: AssetEditState.fromAsset(asset),
-                                onEditStateChange = onEditStateChange
+                                isEditing = isEditing,
+                                assetStatuses = assetStatuses,
+                                editState = editState,
+                                onStatusChange = { newStatusId ->
+                                    onEditStateChange(
+                                        editState?.copy(assetStatusId = newStatusId)
+                                            ?: AssetEditState()
+                                    )
+                                }
                             )
-                        } else {
-                            ReadOnlyInfoSection(asset = asset, onNavigateToParent = onNavigateToParent)
+                        }
+
+                        // Основная информация
+                        item {
+                            if (isEditing) {
+                                // Передаём editState и callback
+                                EditableInfoSection(
+                                    asset = asset,
+                                    assetTypes = assetTypes,
+                                    editState = editState ?: AssetEditState.fromAsset(asset),
+                                    onEditStateChange = onEditStateChange
+                                )
+                            } else {
+                                ReadOnlyInfoSection(
+                                    asset = asset,
+                                    onNavigateToParent = onNavigateToParent
+                                )
+                            }
+                        }
+
+                        // Локация
+                        item {
+                            LocationCard(location = asset.location, isEditing = isEditing)
+                        }
+
+                        // Сервисная информация
+                        item {
+                            ServiceCard(
+                                asset = asset,
+                                isEditing = isEditing,
+                                editState = editState,
+                                onEditStateChange = onEditStateChange  // Передаём callback
+                            )
+                        }
+
+                        // Пользователи
+                        item {
+                            UsersSection(
+                                title = "Пользователи",
+                                users = asset.users,
+                                icon = Icons.Default.Person,
+                                isEditing = isEditing,
+                                onAddUser = if (isEditing) {
+                                    { /* TODO: открыть диалог выбора */ }
+                                } else null
+                            )
+                        }
+                        item {
+                            UsersSection(
+                                title = "Ответственные",
+                                users = asset.responsibleUsers,
+                                icon = Icons.Default.VerifiedUser,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                isEditing = isEditing,
+                                onAddUser = if (isEditing) {
+                                    { /* TODO: открыть диалог выбора */ }
+                                } else null
+                            )
+                        }
+                        item {
+                            UsersSection(
+                                title = "Обслуживающий персонал",
+                                users = asset.servingUsers,
+                                icon = Icons.Default.Build,
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                isEditing = isEditing,
+                                onAddUser = if (isEditing) {
+                                    { /* TODO: открыть диалог выбора */ }
+                                } else null
+                            )
+                        }
+
+                        // Мета-информация
+                        item {
+                            MetaInfoCard(asset = asset)
                         }
                     }
-
-                    // Локация
-                    item {
-                        LocationCard(location = asset.location, isEditing = isEditing)
-                    }
-
-                    // Сервисная информация
-                    item {
-                        ServiceCard(
-                            asset = asset,
-                            isEditing = isEditing,
-                            editState = editState,
-                            onEditStateChange = onEditStateChange  // Передаём callback
-                        )
-                    }
-
-                    // Пользователи
-                    item {
-                        UsersSection(
-                            title = "Пользователи",
-                            users = asset.users,
-                            icon = Icons.Default.Person,
-                            isEditing = isEditing,
-                            onAddUser = if (isEditing) { { /* TODO: открыть диалог выбора */ } } else null
-                        )
-                    }
-                    item {
-                        UsersSection(
-                            title = "Ответственные",
-                            users = asset.responsibleUsers,
-                            icon = Icons.Default.VerifiedUser,
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            isEditing = isEditing,
-                            onAddUser = if (isEditing) { { /* TODO: открыть диалог выбора */ } } else null
-                        )
-                    }
-                    item {
-                        UsersSection(
-                            title = "Обслуживающий персонал",
-                            users = asset.servingUsers,
-                            icon = Icons.Default.Build,
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            isEditing = isEditing,
-                            onAddUser = if (isEditing) { { /* TODO: открыть диалог выбора */ } } else null
-                        )
-                    }
-
-                    // Мета-информация
-                    item {
-                        MetaInfoCard(asset = asset)
-                    }
                 }
             }
-        }
-        is AssetViewModel.AssetUiState.Error -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = uiState.message, color = MaterialTheme.colorScheme.error)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { /* Retry */ }) { Text("Повторить") }
-                }
+
+            is AssetViewModel.AssetUiState.Error -> {
+//            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+//                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+//                    Text(text = uiState.message, color = MaterialTheme.colorScheme.error)
+//                    Spacer(modifier = Modifier.height(16.dp))
+//                    Button(onClick = { /* Retry */ }) { Text("Повторить") }
+//                }
+//            }
+                ErrorStateView(
+                    message = uiState.message,
+                    onRetry = onRetryClick,
+                    modifier = Modifier.weight(1f)
+                )
             }
+
+            else -> {}
         }
-        else -> {}
     }
 }
 
 // ==================== КАРТОЧКА СТАТУСА ====================
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun StatusCard(
-//    asset: AssetResponseDto,
-//    isEditing: Boolean,
-//    assetStatuses: List<AssetStatusDto>,
-//    editState: AssetEditState? = null,  // Новый параметр
-//    onStatusChange: (Int?) -> Unit = {}  // Callback для обновления статуса
-//) {
-//    val statusText = if (isEditing) {
-//        // В режиме редактирования берём статус из editState или из asset
-//        assetStatuses.find { it.id == (editState?.assetStatusId ?: asset.assetStatusId) }?.status
-//            ?: asset.assetStatus ?: "Не указан"
-//    } else {
-//        asset.assetStatus ?: "Не указан"
-//    }
-//
-//    val statusColor = when (asset.assetStatus?.lowercase()) {
-//        "приемка", "отремонтирован", "на складе", "в работе" -> Color(0, 150, 0, 170)
-//        "удален", "списан" -> Color(220, 0, 0, 170)
-//        "на обслуживании", "ожидает зч", "требует проверки", "в ремонте" -> Color(255, 193, 7, 170)
-//        else -> MaterialTheme.colorScheme.surfaceVariant
-//    }
-//
-//    Card(
-//        modifier = Modifier.fillMaxWidth(),
-//        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.15f)),
-//    ) {
-//        Row(
-//            modifier = Modifier.padding(16.dp),
-//            verticalAlignment = Alignment.CenterVertically
-//        ) {
-//            Surface(
-//                shape = RoundedCornerShape(8.dp),
-//                color = statusColor,
-//                modifier = Modifier.size(48.dp)
-//            ) {
-//                Box(contentAlignment = Alignment.Center) {
-//                    Icon(
-//                        imageVector = if (asset.assetStatusId == 10) Icons.Default.CheckCircle else Icons.Default.Info,
-//                        contentDescription = null,
-//                        tint = Color.White,
-//                        modifier = Modifier.size(24.dp)
-//                    )
-//                }
-//            }
-//            Spacer(modifier = Modifier.width(16.dp))
-//            Column(modifier = Modifier.weight(1f)) {
-//                Text("Статус", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-//                if (isEditing) {
-//                    // DROPDOWN для выбора статуса
-//                    var expanded by remember { mutableStateOf(false) }
-//                    ExposedDropdownMenuBox(
-//                        expanded = expanded,
-//                        onExpandedChange = { expanded = !expanded }
-//                    ) {
-//                        OutlinedTextField(
-//                            value = statusText,
-//                            onValueChange = {},
-//                            readOnly = true,
-//                            label = { Text("Выберите статус") },
-//                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-//                            modifier = Modifier
-//                                .fillMaxWidth()
-//                                .menuAnchor(),
-//                            singleLine = true,
-//                            colors = OutlinedTextFieldDefaults.colors(
-//                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-//                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
-//                            )
-//                        )
-//                        ExposedDropdownMenu(
-//                            expanded = expanded,
-//                            onDismissRequest = { expanded = false }
-//                        ) {
-//                            assetStatuses.forEach { statusDto ->
-//                                DropdownMenuItem(
-//                                    text = { Text(statusDto.status) },
-//                                    onClick = {
-//                                        onStatusChange(statusDto.id)  // Обновляем статус через callback
-//                                        expanded = false
-//                                    },
-//                                    leadingIcon = {
-//                                        if (statusDto.id == (editState?.assetStatusId ?: asset.assetStatusId)) {
-//                                            Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
-//                                        }
-//                                    }
-//                                )
-//                            }
-//                        }
-//                    }
-//                } else {
-//                    // Режим просмотра — просто текст
-//                    Text(statusText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-//                }
-//            }
-//        }
-//    }
-//}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatusCard(
@@ -459,11 +404,6 @@ fun StatusCard(
                     Text(statusText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
-            Text(
-                "ID: ${asset.assetId}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-            )
         }
     }
 }
@@ -658,7 +598,12 @@ fun LocationCard(location: AssetLocationResponse?, isEditing: Boolean) {
 
 // ==================== СЕРВИСНАЯ ИНФОРМАЦИЯ ====================
 //@Composable
-//fun ServiceCard(asset: AssetResponseDto, isEditing: Boolean) {
+//fun ServiceCard(
+//    asset: AssetResponseDto,
+//    isEditing: Boolean,
+//    editState: AssetEditState? = null,  // Новый параметр
+//    onEditStateChange: (AssetEditState) -> Unit = {}  // Callback
+//) {
 //    InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
 //        if (!isEditing) {
 //            // ReadOnly-версия
@@ -666,28 +611,45 @@ fun LocationCard(location: AssetLocationResponse?, isEditing: Boolean) {
 //            InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
 //            InfoRow(label = "Период (дни)", value = asset.servicePeriod?.toString())
 //        } else {
-//            // Editable-версия
+//            // Editable-версия с onValueChange
+//            Row(
+//                modifier = Modifier.fillMaxWidth(),
+//                horizontalArrangement = Arrangement.SpaceBetween,
+//                verticalAlignment = Alignment.CenterVertically
+//            ) {
+//                Text("Еженедельная проверка", style = MaterialTheme.typography.labelMedium)
+//                // TODO: Switch для everyWeekCheck
+//                Text(
+//                    if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет",
+//                    style = MaterialTheme.typography.bodyMedium
+//                )
+//            }
+//            Spacer(modifier = Modifier.height(8.dp))
+//
 //            OutlinedTextField(
-//                value = if (asset.everyWeekCheck == true) "Да" else "Нет",
-//                onValueChange = { /* TODO: update editState */ },
+//                value = editState?.nextService ?: asset.nextService ?: "",
+//                onValueChange = {
+//                    onEditStateChange(editState?.copy(nextService = it) ?: AssetEditState())
+//                },
 //                label = { Text("След. обслуживание") },
 //                modifier = Modifier.fillMaxWidth(),
-//                singleLine = true
+//                singleLine = true,
+//                placeholder = { Text("ДД.ММ.ГГГГ") }
 //            )
 //            Spacer(modifier = Modifier.height(8.dp))
 //
 //            OutlinedTextField(
-//                value = asset.nextService ?: "",
-//                onValueChange = { /* TODO: update editState */ },
-//                label = { Text("След. обслуживание") },
-//                modifier = Modifier.fillMaxWidth(),
-//                singleLine = true
-//            )
-//            Spacer(modifier = Modifier.height(8.dp))
-//
-//            OutlinedTextField(
-//                value = asset.servicePeriod?.toString() ?: "",
-//                onValueChange = { /* TODO: update editState */ },
+//                value = (editState?.servicePeriod ?: asset.servicePeriod ?: 0).toString(),
+//                onValueChange = { input ->
+//                    val current = editState?.servicePeriod ?: asset.servicePeriod ?: 0
+//                    // Если было 0 и ввели что-то — берём введённое, иначе парсим как обычно
+//                    val period = if (current == 0 && input.isNotEmpty() && input != "0") {
+//                        input.toIntOrNull() ?: 0
+//                    } else {
+//                        input.toIntOrNull() ?: 0
+//                    }
+//                    onEditStateChange(editState?.copy(servicePeriod = period) ?: AssetEditState())
+//                },
 //                label = { Text("Период (дни)") },
 //                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
 //                modifier = Modifier.fillMaxWidth(),
@@ -701,31 +663,44 @@ fun LocationCard(location: AssetLocationResponse?, isEditing: Boolean) {
 fun ServiceCard(
     asset: AssetResponseDto,
     isEditing: Boolean,
-    editState: AssetEditState? = null,  // Новый параметр
-    onEditStateChange: (AssetEditState) -> Unit = {}  // Callback
+    editState: AssetEditState? = null,
+    onEditStateChange: (AssetEditState) -> Unit = {}
 ) {
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
-            // ReadOnly-версия
-            InfoRow(label = "Еженедельная проверка", value = if (asset.everyWeekCheck == true) "Да" else "Нет")
+            // ✅ ReadOnly-версия: просто текст
+            InfoRow(label = "Еженедельная проверка", value = if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет")
             InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
-            InfoRow(label = "Период (дни)", value = asset.servicePeriod?.toString())
+            InfoRow(label = "Период (дни)", value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString())
         } else {
-            // Editable-версия с onValueChange
+            // ✅ Editable-версия: Switch + поля ввода
+
+            // Еженедельная проверка — Switch
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Еженедельная проверка", style = MaterialTheme.typography.labelMedium)
-                // TODO: Switch для everyWeekCheck
-                Text(
-                    if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет",
-                    style = MaterialTheme.typography.bodyMedium
+
+                // ✅ Switch для everyWeekCheck
+                val currentCheck = editState?.everyWeekCheck ?: asset.everyWeekCheck ?: false
+                Switch(
+                    checked = currentCheck,
+                    onCheckedChange = { newValue ->
+                        onEditStateChange(editState?.copy(everyWeekCheck = newValue) ?: AssetEditState())
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.primary,
+                        checkedTrackColor = MaterialTheme.colorScheme.primaryContainer,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 )
             }
             Spacer(modifier = Modifier.height(8.dp))
 
+            // След. обслуживание
             OutlinedTextField(
                 value = editState?.nextService ?: asset.nextService ?: "",
                 onValueChange = {
@@ -738,11 +713,12 @@ fun ServiceCard(
             )
             Spacer(modifier = Modifier.height(8.dp))
 
+            // Период (дни) — числовое поле с заменой 0
             OutlinedTextField(
                 value = (editState?.servicePeriod ?: asset.servicePeriod ?: 0).toString(),
                 onValueChange = { input ->
                     val current = editState?.servicePeriod ?: asset.servicePeriod ?: 0
-                    // Если было 0 и ввели что-то — берём введённое, иначе парсим как обычно
+                    // Если было 0 и ввели цифру — заменяем, иначе парсим
                     val period = if (current == 0 && input.isNotEmpty() && input != "0") {
                         input.toIntOrNull() ?: 0
                     } else {
@@ -752,7 +728,7 @@ fun ServiceCard(
                 },
                 label = { Text("Период (дни)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().widthIn(min = 60.dp),
                 singleLine = true
             )
         }
@@ -920,7 +896,8 @@ private fun AssetDetailsPreview_ViewMode() {
                 onCancelEdit = {},
                 onShowHistory = {},
                 onBackClick = {},
-                onNavigateToParent = {}
+                onNavigateToParent = {},
+                onRetryClick = {}
             )
         }
     }
@@ -948,7 +925,8 @@ private fun AssetDetailsPreview_EditMode() {
                 onCancelEdit = {},
                 onShowHistory = {},
                 onBackClick = {},
-                onNavigateToParent = {}
+                onNavigateToParent = {},
+                onRetryClick = {}
             )
         }
     }
@@ -982,7 +960,7 @@ fun AssetHistoryDialogPreview(){
     }
 }
 
-private fun getSampleAsset(): AssetResponseDto {
+fun getSampleAsset(): AssetResponseDto {
     return AssetResponseDto(
         assetId = 48,
         name = "Актив 2",
