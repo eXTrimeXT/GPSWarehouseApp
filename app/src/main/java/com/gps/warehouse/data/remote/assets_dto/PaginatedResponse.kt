@@ -3,8 +3,8 @@ package com.gps.warehouse.data.remote.assets_dto
 import com.google.gson.annotations.SerializedName
 
 // Начальная схема любого ответа с пагинацией
-data class PaginatedResponse(
-    val items: List<AssetResponseDto>,
+data class PaginatedResponse<T>(
+    @SerializedName("items") val items: List<T>,
     val total: Int,
     val page: Int,
     @SerializedName("page_size") val pageSize: Int,

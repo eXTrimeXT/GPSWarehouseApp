@@ -14,11 +14,13 @@ import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
+import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
+import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -116,7 +118,8 @@ class AssetViewModel @Inject constructor(
     private val _assetHistory = MutableStateFlow<List<AssetHistoryDto>>(emptyList())
     val assetHistory: StateFlow<List<AssetHistoryDto>> = _assetHistory.asStateFlow()
 
-
+    private val _employees = MutableStateFlow<PaginatedResponse<EmployeeShortResponse>?>(null)
+    val employees: StateFlow<PaginatedResponse<EmployeeShortResponse>?> = _employees.asStateFlow()
 
     private var eventSource: EventSource? = null
 
@@ -220,7 +223,7 @@ class AssetViewModel @Inject constructor(
                 _assetStatuses.value = statuses
             } catch (e: Exception) {
                 // Логируем, но не показываем пользователю — фильтры могут работать и без статусов
-                Log.e("AssetViewModel", "Ошибка загрузки статусов: ${e.message}")
+                Log.e(TAG, "Ошибка загрузки статусов: ${e.message}")
             }
         }
     }
@@ -298,7 +301,6 @@ class AssetViewModel @Inject constructor(
         }
     }
     // ================== Загрузка активов ==================
-
 
     // ================== Инвентаризация ==================
     fun loadInventorizationSessions() {
@@ -381,7 +383,7 @@ class AssetViewModel @Inject constructor(
 
                 // Делаем ОДИН обычный запрос через Retrofit для получения начального списка
                 val response = assetApiService.getNotifications("Bearer ${getToken()}")
-//                Log.d("SSE_DEBUG", "loadNotifications: response = $response")
+//                Log.d(TAG, "loadNotifications: response = $response")
 
                 // Сохраняем список в состояние
                 _uiState.value = AssetUiState.NotificationsLoaded(response.items)
@@ -416,16 +418,16 @@ class AssetViewModel @Inject constructor(
             .addHeader("Accept", "text/event-stream") // Обязательно для SSE
             .build()
 
-        Log.d("SSE_DEBUG", "Попытка подключения к SSE потоку...")
+        Log.d(TAG, "startSseStream: Попытка подключения к SSE потоку...")
 
         eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                Log.d("SSE_DEBUG", "Получены сырые данные SSE (длина: ${data.length})")
+                Log.d(TAG, "startSseStream: Получены сырые данные SSE (длина: ${data.length})")
                 try {
                     val gson = Gson()
                     val responseDto = gson.fromJson(data, NotificationResponseDto::class.java)
 
-                    Log.d("SSE_DEBUG", "Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
+                    Log.d(TAG, "startSseStream: Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
 
                     val currentState = _uiState.value
                     if (currentState is AssetUiState.NotificationsLoaded) {
@@ -446,26 +448,26 @@ class AssetViewModel @Inject constructor(
                             }
                         }
                         _uiState.value = AssetUiState.NotificationsLoaded(currentList)
-                        Log.d("SSE_DEBUG", "Список уведомлений обновлен. Всего: ${currentList.size}")
+                        Log.d(TAG, "startSseStream: Список уведомлений обновлен. Всего: ${currentList.size}")
                     } else {
                         _uiState.value = AssetUiState.NotificationsLoaded(responseDto.items)
-                        Log.d("SSE_DEBUG", "Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
+                        Log.d(TAG, "startSseStream: Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
                     }
                 } catch (e: Exception) {
-                    Log.e("SSE_DEBUG", "Ошибка парсинга JSON из SSE: ${e.message}", e)
-                    Log.e("SSE_DEBUG", "Проблемная строка data: $data")
+                    Log.e(TAG, "startSseStream: Ошибка парсинга JSON из SSE: ${e.message}", e)
+                    Log.e(TAG, "startSseStream: Проблемная строка data: $data")
                 }
             }
 
             override fun onClosed(eventSource: EventSource) {
                 super.onClosed(eventSource)
-                Log.d("SSE_DEBUG", "SSE поток закрыт сервером штатно")
+                Log.d(TAG, "SSE поток закрыт сервером штатно")
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
                 val code = response?.code
                 val errorBody = try { response?.body?.string() } catch (e: Exception) { "Не удалось прочитать" }
-                Log.e("SSE_DEBUG", "Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
+                Log.e(TAG, "Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
             }
         })
     }
@@ -473,11 +475,55 @@ class AssetViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         eventSource?.cancel()
-        Log.d("SSE_DEBUG", " onCleared: ViewModel уничтожен, SSE соединение разорвано")
+        Log.d(TAG, " onCleared: ViewModel уничтожен, SSE соединение разорвано")
     }
     // ================== Уведомления ==================
 
     // ================== Пользователи ==================
-
+    // Загрузка списка сотрудников с фильтрами
+    fun loadEmployees(
+        page: Int = 1,
+        pageSize: Int = 50,
+        employeeId: String? = null,
+        lastName: String? = null,
+        firstName: String? = null,
+        middleName: String? = null,
+        lastNameEn: String? = null,
+        firstNameEn: String? = null,
+        middleNameEn: String? = null,
+        departmentGuid: String? = null,
+        positionGuid: String? = null,
+        isActive: Boolean? = null,
+        searchDepartment: String? = null,
+        searchPosition: String? = null
+    ) {
+        viewModelScope.launch {
+            if (page == 1) {
+                _uiState.value = AssetUiState.Loading
+            }
+            try {
+                val response = assetApiService.getEmployees(
+                    token = "Bearer ${getToken()}",
+                    page = page,
+                    pageSize = pageSize,
+                    employeeId = employeeId,
+                    lastName = lastName,
+                    firstName = firstName,
+                    middleName = middleName,
+                    lastNameEn = lastNameEn,
+                    firstNameEn = firstNameEn,
+                    middleNameEn = middleNameEn,
+                    departmentGuid = departmentGuid,
+                    positionGuid = positionGuid,
+                    isActive = isActive,
+                    searchDepartment = searchDepartment,
+                    searchPosition = searchPosition
+                )
+                _employees.value = response
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки сотрудников")
+            }
+        }
+    }
     // ================== Пользователи ==================
 }

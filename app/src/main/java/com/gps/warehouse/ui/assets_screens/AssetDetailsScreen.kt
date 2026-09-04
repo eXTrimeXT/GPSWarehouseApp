@@ -1,5 +1,7 @@
 package com.gps.warehouse.ui.assets_screens
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,6 +25,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.serialization.generateRouteWithArgs
 import com.gps.warehouse.data.remote.assets_dto.*
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.ErrorStateView
@@ -39,6 +43,7 @@ fun AssetDetailsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val assetStatuses by viewModel.assetStatuses.collectAsState()
     val assetTypes by viewModel.assetTypes.collectAsState()
+    val employees by viewModel.employees.collectAsState()
 
     var isEditing by remember { mutableStateOf(false) }
     var showHistoryDialog by remember { mutableStateOf(false) }
@@ -112,6 +117,7 @@ fun firstLoadData(viewModel: AssetViewModel, assetId: Int){
     viewModel.loadAssetStatuses()
     viewModel.loadAssetTypes()
     viewModel.loadAssetHistory(assetId)
+//    viewModel.loadEmployees(employeeId = "0000015370")
 }
 
 // ==================== CONTENT: UI + Preview ====================
@@ -125,7 +131,7 @@ fun AssetDetailsContent(
     editState: AssetEditState?,
     onEditStateChange: (AssetEditState) -> Unit,
     onToggleEdit: () -> Unit,
-    onSave: () -> Unit,  // Больше не принимает AssetUpdate
+    onSave: () -> Unit,
     onCancelEdit: () -> Unit,
     onShowHistory: () -> Unit,
     onBackClick: () -> Unit,
@@ -287,13 +293,6 @@ fun AssetDetailsContent(
             }
 
             is AssetViewModel.AssetUiState.Error -> {
-//            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-//                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-//                    Text(text = uiState.message, color = MaterialTheme.colorScheme.error)
-//                    Spacer(modifier = Modifier.height(16.dp))
-//                    Button(onClick = { /* Retry */ }) { Text("Повторить") }
-//                }
-//            }
                 ErrorStateView(
                     message = uiState.message,
                     onRetry = onRetryClick,
@@ -597,68 +596,6 @@ fun LocationCard(location: AssetLocationResponse?, isEditing: Boolean) {
 }
 
 // ==================== СЕРВИСНАЯ ИНФОРМАЦИЯ ====================
-//@Composable
-//fun ServiceCard(
-//    asset: AssetResponseDto,
-//    isEditing: Boolean,
-//    editState: AssetEditState? = null,  // Новый параметр
-//    onEditStateChange: (AssetEditState) -> Unit = {}  // Callback
-//) {
-//    InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
-//        if (!isEditing) {
-//            // ReadOnly-версия
-//            InfoRow(label = "Еженедельная проверка", value = if (asset.everyWeekCheck == true) "Да" else "Нет")
-//            InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
-//            InfoRow(label = "Период (дни)", value = asset.servicePeriod?.toString())
-//        } else {
-//            // Editable-версия с onValueChange
-//            Row(
-//                modifier = Modifier.fillMaxWidth(),
-//                horizontalArrangement = Arrangement.SpaceBetween,
-//                verticalAlignment = Alignment.CenterVertically
-//            ) {
-//                Text("Еженедельная проверка", style = MaterialTheme.typography.labelMedium)
-//                // TODO: Switch для everyWeekCheck
-//                Text(
-//                    if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет",
-//                    style = MaterialTheme.typography.bodyMedium
-//                )
-//            }
-//            Spacer(modifier = Modifier.height(8.dp))
-//
-//            OutlinedTextField(
-//                value = editState?.nextService ?: asset.nextService ?: "",
-//                onValueChange = {
-//                    onEditStateChange(editState?.copy(nextService = it) ?: AssetEditState())
-//                },
-//                label = { Text("След. обслуживание") },
-//                modifier = Modifier.fillMaxWidth(),
-//                singleLine = true,
-//                placeholder = { Text("ДД.ММ.ГГГГ") }
-//            )
-//            Spacer(modifier = Modifier.height(8.dp))
-//
-//            OutlinedTextField(
-//                value = (editState?.servicePeriod ?: asset.servicePeriod ?: 0).toString(),
-//                onValueChange = { input ->
-//                    val current = editState?.servicePeriod ?: asset.servicePeriod ?: 0
-//                    // Если было 0 и ввели что-то — берём введённое, иначе парсим как обычно
-//                    val period = if (current == 0 && input.isNotEmpty() && input != "0") {
-//                        input.toIntOrNull() ?: 0
-//                    } else {
-//                        input.toIntOrNull() ?: 0
-//                    }
-//                    onEditStateChange(editState?.copy(servicePeriod = period) ?: AssetEditState())
-//                },
-//                label = { Text("Период (дни)") },
-//                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-//                modifier = Modifier.fillMaxWidth(),
-//                singleLine = true
-//            )
-//        }
-//    }
-//}
-
 @Composable
 fun ServiceCard(
     asset: AssetResponseDto,
@@ -668,12 +605,12 @@ fun ServiceCard(
 ) {
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
-            // ✅ ReadOnly-версия: просто текст
+            // ReadOnly-версия: просто текст
             InfoRow(label = "Еженедельная проверка", value = if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет")
             InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
             InfoRow(label = "Период (дни)", value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString())
         } else {
-            // ✅ Editable-версия: Switch + поля ввода
+            // Editable-версия: Switch + поля ввода
 
             // Еженедельная проверка — Switch
             Row(
@@ -683,7 +620,7 @@ fun ServiceCard(
             ) {
                 Text("Еженедельная проверка", style = MaterialTheme.typography.labelMedium)
 
-                // ✅ Switch для everyWeekCheck
+                // Switch для everyWeekCheck
                 val currentCheck = editState?.everyWeekCheck ?: asset.everyWeekCheck ?: false
                 Switch(
                     checked = currentCheck,
@@ -742,64 +679,21 @@ fun UsersSection(
     users: List<AssetUserFullResponse>?,
     icon: ImageVector,
     color: Color = MaterialTheme.colorScheme.surfaceVariant,
-    isEditing: Boolean = false,  // Новый параметр
-    onAddUser: (() -> Unit)? = null  // Callback для добавления (в режиме редактирования)
+    isEditing: Boolean = false,
+    onAddUser: (() -> Unit)? = null
 ) {
     if (users.isNullOrEmpty() && !isEditing) return
 
     InfoSectionCard(icon = icon, title = title) {
         if (!isEditing) {
-            // ReadOnly-версия: список пользователей
+            // ReadOnly-версия: раскрывающиеся карточки
             users?.forEach { user ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(shape = RoundedCornerShape(50), color = color, modifier = Modifier.size(40.dp)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(user.fullNameRu ?: user.employeeId, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                        user.position?.name?.let { position ->
-                            Text(position, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        user.phone?.let { phone -> Text(phone, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary) }
-                        user.email?.let { email -> Text(email, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    }
-                }
-                if (user != users.last()) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp))
-                }
+                ExpandableUserCard(user = user, color = color, icon = icon)
             }
         } else {
-            // Editable-версия: список + кнопка добавления
+            // Editable-версия: список + кнопки управления
             users?.forEach { user ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(shape = RoundedCornerShape(50), color = color, modifier = Modifier.size(40.dp)) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(20.dp))
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(user.fullNameRu ?: user.employeeId, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    }
-                    // Кнопка удаления пользователя (TODO)
-                    IconButton(onClick = { /* TODO: remove user */ }) {
-                        Icon(Icons.Default.Close, "Удалить", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                    }
-                }
-                if (user != users.last()) {
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp))
-                }
+                ExpandableUserCardEditable(user = user, color = color, icon = icon)
             }
 
             // Кнопка добавления пользователя
@@ -816,6 +710,247 @@ fun UsersSection(
                 }
             }
         }
+    }
+}
+
+// ==================== КАРТОЧКА ПОЛЬЗОВАТЕЛЯ (READ-ONLY) ====================
+@Composable
+private fun ExpandableUserCard(
+    user: AssetUserFullResponse,
+    color: Color,
+    icon: ImageVector
+) {
+    var expanded by rememberSaveable(user.guid) { mutableStateOf(false) }
+//    var expanded by rememberSaveable(user.guid) { mutableStateOf(true) } // only test UI
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { expanded = !expanded },
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp)
+            .animateContentSize(animationSpec = spring())
+        ) {
+            // Заголовок карточки — всегда виден
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Аватар/иконка
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = color,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            icon,
+                            null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Имя пользователя — в одну строку с обрезкой
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = user.fullNameRu,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    // Должность — маленьким шрифтом, тоже в одну строку
+                    user.position?.name?.let { position ->
+                        Text(
+                            text = position,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Индикатор раскрытия
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Раскрывающаяся часть с контактами
+            if (expanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    // Табельный номер
+                    InfoRowSmall(label = "Таб. номер", value = user.employeeId)
+
+                    // Телефон
+                    user.phone?.let { phone ->
+                        InfoRowSmall(label = "Телефон", value = phone)
+                    }
+
+                    // Email
+                    user.email?.let { email ->
+                        InfoRowSmall(label = "Email", value = email)
+                    }
+
+                    // Департамент / Отдел / Группа
+                    user.department?.shortName?.let { dept -> InfoRowSmall(label = "Департамент", value = dept) }
+                    user.division?.shortName?.let { division -> InfoRowSmall(label = "Отдел", value = division) }
+                    user.group?.shortName?.let { group -> InfoRowSmall(label = "Группа", value = group) }
+
+                    // Даты привязки
+                    if (user.startDate != null || user.endDate != null) {
+                        InfoRowSmall(
+                            label = "Период владения",
+                            value = "${user.startDate ?: "–"} – ${user.endDate ?: "∞"}"
+                        )
+                    }
+
+                    // Тип привязки
+                    user.assignmentType?.let { type ->
+                        InfoRowSmall(
+                            label = "Тип",
+                            value = when (type) {
+                                "user" -> "Пользователь"
+                                "responsible" -> "Ответственный"
+                                "serving" -> "Обслуживающий"
+                                else -> type
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ==================== КАРТОЧКА ПОЛЬЗОВАТЕЛЯ (EDITABLE) ====================
+@Composable
+private fun ExpandableUserCardEditable(
+    user: AssetUserFullResponse,
+    color: Color,
+    icon: ImageVector
+) {
+    var expanded by rememberSaveable(user.guid) { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable { expanded = !expanded },
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier
+            .fillMaxWidth()
+            .padding(12.dp)
+            .animateContentSize(animationSpec = spring())
+        ) {
+            // Заголовок карточки с кнопкой удаления
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = color,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            icon,
+                            null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = user.fullNameRu ?: user.employeeId,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Кнопка удаления
+                IconButton(
+                    onClick = { /* TODO: удалить пользователя */ },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        "Удалить",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                // Индикатор раскрытия
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Раскрывающаяся часть
+            if (expanded) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    InfoRowSmall(label = "Таб. номер", value = user.employeeId)
+                    user.phone?.let { phone -> InfoRowSmall(label = "Телефон", value = phone) }
+                    user.email?.let { email -> InfoRowSmall(label = "Email", value = email) }
+                    user.department?.name?.let { dept -> InfoRowSmall(label = "Подразделение", value = dept) }
+                    user.society?.shortName?.let { society -> InfoRowSmall(label = "Общество", value = society) }
+                    if (user.startDate != null || user.endDate != null) {
+                        InfoRowSmall(label = "Период", value = "${user.startDate ?: "–"} – ${user.endDate ?: "∞"}")
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ==================== ВСПОМОГАТЕЛЬНЫЕ КОМПОНЕНТЫ ====================
+@Composable
+private fun InfoRowSmall(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "$label:",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -878,7 +1013,7 @@ fun AssetHistoryDialog(
     showBackground = true,
     showSystemUi = true,
     name = "Детали актива",
-    device = "spec:width=380dp,height=1750dp"
+    device = "spec:width=380dp,height=2250dp"
 )
 @Composable
 private fun AssetDetailsPreview_ViewMode() {
@@ -907,7 +1042,7 @@ private fun AssetDetailsPreview_ViewMode() {
     showBackground = true,
     showSystemUi = true,
     name = "Детали актива (Редактирование)",
-    device = "spec:width=380dp,height=1850dp",
+    device = "spec:width=380dp,height=2250dp",
 )
 @Composable
 private fun AssetDetailsPreview_EditMode() {
@@ -1026,8 +1161,64 @@ fun getSampleAsset(): AssetResponseDto {
                 department = null,
                 division = null,
                 group = null,
-                position = PositionResponse(name = "Пользователь", nameEn = null),
+                position = PositionResponse(name = "Младший инженер по внедрению информационных систем 2 категории", nameEn = null),
                 startDate = "2026-08-24",
+                endDate = null,
+                assignmentType = "user"
+            ),
+            AssetUserFullResponse(
+                guid = "14ba77ab-2d91-11f1-a3cb-000c290ca5c4",
+                employeeId = "0000015370",
+                birthDate = "2002-09-06",
+                employmentDate = "2026-04-01",
+                dismissalDate = null,
+                phone = "+79190809746",
+                email = "Timur.Malyshev@hmmr.ru",
+                comment = "Проверка",
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:44.545594",
+                updatedAt = "2026-09-03T02:00:11.229864",
+                fullNameRu = "Малышев Тимур Максимович",
+                fullNameEn = "Malyshev Timur Maksimovich",
+                society = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "Общество с ограниченной ответственностью \"ХАВЕЙЛ МОТОР МАНУФЭКЧУРИНГ РУС",
+                    nameEn = "",
+                    shortName = "SOCIETY",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000",
+                ),
+                department = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "Общество с ограниченной ответственностью \"ХАВЕЙЛ МОТОР МАНУФЭКЧУРИНГ РУС",
+                    nameEn = "",
+                    shortName = "DEPARTMENT",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000",
+                ),
+                division = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "Общество с ограниченной ответственностью \"ХАВЕЙЛ МОТОР МАНУФЭКЧУРИНГ РУС",
+                    nameEn = "",
+                    shortName = "DIVISION",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000",
+                ),
+                group = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "Общество с ограниченной ответственностью \"ХАВЕЙЛ МОТОР МАНУФЭКЧУРИНГ РУС",
+                    nameEn = "",
+                    shortName = "GROUP",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000",
+                ),
+                position = PositionResponse(name = "Разработчик Программного Обеспечения", nameEn = null),
+                startDate = "2026-08-26",
                 endDate = null,
                 assignmentType = "user"
             )
@@ -1053,7 +1244,7 @@ fun getSampleAsset(): AssetResponseDto {
                 department = null,
                 division = null,
                 group = null,
-                position = PositionResponse(name = "Администратор", nameEn = null),
+                position = PositionResponse(name = "Разработчик Программного Обеспечения", nameEn = null),
                 startDate = "2026-08-26",
                 endDate = null,
                 assignmentType = "responsible"
@@ -1076,11 +1267,43 @@ fun getSampleAsset(): AssetResponseDto {
                 updatedAt = "2026-09-03T02:00:11.229864",
                 fullNameRu = "Фещенко Олег Игоревич",
                 fullNameEn = "Feshchenko Oleg Igorevich",
-                society = null,
-                department = null,
-                division = null,
-                group = null,
-                position = PositionResponse(name = "Техник", nameEn = null),
+                society = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "Общество с ограниченной ответственностью \"ХАВЕЙЛ МОТОР МАНУФЭКЧУРИНГ РУС",
+                    nameEn = "",
+                    shortName = "SOCIETY",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000",
+                ),
+                department = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "Общество с ограниченной ответственностью \"ХАВЕЙЛ МОТОР МАНУФЭКЧУРИНГ РУС",
+                    nameEn = "",
+                    shortName = "DEPARTMENT",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000",
+                ),
+                division = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "Общество с ограниченной ответственностью \"ХАВЕЙЛ МОТОР МАНУФЭКЧУРИНГ РУС",
+                    nameEn = "",
+                    shortName = "DIVISION",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000",
+                ),
+                group = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "Общество с ограниченной ответственностью \"ХАВЕЙЛ МОТОР МАНУФЭКЧУРИНГ РУС",
+                    nameEn = "",
+                    shortName = "GROUP",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000",
+                ),
+                position = PositionResponse(name = "Младший инженер по внедрению информационных систем 2 категории", nameEn = null),
                 startDate = "2026-09-02",
                 endDate = null,
                 assignmentType = "serving"

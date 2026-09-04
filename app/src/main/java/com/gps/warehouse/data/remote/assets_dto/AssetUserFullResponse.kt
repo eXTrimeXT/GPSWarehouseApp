@@ -50,10 +50,30 @@ data class WorkplaceResponse(
     @SerializedName("short_name") val shortName: String?,
     @SerializedName("creation_date") val creationDate: String?,
     @SerializedName("closure_date") val closureDate: String?,
-    @SerializedName("parent_guid") val parentGuid: String?
+    @SerializedName("parent_guid") val parentGuid: String?,
 )
 
 data class PositionResponse(
     val name: String,
     @SerializedName("name_en") val nameEn: String?
+)
+
+// Краткая схема сотрудника для списков (соответствует ответу API /zup/employees)
+data class EmployeeShortResponse(
+    @SerializedName("guid") val guid: String,
+    @SerializedName("employee_id") val employeeId: String,
+    @SerializedName("full_name_ru") val fullNameRu: String?,
+    @SerializedName("full_name_en") val fullNameEn: String?,
+    @SerializedName("email") val email: String?,
+    @SerializedName("phone") val phone: String?,
+    @SerializedName("comment") val comment: String?,
+
+    // Иерархия подразделения
+    @SerializedName("society") val society: WorkplaceResponse?,
+    @SerializedName("department") val department: WorkplaceResponse?,
+    @SerializedName("division") val division: WorkplaceResponse?,
+    @SerializedName("group") val group: WorkplaceResponse?,
+
+    // Должность
+    @SerializedName("position") val position: PositionResponse?
 )

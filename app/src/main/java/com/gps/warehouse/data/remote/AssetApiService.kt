@@ -7,6 +7,7 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
+import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
@@ -69,7 +70,7 @@ interface AssetApiService {
         @Query("asset_type_id") assetTypeId: Int? = null,
         @Query("parent_id") parentId: Int? = null,
         @Query("location_id") locationId: Int? = null
-    ): PaginatedResponse
+    ): PaginatedResponse<AssetResponseDto>
 
     // ====================== Детали актива ======================
     @GET("assets/{asset_id}")
@@ -163,4 +164,24 @@ interface AssetApiService {
         @Path("assetId") assetId: Int,
         @Body update: AssetUpdate
     ): AssetResponseDto
+
+    // Запрос на получение пользователей активов
+    @GET("zup/employees")
+    suspend fun getEmployees(
+        @Header("Authorization") token: String,
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 50,
+        @Query("employee_id") employeeId: String? = null,
+        @Query("last_name") lastName: String? = null,
+        @Query("first_name") firstName: String? = null,
+        @Query("middle_name") middleName: String? = null,
+        @Query("last_name_en") lastNameEn: String? = null,
+        @Query("first_name_en") firstNameEn: String? = null,
+        @Query("middle_name_en") middleNameEn: String? = null,
+        @Query("department_guid") departmentGuid: String? = null,
+        @Query("position_guid") positionGuid: String? = null,
+        @Query("is_active") isActive: Boolean? = null,
+        @Query("search_department") searchDepartment: String? = null,
+        @Query("search_position") searchPosition: String? = null
+    ): PaginatedResponse<EmployeeShortResponse>
 }
