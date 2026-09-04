@@ -12,7 +12,7 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequ
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
-import com.gps.warehouse.data.remote.assets_dto.PaginatedAssetResponse
+import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.PlaySoundResponse
 import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
@@ -69,7 +69,7 @@ interface AssetApiService {
         @Query("asset_type_id") assetTypeId: Int? = null,
         @Query("parent_id") parentId: Int? = null,
         @Query("location_id") locationId: Int? = null
-    ): PaginatedAssetResponse
+    ): PaginatedResponse
 
     // ====================== Детали актива ======================
     @GET("assets/{asset_id}")
