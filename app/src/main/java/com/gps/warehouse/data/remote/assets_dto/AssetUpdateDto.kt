@@ -13,8 +13,6 @@ data class AssetLocationUpdate(
     @SerializedName("level") val level: Int? = null,
     @SerializedName("x") val x: Int,
     @SerializedName("y") val y: Int,
-    @SerializedName("rotation") val rotation: Int? = 0,
-    @SerializedName("scale") val scale: Int? = 100
 )
 
 

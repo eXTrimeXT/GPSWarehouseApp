@@ -8,7 +8,7 @@ import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
-import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
+//import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
@@ -46,9 +46,9 @@ class AssetViewModel @Inject constructor(
     sealed class AssetUiState {
         object Idle : AssetUiState()
         object Loading : AssetUiState()
-        data class MyAssetsLoaded(val assets: List<MyAssetDto>) : AssetUiState()
+        data class MyAssetsLoaded(val assets: List<AssetResponseDto>) : AssetUiState()
         data class Error(val message: String) : AssetUiState()
-        data class MyAssetDetailsLoaded(val asset: MyAssetDto) : AssetUiState()
+        data class MyAssetDetailsLoaded(val asset: AssetResponseDto) : AssetUiState()
         data class MyPcsLoaded(val pcs: List<MyPcDto>) : AssetUiState()
         data class AssetTypesLoaded(val types: List<AssetTypeDto>) : AssetUiState()
         data class AssetDetailsLoaded(val asset: AssetResponseDto) : AssetUiState()
@@ -85,12 +85,11 @@ class AssetViewModel @Inject constructor(
     val uiState: StateFlow<AssetUiState> = _uiState.asStateFlow()
 
     // StateFlow для хранения списка активов (для поиска по ID)
-    private val _myAssetsList = MutableStateFlow<List<MyAssetDto>>(emptyList())
-    val myAssetsList: StateFlow<List<MyAssetDto>> = _myAssetsList.asStateFlow()
+    private val _myAssetsList = MutableStateFlow<List<AssetResponseDto>>(emptyList())
+    val myAssetsList: StateFlow<List<AssetResponseDto>> = _myAssetsList.asStateFlow()
 
     private val _assetStatuses = MutableStateFlow<List<AssetStatusDto>>(emptyList())
     val assetStatuses: StateFlow<List<AssetStatusDto>> = _assetStatuses.asStateFlow()
-
 
     private val _myPcsList = MutableStateFlow<List<MyPcDto>>(emptyList())
     val myPcsList: StateFlow<List<MyPcDto>> = _myPcsList.asStateFlow()
@@ -101,7 +100,6 @@ class AssetViewModel @Inject constructor(
     // Добавляем отдельный StateFlow для UI-состояния инвентаризации
     private val _inventorizationUiState = MutableStateFlow<InventorizationUiState>(InventorizationUiState.Idle)
     val inventorizationUiState: StateFlow<InventorizationUiState> = _inventorizationUiState.asStateFlow()
-
 
     private val _inventorizationSessions = MutableStateFlow<List<InventorizationSessionDto>>(emptyList())
     val inventorizationSessions: StateFlow<List<InventorizationSessionDto>> = _inventorizationSessions.asStateFlow()
@@ -121,7 +119,7 @@ class AssetViewModel @Inject constructor(
     private var eventSource: EventSource? = null
 
 
-    // ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПАРСИНГА ОШИБОК
+    // Вспомогательная функция парсинга ошибок
     private fun getErrorMessage(e: Exception): String? {
         if (e is HttpException) {
             val errorBody = e.response()?.errorBody()?.string()
@@ -140,34 +138,9 @@ class AssetViewModel @Inject constructor(
         return e.message
     }
 
+    // Получить текущий токен
     suspend fun getToken(): String {
         return localStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации. Выполните вход заново.")
-    }
-
-    fun loadMyAssets() {
-        viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
-            try {
-                val assets = assetApiService.getMyAssignedAssets("Bearer ${getToken()}")
-                _myAssetsList.value = assets  // Сохраняем список
-                _uiState.value = AssetUiState.MyAssetsLoaded(assets)
-            } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
-            }
-        }
-    }
-
-    // Метод получения актива по ID:
-    fun loadMyAssetDetails(assetId: Int) {
-        viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
-            try {
-                val asset = assetApiService.getMyAssetById("Bearer ${getToken()}", assetId)
-                _uiState.value = AssetUiState.MyAssetDetailsLoaded(asset)
-            } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
-            }
-        }
     }
 
     // Метод получения ПК текущего пользователя
@@ -184,7 +157,8 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    // ================== Типы активов ==================
+    // ================== Загрузка активов ==================
+    // Типы активов
     fun loadAssetTypes() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -198,7 +172,6 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-
     // Загрузка истории актива
     fun loadAssetHistory(assetId: Int) {
         viewModelScope.launch {
@@ -207,6 +180,19 @@ class AssetViewModel @Inject constructor(
                 _assetHistory.value = history
             } catch (e: Exception) {
                 // Логируем, но не показываем пользователю
+            }
+        }
+    }
+
+    // Метод получения актива по ID:
+    fun loadMyAssetDetails(assetId: Int) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val asset = assetApiService.getMyAssetById("Bearer ${getToken()}", assetId)
+                _uiState.value = AssetUiState.MyAssetDetailsLoaded(asset)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
             }
         }
     }
@@ -233,6 +219,20 @@ class AssetViewModel @Inject constructor(
             } catch (e: Exception) {
                 // Логируем, но не показываем пользователю — фильтры могут работать и без статусов
                 Log.e("AssetViewModel", "Ошибка загрузки статусов: ${e.message}")
+            }
+        }
+    }
+
+    // Получить мои активы
+    fun loadMyAssets() {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val assets = assetApiService.getMyAssignedAssets("Bearer ${getToken()}")
+                _myAssetsList.value = assets  // Сохраняем список
+                _uiState.value = AssetUiState.MyAssetsLoaded(assets)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
             }
         }
     }
@@ -295,6 +295,8 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+    // ================== Загрузка активов ==================
+
 
     // ================== Инвентаризация ==================
     fun loadInventorizationSessions() {
@@ -367,7 +369,9 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+    // ================== Инвентаризация ==================
 
+    // Уведомления
     fun loadNotifications() {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
@@ -392,8 +396,6 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
-
-
 
     fun startSseStream(token: String) {
         eventSource?.cancel()

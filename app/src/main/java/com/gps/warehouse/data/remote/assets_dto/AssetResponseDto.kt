@@ -63,8 +63,8 @@ data class AssetUserFullResponse(
     @SerializedName("updated_at") val updatedAt: String?,
 
     // Вычисляемые имена
-    @SerializedName("full_name_ru") val fullNameRu: String?,
-    @SerializedName("full_name_en") val fullNameEn: String?,
+    @SerializedName("full_name_ru") val fullNameRu: String,
+    @SerializedName("full_name_en") val fullNameEn: String,
 
     // Иерархия (WorkplaceResponse)
     val society: WorkplaceResponse?,
@@ -133,6 +133,8 @@ data class AssetResponseDto(
 
     // Вложенные объекты
     val location: AssetLocationResponse?,
+
+    // Списки пользователей связанных с активами
     val users: List<AssetUserFullResponse>?,
     @SerializedName("responsible_users") val responsibleUsers: List<AssetUserFullResponse>?,
     @SerializedName("serving_users") val servingUsers: List<AssetUserFullResponse>?,
@@ -154,23 +156,6 @@ data class AssetLocationResponse(
     val y: Int?
 )
 
-data class LocationResponseDto(
-    @SerializedName("workshop_id") val workshopId: Int?,
-    @SerializedName("workshop_name") val workshopName: String?,
-    val place: String,
-    val level: Int?,
-    val x: Int?,
-    val y: Int?,
-)
-
-data class AssetUserResponseDto(
-    val guid: String,
-    @SerializedName("employee_id") val employeeId: String,
-    @SerializedName("full_name_ru") val fullNameRu: String,
-    @SerializedName("full_name_en") val fullNameEn: String,
-    @SerializedName("start_date") val startDate: String?,
-    @SerializedName("end_date") val endDate: String?
-)
 
 data class AssetParentResponseDto(
     @SerializedName("asset_id") val assetId: Int,

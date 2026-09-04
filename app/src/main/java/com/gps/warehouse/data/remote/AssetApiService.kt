@@ -10,7 +10,7 @@ import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
-import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
+//import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedAssetResponse
@@ -35,13 +35,13 @@ interface AssetApiService {
     @GET("assets/assignments/me")
     suspend fun getMyAssignedAssets(
         @Header("Authorization") token: String
-    ): List<MyAssetDto>
+    ): List<AssetResponseDto>
 
     @GET("assets/{asset_id}")
     suspend fun getMyAssetById(
         @Header("Authorization") token: String,
         @Path("asset_id") assetId: Int
-    ): MyAssetDto
+    ): AssetResponseDto
 
     @GET("assets/assignments/my-pc")
     suspend fun getMyPcs(

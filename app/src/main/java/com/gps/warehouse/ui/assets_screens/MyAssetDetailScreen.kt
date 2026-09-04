@@ -14,10 +14,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.gps.warehouse.data.remote.assets_dto.AssignedUserDto
-import com.gps.warehouse.data.remote.assets_dto.LocationInfoDto
+import com.gps.warehouse.data.remote.assets_dto.AssetLocationResponse
+import com.gps.warehouse.data.remote.assets_dto.AssetUserFullResponse
 import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
-import com.gps.warehouse.data.remote.assets_dto.ParentAssetDto
+import com.gps.warehouse.data.remote.assets_dto.PositionResponse
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
@@ -127,7 +127,7 @@ fun MyAssetDetailContent(
         }
 
         // Локация
-        val location: LocationInfoDto? = asset.location
+        val location: AssetLocationResponse? = asset.location
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -218,7 +218,7 @@ fun MyAssetDetailContent(
 }
 
 @Composable
-fun UserCard(user: AssignedUserDto) {
+fun UserCard(user: AssetUserFullResponse) {
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Text(
             text = user.fullNameRu,
@@ -304,34 +304,62 @@ fun getSampleFullMyAssetDto(): MyAssetDto {
         parentName = "Актив №1",
         createdAt = "2026-07-08T14:19:56.207098",
         updatedAt = "2026-07-14T14:09:30.775238",
-        location = LocationInfoDto(
-//            locationId = 1,
-//            city = "Тула",
-//            address = "Тульская улица, дом 71",
-//            room = "Помещение № 28",
-//            floor = "Этаж 3"
+        location = AssetLocationResponse(
             workshopId = 1,
+            workshopName = "Цех сборки",
             place = "Место",
             level = 3,
             x = 0,
             y = 0
         ),
         users = listOf(
-            AssignedUserDto(
+            AssetUserFullResponse(
                 guid = "974f470d-a7cd-11ef-a3b2-000c290ca5c4",
                 employeeId = "0000010680",
+                birthDate = "1994-12-30",
+                employmentDate = "2024-11-21",
+                dismissalDate = null,
+                phone = "+79805882104",
+                email = "Andrey.Malykh@hmmr.ru",
+                comment = null,
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "80911547-78ee-11f0-a3c1-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:34.650680",
+                updatedAt = "2026-09-03T02:00:11.229864",
                 fullNameRu = "Малых Андрей Владимирович",
                 fullNameEn = "Malykh Andrey Vladimirovich",
-                startDate = "2026-07-14",
-                endDate = null
+                society = null,
+                department = null,
+                division = null,
+                group = null,
+                position = PositionResponse(name = "Пользователь", nameEn = null),
+                startDate = "2026-08-24",
+                endDate = null,
+                assignmentType = "user"
             ),
-            AssignedUserDto(
+            AssetUserFullResponse(
                 guid = "14ba77ab-2d91-11f1-a3cb-000c290ca5c4",
                 employeeId = "0000015370",
+                birthDate = "2002-09-06",
+                employmentDate = "2026-04-01",
+                dismissalDate = null,
+                phone = "+79190809746",
+                email = "Timur.Malyshev@hmmr.ru",
+                comment = "Проверка",
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:44.545594",
+                updatedAt = "2026-09-03T02:00:11.229864",
                 fullNameRu = "Малышев Тимур Максимович",
                 fullNameEn = "Malyshev Timur Maksimovich",
-                startDate = "2026-07-14",
-                endDate = null
+                society = null,
+                department = null,
+                division = null,
+                group = null,
+                position = PositionResponse(name = "Администратор", nameEn = null),
+                startDate = "2026-08-26",
+                endDate = null,
+                assignmentType = "responsible"
             )
         ),
         parent = null

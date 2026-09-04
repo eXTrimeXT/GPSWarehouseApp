@@ -53,14 +53,20 @@ fun AssetDetailsScreen(
         viewModel.loadAssetHistory(assetId)
     }
 
-    // Инициализируем editState при загрузке актива
-    LaunchedEffect(uiState) {
-        (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
-            editState = AssetEditState.fromAsset(original)
-        }
-        // Отключаем редактирование только после получения новых данных
-        if (isEditing) {
-            isEditing = false
+    // Инициализируем editState ТОЛЬКО когда asset + статусы + типы загружены
+    LaunchedEffect(uiState, assetStatuses, assetTypes) {
+        if (uiState is AssetViewModel.AssetUiState.AssetDetailsLoaded &&
+            assetStatuses.isNotEmpty() &&
+            assetTypes.isNotEmpty()) {
+
+            (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
+                editState = AssetEditState.fromAsset(original)
+            }
+
+            // Отключаем редактирование после успешной загрузки
+            if (isEditing) {
+                isEditing = false
+            }
         }
     }
 
@@ -196,7 +202,12 @@ fun AssetDetailsContent(
 
                     // Сервисная информация
                     item {
-                        ServiceCard(asset = asset, isEditing = isEditing)
+                        ServiceCard(
+                            asset = asset,
+                            isEditing = isEditing,
+                            editState = editState,
+                            onEditStateChange = onEditStateChange  // Передаём callback
+                        )
                     }
 
                     // Пользователи
@@ -251,24 +262,129 @@ fun AssetDetailsContent(
 }
 
 // ==================== КАРТОЧКА СТАТУСА ====================
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//fun StatusCard(
+//    asset: AssetResponseDto,
+//    isEditing: Boolean,
+//    assetStatuses: List<AssetStatusDto>,
+//    editState: AssetEditState? = null,  // Новый параметр
+//    onStatusChange: (Int?) -> Unit = {}  // Callback для обновления статуса
+//) {
+//    val statusText = if (isEditing) {
+//        // В режиме редактирования берём статус из editState или из asset
+//        assetStatuses.find { it.id == (editState?.assetStatusId ?: asset.assetStatusId) }?.status
+//            ?: asset.assetStatus ?: "Не указан"
+//    } else {
+//        asset.assetStatus ?: "Не указан"
+//    }
+//
+//    val statusColor = when (asset.assetStatus?.lowercase()) {
+//        "приемка", "отремонтирован", "на складе", "в работе" -> Color(0, 150, 0, 170)
+//        "удален", "списан" -> Color(220, 0, 0, 170)
+//        "на обслуживании", "ожидает зч", "требует проверки", "в ремонте" -> Color(255, 193, 7, 170)
+//        else -> MaterialTheme.colorScheme.surfaceVariant
+//    }
+//
+//    Card(
+//        modifier = Modifier.fillMaxWidth(),
+//        colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.15f)),
+//    ) {
+//        Row(
+//            modifier = Modifier.padding(16.dp),
+//            verticalAlignment = Alignment.CenterVertically
+//        ) {
+//            Surface(
+//                shape = RoundedCornerShape(8.dp),
+//                color = statusColor,
+//                modifier = Modifier.size(48.dp)
+//            ) {
+//                Box(contentAlignment = Alignment.Center) {
+//                    Icon(
+//                        imageVector = if (asset.assetStatusId == 10) Icons.Default.CheckCircle else Icons.Default.Info,
+//                        contentDescription = null,
+//                        tint = Color.White,
+//                        modifier = Modifier.size(24.dp)
+//                    )
+//                }
+//            }
+//            Spacer(modifier = Modifier.width(16.dp))
+//            Column(modifier = Modifier.weight(1f)) {
+//                Text("Статус", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+//                if (isEditing) {
+//                    // DROPDOWN для выбора статуса
+//                    var expanded by remember { mutableStateOf(false) }
+//                    ExposedDropdownMenuBox(
+//                        expanded = expanded,
+//                        onExpandedChange = { expanded = !expanded }
+//                    ) {
+//                        OutlinedTextField(
+//                            value = statusText,
+//                            onValueChange = {},
+//                            readOnly = true,
+//                            label = { Text("Выберите статус") },
+//                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .menuAnchor(),
+//                            singleLine = true,
+//                            colors = OutlinedTextFieldDefaults.colors(
+//                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+//                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+//                            )
+//                        )
+//                        ExposedDropdownMenu(
+//                            expanded = expanded,
+//                            onDismissRequest = { expanded = false }
+//                        ) {
+//                            assetStatuses.forEach { statusDto ->
+//                                DropdownMenuItem(
+//                                    text = { Text(statusDto.status) },
+//                                    onClick = {
+//                                        onStatusChange(statusDto.id)  // Обновляем статус через callback
+//                                        expanded = false
+//                                    },
+//                                    leadingIcon = {
+//                                        if (statusDto.id == (editState?.assetStatusId ?: asset.assetStatusId)) {
+//                                            Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
+//                                        }
+//                                    }
+//                                )
+//                            }
+//                        }
+//                    }
+//                } else {
+//                    // Режим просмотра — просто текст
+//                    Text(statusText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+//                }
+//            }
+//        }
+//    }
+//}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatusCard(
     asset: AssetResponseDto,
     isEditing: Boolean,
     assetStatuses: List<AssetStatusDto>,
-    editState: AssetEditState? = null,  // Новый параметр
-    onStatusChange: (Int?) -> Unit = {}  // Callback для обновления статуса
+    editState: AssetEditState? = null,
+    onStatusChange: (Int?) -> Unit = {}
 ) {
-    val statusText = if (isEditing) {
-        // В режиме редактирования берём статус из editState или из asset
-        assetStatuses.find { it.id == (editState?.assetStatusId ?: asset.assetStatusId) }?.status
-            ?: asset.assetStatus ?: "Не указан"
+    // Всегда получаем текущий ID статуса: из editState или из asset
+    val currentStatusId = if (isEditing) {
+        editState?.assetStatusId ?: asset.assetStatusId
     } else {
-        asset.assetStatus ?: "Не указан"
+        asset.assetStatusId
     }
 
-    val statusColor = when (asset.assetStatus?.lowercase()) {
+    // Получаем текст статуса по ID из списка
+    val statusText = assetStatuses.find { it.id == currentStatusId }?.status
+        ?: asset.assetStatus
+        ?: "Не указан"
+
+    // Цвет тоже берём по тексту из списка (или fallback)
+    val statusColor = when (statusText.lowercase()) {
         "приемка", "отремонтирован", "на складе", "в работе" -> Color(0, 150, 0, 170)
         "удален", "списан" -> Color(220, 0, 0, 170)
         "на обслуживании", "ожидает зч", "требует проверки", "в ремонте" -> Color(255, 193, 7, 170)
@@ -290,7 +406,7 @@ fun StatusCard(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = if (asset.assetStatusId == 10) Icons.Default.CheckCircle else Icons.Default.Info,
+                        imageVector = if (currentStatusId == 10) Icons.Default.CheckCircle else Icons.Default.Info,
                         contentDescription = null,
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)
@@ -301,7 +417,6 @@ fun StatusCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text("Статус", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (isEditing) {
-                    // DROPDOWN для выбора статуса
                     var expanded by remember { mutableStateOf(false) }
                     ExposedDropdownMenuBox(
                         expanded = expanded,
@@ -313,9 +428,7 @@ fun StatusCard(
                             readOnly = true,
                             label = { Text("Выберите статус") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -330,11 +443,11 @@ fun StatusCard(
                                 DropdownMenuItem(
                                     text = { Text(statusDto.status) },
                                     onClick = {
-                                        onStatusChange(statusDto.id)  // Обновляем статус через callback
+                                        onStatusChange(statusDto.id)
                                         expanded = false
                                     },
                                     leadingIcon = {
-                                        if (statusDto.id == (editState?.assetStatusId ?: asset.assetStatusId)) {
+                                        if (statusDto.id == currentStatusId) {
                                             Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
                                         }
                                     }
@@ -343,7 +456,6 @@ fun StatusCard(
                         }
                     }
                 } else {
-                    // Режим просмотра — просто текст
                     Text(statusText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 }
             }
@@ -545,8 +657,53 @@ fun LocationCard(location: AssetLocationResponse?, isEditing: Boolean) {
 }
 
 // ==================== СЕРВИСНАЯ ИНФОРМАЦИЯ ====================
+//@Composable
+//fun ServiceCard(asset: AssetResponseDto, isEditing: Boolean) {
+//    InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
+//        if (!isEditing) {
+//            // ReadOnly-версия
+//            InfoRow(label = "Еженедельная проверка", value = if (asset.everyWeekCheck == true) "Да" else "Нет")
+//            InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
+//            InfoRow(label = "Период (дни)", value = asset.servicePeriod?.toString())
+//        } else {
+//            // Editable-версия
+//            OutlinedTextField(
+//                value = if (asset.everyWeekCheck == true) "Да" else "Нет",
+//                onValueChange = { /* TODO: update editState */ },
+//                label = { Text("След. обслуживание") },
+//                modifier = Modifier.fillMaxWidth(),
+//                singleLine = true
+//            )
+//            Spacer(modifier = Modifier.height(8.dp))
+//
+//            OutlinedTextField(
+//                value = asset.nextService ?: "",
+//                onValueChange = { /* TODO: update editState */ },
+//                label = { Text("След. обслуживание") },
+//                modifier = Modifier.fillMaxWidth(),
+//                singleLine = true
+//            )
+//            Spacer(modifier = Modifier.height(8.dp))
+//
+//            OutlinedTextField(
+//                value = asset.servicePeriod?.toString() ?: "",
+//                onValueChange = { /* TODO: update editState */ },
+//                label = { Text("Период (дни)") },
+//                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+//                modifier = Modifier.fillMaxWidth(),
+//                singleLine = true
+//            )
+//        }
+//    }
+//}
+
 @Composable
-fun ServiceCard(asset: AssetResponseDto, isEditing: Boolean) {
+fun ServiceCard(
+    asset: AssetResponseDto,
+    isEditing: Boolean,
+    editState: AssetEditState? = null,  // Новый параметр
+    onEditStateChange: (AssetEditState) -> Unit = {}  // Callback
+) {
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
             // ReadOnly-версия
@@ -554,28 +711,45 @@ fun ServiceCard(asset: AssetResponseDto, isEditing: Boolean) {
             InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
             InfoRow(label = "Период (дни)", value = asset.servicePeriod?.toString())
         } else {
-            // Editable-версия
+            // Editable-версия с onValueChange
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Еженедельная проверка", style = MaterialTheme.typography.labelMedium)
+                // TODO: Switch для everyWeekCheck
+                Text(
+                    if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
             OutlinedTextField(
-                value = if (asset.everyWeekCheck == true) "Да" else "Нет",
-                onValueChange = { /* TODO: update editState */ },
+                value = editState?.nextService ?: asset.nextService ?: "",
+                onValueChange = {
+                    onEditStateChange(editState?.copy(nextService = it) ?: AssetEditState())
+                },
                 label = { Text("След. обслуживание") },
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true
+                singleLine = true,
+                placeholder = { Text("ДД.ММ.ГГГГ") }
             )
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
-                value = asset.nextService ?: "",
-                onValueChange = { /* TODO: update editState */ },
-                label = { Text("След. обслуживание") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            OutlinedTextField(
-                value = asset.servicePeriod?.toString() ?: "",
-                onValueChange = { /* TODO: update editState */ },
+                value = (editState?.servicePeriod ?: asset.servicePeriod ?: 0).toString(),
+                onValueChange = { input ->
+                    val current = editState?.servicePeriod ?: asset.servicePeriod ?: 0
+                    // Если было 0 и ввели что-то — берём введённое, иначе парсим как обычно
+                    val period = if (current == 0 && input.isNotEmpty() && input != "0") {
+                        input.toIntOrNull() ?: 0
+                    } else {
+                        input.toIntOrNull() ?: 0
+                    }
+                    onEditStateChange(editState?.copy(servicePeriod = period) ?: AssetEditState())
+                },
                 label = { Text("Период (дни)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth(),

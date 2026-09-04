@@ -16,7 +16,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
+import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
+//import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.ErrorStateView
@@ -29,9 +30,13 @@ fun MyAssetsScreen(
     viewModel: AssetViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val assetStatuses by viewModel.assetStatuses.collectAsState()
+    val assetTypes by viewModel.assetTypes.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadMyAssets()
+        viewModel.loadAssetStatuses()
+        viewModel.loadAssetTypes()
     }
 
     Scaffold(
@@ -108,7 +113,7 @@ fun MyAssetsScreen(
 
 @Composable
 fun MyAssetCard(
-    asset: MyAssetDto,
+    asset: AssetResponseDto,
     onClick: () -> Unit = {}
 ) {
     Card(
@@ -171,15 +176,17 @@ fun MyAssetCard(
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Text(
-                    text = asset.assetStatus,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = when (asset.assetStatus.lowercase()) {
-                        "приемка", "в эксплуатации", "active" -> MaterialTheme.colorScheme.primary
-                        "списан", "inactive" -> MaterialTheme.colorScheme.error
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                )
+                asset.assetStatus?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = when (asset.assetStatus.lowercase()) {
+                            "приемка", "в эксплуатации", "active" -> MaterialTheme.colorScheme.primary
+                            "списан", "inactive" -> MaterialTheme.colorScheme.error
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
             }
 
             asset.parentName?.let { parentName ->
