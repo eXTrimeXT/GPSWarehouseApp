@@ -23,7 +23,7 @@ import com.gps.warehouse.data.remote.assets_dto.UserType
 
 @Composable
 fun EmployeeSearchDialog(
-    userType: UserType,  // ✅ Новый параметр
+    userType: UserType,  // Новый параметр
     onDismiss: () -> Unit,
     onEmployeeSelected: (UserType, EmployeeShortResponse) -> Unit,  // ✅ Теперь принимает UserType
     onSearch: (employeeId: String?, searchDepartment: String?, page: Int) -> Unit,  // ✅ Добавляем page

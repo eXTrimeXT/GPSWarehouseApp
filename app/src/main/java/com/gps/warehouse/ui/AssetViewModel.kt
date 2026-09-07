@@ -493,7 +493,7 @@ class AssetViewModel @Inject constructor(
         middleNameEn: String? = null,
         departmentGuid: String? = null,
         positionGuid: String? = null,
-        isActive: Boolean? = null,
+        isActive: Boolean? = true,
         searchDepartment: String? = null,
         searchPosition: String? = null
     ) {

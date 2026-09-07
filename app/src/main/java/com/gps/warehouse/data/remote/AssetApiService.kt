@@ -180,7 +180,7 @@ interface AssetApiService {
         @Query("middle_name_en") middleNameEn: String? = null,
         @Query("department_guid") departmentGuid: String? = null,
         @Query("position_guid") positionGuid: String? = null,
-        @Query("is_active") isActive: Boolean? = null,
+        @Query("is_active") isActive: Boolean? = true,
         @Query("search_department") searchDepartment: String? = null,
         @Query("search_position") searchPosition: String? = null
     ): PaginatedResponse<EmployeeShortResponse>
