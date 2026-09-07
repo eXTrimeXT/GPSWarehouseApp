@@ -55,8 +55,8 @@ enum class StatusFilter(val title: String, val apiValue: String?) {
 
 data class NotificationFilterState(
     val searchQuery: String = "",
-    val direction: DirectionFilter = DirectionFilter.INCOMING,
-    val status: StatusFilter = StatusFilter.UNREAD
+    val direction: DirectionFilter = DirectionFilter.ALL,
+    val status: StatusFilter = StatusFilter.ALL
 )
 
 // ==========================================
@@ -82,11 +82,16 @@ fun NotificationsScreen(
     var highlightedId by remember { mutableStateOf<Int?>(null) }
 
     // Загружаем уведомления при первом открытии экрана
+//    LaunchedEffect(Unit) {
+//        if (uiState !is AssetViewModel.AssetUiState.NotificationsLoaded &&
+//            uiState !is AssetViewModel.AssetUiState.Loading) {
+//            viewModel.loadNotifications(assetId=assetId, sessionId=sessionId)
+//        }
+//    }
+
+    // Загружаем уведомления по активу или сессии инвентаризации
     LaunchedEffect(assetId, sessionId) {
-        if (uiState !is AssetViewModel.AssetUiState.NotificationsLoaded &&
-            uiState !is AssetViewModel.AssetUiState.Loading) {
-            viewModel.loadNotifications(assetId=assetId, sessionId=sessionId)
-        }
+        viewModel.loadNotifications(assetId = assetId, sessionId = sessionId)
     }
 
     // Обработка прокрутки и включения подсветки

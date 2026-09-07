@@ -116,7 +116,7 @@ interface AssetApiService {
     suspend fun getInventorizationSessionItems(
         @Header("Authorization") token: String,
         @Path("session_id") sessionId: Int
-    ): List<InventorizationItemDto>
+    ): PaginatedResponse<InventorizationItemDto>
 
     @POST("inventorization/sessions/")
     suspend fun startInventorizationSession(
@@ -149,8 +149,8 @@ interface AssetApiService {
     suspend fun getNotifications(
         @Header("Authorization") token: String,
         @Query("direction") direction: String  = "all", // default = all, incoming, outgoing
-        @Query("asset_id") assetId: Int? = null,
-        @Query("session_id") sessionId: Int?  = null,
+        @Query("asset_id") assetId: Int?,
+        @Query("session_id") sessionId: Int?,
     ): NotificationResponseDto
 
     @GET("asset-history/{assetId}")

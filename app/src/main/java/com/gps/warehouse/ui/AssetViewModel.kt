@@ -112,6 +112,9 @@ class AssetViewModel @Inject constructor(
     private val _notificationItems = MutableStateFlow<List<NotificationDto>>(emptyList())
     val notificationItems: StateFlow<List<NotificationDto>> = _notificationItems.asStateFlow()
 
+    private var currentFilterAssetId: Int? = null
+    private var currentFilterSessionId: Int? = null
+
     private val _notificationUncheckedCount = MutableStateFlow(0)
     val notificationUncheckedCount: StateFlow<Int> = _notificationUncheckedCount.asStateFlow()
 
@@ -321,9 +324,14 @@ class AssetViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
-                val items = assetApiService.getInventorizationSessionItems("Bearer ${getToken()}", sessionId)
-                _inventorizationItems.value = items
-                _uiState.value = AssetUiState.InventorizationItemsLoaded(items, sessionId)
+                // response теперь имеет тип PaginatedResponse<InventorizationItemDto>
+                val response = assetApiService.getInventorizationSessionItems("Bearer ${getToken()}", sessionId)
+
+                // Сохраняем полный ответ (если нужно) или только список
+                _inventorizationItems.value = response.items
+
+                // Передаем именно список items в состояние
+                _uiState.value = AssetUiState.InventorizationItemsLoaded(response.items, sessionId)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
             }
@@ -379,6 +387,9 @@ class AssetViewModel @Inject constructor(
     // ================== Уведомления ==================
     fun loadNotifications(assetId: Int? = null, sessionId: Int? = null) {
         viewModelScope.launch {
+            currentFilterAssetId = assetId
+            currentFilterSessionId = sessionId
+
             _uiState.value = AssetUiState.Loading
             try {
 
@@ -417,7 +428,7 @@ class AssetViewModel @Inject constructor(
 
         val request = Request.Builder()
             // param: direction=all || outgoing || incoming
-            .url("${com.gps.warehouse.utils.Constants.ASSET_URL}notifications/stream")
+            .url("${com.gps.warehouse.utils.Constants.ASSET_URL}notifications/stream?direction=incoming")
             .addHeader("Authorization", "Bearer $token")
             .addHeader("Accept", "text/event-stream") // Обязательно для SSE
             .build()
@@ -439,6 +450,12 @@ class AssetViewModel @Inject constructor(
 
                         // Обновляем существующие или добавляем новые
                         for (incoming in responseDto.items) {
+                            // ЗАЩИТА: Если мы смотрим конкретный актив или сессию,
+                            // игнорируем SSE-уведомления, которые к ним не относятся
+                            if (currentFilterAssetId != null && incoming.assetId != currentFilterAssetId) continue
+                            if (currentFilterSessionId != null && incoming.sessionId != currentFilterSessionId) continue
+
+
                             val existingIndex = currentList.indexOfFirst { it.notificationId == incoming.notificationId }
                             if (existingIndex != -1) {
                                 val existing = currentList[existingIndex]
