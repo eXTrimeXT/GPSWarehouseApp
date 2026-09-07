@@ -30,6 +30,7 @@ import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.EmployeeSearchDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.gps_screens.warehouse.formatDate
 import com.gps.warehouse.utils.formatIsoToReadable
 
 // ==================== SCREEN: Логика + Навигация ====================
@@ -49,6 +50,9 @@ fun AssetDetailsScreen(
 
     var isEditing by remember { mutableStateOf(false) }
     var showHistoryDialog by remember { mutableStateOf(false) }
+    var showNextServiceDatePicker by remember { mutableStateOf(false) }
+
+    var userPendingRemoval by remember { mutableStateOf<Pair<UserType, AssetUserFullResponse>?>(null) }
 
     // Единое состояние для редактирования
     var editState by remember { mutableStateOf<AssetEditState?>(null) }
@@ -72,6 +76,121 @@ fun AssetDetailsScreen(
             if (isEditing) {
                 isEditing = false
             }
+        }
+    }
+
+    // Диалог истории
+    if (showHistoryDialog) {
+        AssetHistoryDialog(
+            history = viewModel.assetHistory.collectAsState().value,
+            onDismiss = { showHistoryDialog = false }
+        )
+    }
+
+    // Диалог поиска сотрудников
+    showEmployeeSearchDialog?.let { userType ->
+        EmployeeSearchDialog(
+            userType = userType,  // Передаём тип
+            onDismiss = { showEmployeeSearchDialog = null },
+            onEmployeeSelected = { selectedType, employee ->  // Раскомментируем и исправляем
+                editState?.let { state ->
+                    val updatedState = state.addUser(type = selectedType, employee = employee)
+                    editState = updatedState  // Прямое обновление
+                }
+                showEmployeeSearchDialog = null  // Закрываем диалог
+            },
+            onSearch = { employeeId, searchDepartment, page ->  // Добавляем page
+                viewModel.loadEmployees(
+                    page = page,
+                    pageSize = 20,
+                    employeeId = employeeId,
+                    searchDepartment = searchDepartment
+                )
+            },
+            paginatedEmployees = employees,  // Теперь PaginatedResponse
+            isLoading = employees == null,
+            currentPage = employees?.page ?: 1
+        )
+    }
+
+    userPendingRemoval?.let { (userType, user) ->
+        val roleText = when (userType) {
+            UserType.USER -> "Пользователи"
+            UserType.RESPONSIBLE -> "Ответственные"
+            UserType.SERVING -> "Обслуживающий персонал"
+        }
+
+        AlertDialog(
+            onDismissRequest = { userPendingRemoval = null },
+            icon = {
+                Icon(
+                    Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text("Подтверждение удаления") },
+            text = {
+                Text("Вы уверены, что хотите удалить сотрудника\n\"${user.fullNameRu}\"\nиз списка \"${roleText}\"?")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        editState?.let { state ->
+                            val updatedState = state.removeUser(type = userType, userGuid = user.guid)
+                            editState = updatedState // Прямое обновление состояния
+                        }
+                        userPendingRemoval = null // Закрываем диалог
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Удалить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { userPendingRemoval = null }) {
+                    Text("Отмена")
+                }
+            }
+        )
+    }
+
+    if (showNextServiceDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            // Опционально: можно установить начальную дату из editState, если она есть
+            initialSelectedDateMillis = editState?.nextService?.let {
+                java.time.LocalDate.parse(it).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }
+        )
+
+        DatePickerDialog(
+            onDismissRequest = { showNextServiceDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        // Преобразуем миллисекунды в формат yyyy-MM-dd для API
+                        val isoDate = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneId.systemDefault())
+                            .toLocalDate()
+                            .toString()
+
+                        editState?.let { state ->
+//                            onEditStateChange(state.copy(nextService = isoDate))
+                            editState = editState?.copy(nextService = isoDate)
+                        }
+                    }
+                    showNextServiceDatePicker = false
+                }) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNextServiceDatePicker = false }) {
+                    Text("Отмена")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 
@@ -108,48 +227,12 @@ fun AssetDetailsScreen(
             viewModel.loadEmployees(page = 1, pageSize = 20)
         },
 
-        // onRemoveUser: удаляем пользователя из editState
-        onRemoveUser = { userType, userGuid ->
-            editState?.let { state ->
-                val updatedState = state.removeUser(type = userType, userGuid = userGuid)
-                editState = updatedState  // Прямое обновление, не через onEditStateChange
-            }
-        }
+        // onRemoveUser: сохраняем какого пользователя надо удалить
+        onRemoveUser = { userType, user ->
+            userPendingRemoval = Pair(userType, user) // Запоминаем пользователя вместо мгновенного удаления
+        },
+        onNextServiceClick = { showNextServiceDatePicker = true }
     )
-
-    // Диалог истории
-    if (showHistoryDialog) {
-        AssetHistoryDialog(
-            history = viewModel.assetHistory.collectAsState().value,
-            onDismiss = { showHistoryDialog = false }
-        )
-    }
-
-    // Диалог поиска сотрудников
-    showEmployeeSearchDialog?.let { userType ->
-        EmployeeSearchDialog(
-            userType = userType,  // Передаём тип
-            onDismiss = { showEmployeeSearchDialog = null },
-            onEmployeeSelected = { selectedType, employee ->  // Раскомментируем и исправляем
-                editState?.let { state ->
-                    val updatedState = state.addUser(type = selectedType, employee = employee)
-                    editState = updatedState  // Прямое обновление
-                }
-                showEmployeeSearchDialog = null  // Закрываем диалог
-            },
-            onSearch = { employeeId, searchDepartment, page ->  // Добавляем page
-                viewModel.loadEmployees(
-                    page = page,
-                    pageSize = 20,
-                    employeeId = employeeId,
-                    searchDepartment = searchDepartment
-                )
-            },
-            paginatedEmployees = employees,  // Теперь PaginatedResponse
-            isLoading = employees == null,
-            currentPage = employees?.page ?: 1
-        )
-    }
 }
 
 fun firstLoadData(viewModel: AssetViewModel, assetId: Int) {
@@ -178,7 +261,8 @@ fun AssetDetailsContent(
     onNavigateToParent: (Int) -> Unit,
     onRetryClick: () -> Unit,
     onAddUser: ((UserType) -> Unit)? = null,
-    onRemoveUser: ((UserType, String) -> Unit)? = null
+    onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)? = null,
+    onNextServiceClick: (() -> Unit)? = null
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         when (uiState) {
@@ -263,45 +347,10 @@ fun AssetDetailsContent(
                                 asset = asset,
                                 isEditing = isEditing,
                                 editState = editState,
-                                onEditStateChange = onEditStateChange
+                                onEditStateChange = onEditStateChange,
+                                onNextServiceClick = onNextServiceClick
                             )
                         }
-
-//                        // Пользователи
-//                        item {
-//                            UsersSection(
-//                                title = "Пользователи",
-//                                users = asset.users,
-//                                icon = Icons.Default.Person,
-//                                color = MaterialTheme.colorScheme.surfaceVariant,
-//                                isEditing = isEditing,
-//                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.USER) } } else null,
-////                                onRemoveUser = if (isEditing) { { userGuid -> onRemoveUser?.invoke(UserType.USER, userGuid) } } else null
-//                                onRemoveUser = onRemoveUser
-//                            )
-//                        }
-//                        item {
-//                            UsersSection(
-//                                title = "Ответственные",
-//                                users = asset.responsibleUsers,
-//                                icon = Icons.Default.VerifiedUser,
-//                                color = MaterialTheme.colorScheme.primaryContainer,
-//                                isEditing = isEditing,
-//                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.RESPONSIBLE) } } else null,
-////                                onRemoveUser = if (isEditing) { { guid -> onRemoveUser?.invoke(UserType.RESPONSIBLE, guid) } } else null
-//                            )
-//                        }
-//                        item {
-//                            UsersSection(
-//                                title = "Обслуживающий персонал",
-//                                users = asset.servingUsers,
-//                                icon = Icons.Default.Build,
-//                                color = MaterialTheme.colorScheme.tertiaryContainer,
-//                                isEditing = isEditing,
-//                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.SERVING) } } else null,
-////                                onRemoveUser = if (isEditing) { { guid -> onRemoveUser?.invoke(UserType.SERVING, guid) } } else null
-//                            )
-//                        }
 
                         // Пользователи
                         item {
@@ -625,12 +674,13 @@ fun ServiceCard(
     asset: AssetResponseDto,
     isEditing: Boolean,
     editState: AssetEditState? = null,
-    onEditStateChange: (AssetEditState) -> Unit = {}
+    onEditStateChange: (AssetEditState) -> Unit = {},
+    onNextServiceClick: (() -> Unit)? = null
 ) {
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
             InfoRow(label = "Еженедельная проверка", value = if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет")
-            InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable(pattern = "dd.MM.yyyy"))
+            InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable())
             InfoRow(label = "Период (дни)", value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString())
         } else {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -653,18 +703,29 @@ fun ServiceCard(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
+            // <-- ПОЛЕ ДАТЫ С DATE PICKER
             OutlinedTextField(
                 value = editState?.nextService ?: asset.nextService ?: "",
-                onValueChange = {
-                    editState?.let { state ->
-                        onEditStateChange(state.copy(nextService = it))
+                onValueChange = { }, // Оставляем пустым, так как поле readOnly
+                label = { Text("След. обслуживание") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNextServiceClick?.invoke() }, // Клик по всему полю открывает календарь
+                readOnly = true, // Запрещаем ручной ввод
+                placeholder = { Text("ДД.ММ.ГГГГ") },
+                trailingIcon = {
+                    IconButton(onClick = { onNextServiceClick?.invoke() }) {
+                        Icon(Icons.Default.CalendarToday, "Выбрать дату")
                     }
                 },
-                label = { Text("След. обслуживание") },
-                modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                placeholder = { Text("ДД.ММ.ГГГГ") }
+//                colors = OutlinedTextFieldDefaults.colors(
+//                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+//                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
+//                )
             )
+
+
             Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
@@ -698,7 +759,7 @@ fun UsersSection(
     color: Color = MaterialTheme.colorScheme.surfaceVariant,
     isEditing: Boolean = false,
     onAddUser: ((UserType) -> Unit)? = null,
-    onRemoveUser: ((UserType, String) -> Unit)? = null
+    onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)? = null
 ) {
     if (users.isNullOrEmpty() && !isEditing) return
 
@@ -716,7 +777,9 @@ fun UsersSection(
                 color = color,
                 icon = icon,
                 isEditing = isEditing,
-                onRemove = if (isEditing) { { onRemoveUser?.invoke(userType, user.guid) } } else null
+//                onRemove = if (isEditing) { { onRemoveUser?.invoke(userType, user.guid) } } else null
+                onRemoveUser = if (isEditing && onRemoveUser != null) { { onRemoveUser(userType, user) } } else null
+
             )
         }
 
@@ -742,7 +805,8 @@ private fun ExpandableUserCard(
     color: Color,
     icon: ImageVector,
     isEditing: Boolean,
-    onRemove: (() -> Unit)? = null
+//    onRemoveUser: (() -> Unit)? = null
+    onRemoveUser: ((AssetUserFullResponse) -> Unit)? = null
 ) {
     var expanded by rememberSaveable(user.guid) { mutableStateOf(false) }
 
@@ -786,8 +850,8 @@ private fun ExpandableUserCard(
                     }
                 }
 
-                if (onRemove != null && isEditing) {
-                    IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+                if (onRemoveUser != null && isEditing) {
+                    IconButton(onClick = { onRemoveUser(user) }, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Default.Close, "Удалить", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                     }
                 }
@@ -870,7 +934,7 @@ fun AssetHistoryDialog(history: List<AssetHistoryDto>, onDismiss: () -> Unit) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                                 Text(entry.fieldName ?: "Поле", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                                Text(entry.changedAt.formatIsoToReadable("dd.MM HH:mm") ?: "", style = MaterialTheme.typography.labelSmall)
+                                Text(entry.changedAt.formatIsoToReadable() ?: "", style = MaterialTheme.typography.labelSmall)
                             }
                             Spacer(modifier = Modifier.height(4.dp))
                             Text("Кем: ${entry.changerFullNameRu}", style = MaterialTheme.typography.bodySmall)

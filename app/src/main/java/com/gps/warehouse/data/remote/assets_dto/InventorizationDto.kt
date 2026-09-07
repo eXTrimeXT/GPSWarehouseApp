@@ -8,7 +8,9 @@ data class InventorizationSessionDto(
     @SerializedName("asset_type_name") val assetTypeName: String,
     @SerializedName("asset_type_en_name") val assetTypeEnName: String,
     val status: String,
-    @SerializedName("created_at") val createdAt: String
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("start_date") val startDate: String? = null,
+    @SerializedName("end_date") val endDate: String? = null
 )
 
 data class InventorizationItemDto(

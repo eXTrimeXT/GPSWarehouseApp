@@ -67,7 +67,7 @@ fun InventorizationSessionsScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventorizationSessionsContent(
-    sessions: PaginatedResponse<InventorizationSessionDto>?,
+    sessions: List<InventorizationSessionDto>?,
     assetTypes: List<AssetTypeDto>,
     uiState: AssetViewModel.InventorizationUiState,
     showCreateDialog: Boolean,
@@ -107,7 +107,7 @@ fun InventorizationSessionsContent(
                 }
             }
             is AssetViewModel.InventorizationUiState.SessionsLoaded -> {
-                val items = sessions?.items.orEmpty()
+                val items = sessions.orEmpty()
                 if (items.isEmpty()) {
                     EmptySessionsState(modifier = Modifier.padding(paddingValues))
                 } else {
@@ -266,7 +266,7 @@ fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = session.assetTypeName ?: "Тип #${session.assetTypeId}",
+                    text = session.assetTypeName,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -277,7 +277,12 @@ fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = session.createdAt.take(10),
+                    text = "Дата начала: ${session.startDate?.take(10) ?: "-"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                Text(
+                    text = "Дата завершения: ${session.startDate?.take(10) ?: "-"}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                 )
@@ -320,22 +325,17 @@ fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
 @PreviewLightDark
 @Composable
 private fun InventorizationSessionsContentPreview_Loaded() {
-    val mockSessions = PaginatedResponse(
-        items = listOf(
+    val mockSessions = listOf(
             InventorizationSessionDto(1, 1, "Компьютеры", "computers", "in_progress", "2026-07-23T08:59:53.158615Z"),
             InventorizationSessionDto(2, 7, "Сетевое оборудование", "network_equipment", "completed", "2026-07-20T14:30:00.000000Z")
-        ),
-        total = 2,
-        page = 1,
-        pageSize = 20,
-        totalPages = 1,
-        hasNext = false,
-        hasPrevious = false
-    )
+        )
     MaterialTheme {
         Surface {
             InventorizationSessionsContent(
-                sessions = mockSessions,
+                sessions = listOf(
+                    InventorizationSessionDto(1, 1, "Компьютеры", "computers", "in_progress", "2026-07-23T08:59:53.158615Z", "2026-07-09T08:59:53.158615Z", "2026-08-23T08:59:53.158615Z"),
+                    InventorizationSessionDto(2, 7, "Сетевое оборудование", "network_equipment", "completed", "2026-07-20T14:30:00.000000Z")
+                ),
                 assetTypes = listOf(
                     AssetTypeDto(1, "Компьютеры", "computers", null, "2026-07-06T07:18:41.873769", null),
                     AssetTypeDto(7, "Сетевое оборудование", "network_equipment", null, "2026-07-06T07:21:39.334371", null)

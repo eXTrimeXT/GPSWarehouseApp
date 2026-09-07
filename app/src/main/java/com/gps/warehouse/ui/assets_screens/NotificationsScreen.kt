@@ -32,6 +32,7 @@ import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.delay
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -80,14 +81,6 @@ fun NotificationsScreen(
     // Состояние списка для скролла
     val listState = rememberLazyListState()
     var highlightedId by remember { mutableStateOf<Int?>(null) }
-
-    // Загружаем уведомления при первом открытии экрана
-//    LaunchedEffect(Unit) {
-//        if (uiState !is AssetViewModel.AssetUiState.NotificationsLoaded &&
-//            uiState !is AssetViewModel.AssetUiState.Loading) {
-//            viewModel.loadNotifications(assetId=assetId, sessionId=sessionId)
-//        }
-//    }
 
     // Загружаем уведомления по активу или сессии инвентаризации
     LaunchedEffect(assetId, sessionId) {
@@ -144,6 +137,7 @@ fun NotificationsScreen(
             onFilterStateChange = { filterState = it },
             onRetry = { viewModel.loadNotifications(assetId = assetId) },
             onNotificationClick = { notification ->
+                viewModel.readNotification(notification.notificationId)
                 when {
                     notification.assetId != null -> {
                         navController.navigate("asset_details/${notification.assetId}")
@@ -405,12 +399,12 @@ fun NotificationItem(notification: NotificationDto, isHighlighted: Boolean = fal
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
                 )
+//                Text(
+//                    text = "id = ${notification.notificationId} | ",
+//                    style = MaterialTheme.typography.bodySmall
+//                )
                 Text(
-                    text = "id = ${notification.notificationId} | ",
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    text = formatDateTime(notification.createdAt),
+                    text = "${notification.createdAt.formatIsoToReadable()}",
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -465,17 +459,6 @@ fun NotificationItem(notification: NotificationDto, isHighlighted: Boolean = fal
                 )
             }
         }
-    }
-}
-
-// Безопасное форматирование даты для Android 11+ (java.time доступен с API 26)
-fun formatDateTime(isoString: String): String {
-    return try {
-        val dateTime = LocalDateTime.parse(isoString.take(19))
-        val outputFormatter = DateTimeFormatter.ofPattern("dd.MM HH:mm", Locale.getDefault())
-        dateTime.format(outputFormatter)
-    } catch (e: Exception) {
-        isoString
     }
 }
 

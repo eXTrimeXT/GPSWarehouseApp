@@ -79,7 +79,7 @@ class AssetViewModel @Inject constructor(
     sealed class InventorizationUiState {
         object Idle : InventorizationUiState()
         object Loading : InventorizationUiState()
-        data class SessionsLoaded(val sessions: PaginatedResponse<InventorizationSessionDto>) : InventorizationUiState()
+        data class SessionsLoaded(val sessions: List<InventorizationSessionDto>) : InventorizationUiState()
         data class Error(val message: String) : InventorizationUiState()
     }
 
@@ -103,8 +103,8 @@ class AssetViewModel @Inject constructor(
     private val _inventorizationUiState = MutableStateFlow<InventorizationUiState>(InventorizationUiState.Idle)
     val inventorizationUiState: StateFlow<InventorizationUiState> = _inventorizationUiState.asStateFlow()
 
-    private val _inventorizationSessions = MutableStateFlow<PaginatedResponse<InventorizationSessionDto>?>(null)
-    val inventorizationSessions: StateFlow<PaginatedResponse<InventorizationSessionDto>?> = _inventorizationSessions.asStateFlow()
+    private val _inventorizationSessions = MutableStateFlow<List<InventorizationSessionDto>?>(null)
+    val inventorizationSessions: StateFlow<List<InventorizationSessionDto>?> = _inventorizationSessions.asStateFlow()
 
     private val _inventorizationItems = MutableStateFlow<List<InventorizationItemDto>>(emptyList())
     val inventorizationItems: StateFlow<List<InventorizationItemDto>> = _inventorizationItems.asStateFlow()
@@ -416,6 +416,17 @@ class AssetViewModel @Inject constructor(
         }
     }
 
+    fun readNotification(notificationId: Int){
+        viewModelScope.launch {
+            try {
+                val responseReadNotification = assetApiService.readNotification("Bearer ${getToken()}", notificationId)
+                Log.d(TAG, "Уведомление с id = ${responseReadNotification.notificationId} status=${responseReadNotification.status}")
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка чтения уведомления")
+            }
+        }
+    }
+
     fun startSseStream(token: String) {
         eventSource?.cancel()
 
@@ -493,11 +504,11 @@ class AssetViewModel @Inject constructor(
         })
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        eventSource?.cancel()
-        Log.d(TAG, " onCleared: ViewModel уничтожен, SSE соединение разорвано")
-    }
+//    override fun onCleared() {
+//        super.onCleared()
+//        eventSource?.cancel()
+//        Log.d(TAG, " onCleared: ViewModel уничтожен, SSE соединение разорвано")
+//    }
     // ================== Уведомления ==================
 
     // ================== Пользователи ==================

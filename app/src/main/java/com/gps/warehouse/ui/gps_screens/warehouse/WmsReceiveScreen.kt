@@ -464,7 +464,7 @@ private fun parseDate(dateString: String): Date? {
     }
 }
 
-private fun formatDate(timestamp: Long): String {
+fun formatDate(timestamp: Long): String {
     return SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()).format(Date(timestamp))
 }
 
@@ -1021,7 +1021,7 @@ fun DeleteConfirmationDialog(
     )
 }
 
-// ====================== 5. ПРЕВЬЮ ======================
+// ====================== ПРЕВЬЮ ======================
 @Preview(showBackground = true, name = "WmsReceive - Empty")
 @Composable
 fun WmsReceivePreviewEmpty() {

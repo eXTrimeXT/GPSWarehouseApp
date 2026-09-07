@@ -36,7 +36,7 @@ fun String.isRecentWithinOneMinute(): Boolean {
  * Простой парсинг ISO-строки без java.time.
  * Работает с форматами: "2026-09-03T06:26:16.840853Z" или без "Z"
  */
-fun String?.formatIsoToReadable(pattern: String = "dd.MM HH:mm"): String? {
+fun String?.formatIsoToReadable(pattern: String = "dd.MM.yyyy HH:mm"): String? {
     return this?.let { raw ->
         try {
             // Разбиваем по разделителю даты и времени
@@ -52,7 +52,7 @@ fun String?.formatIsoToReadable(pattern: String = "dd.MM HH:mm"): String? {
             when (pattern) {
                 "dd.MM HH:mm" -> "$day.$month $time"
                 "dd.MM.yyyy HH:mm" -> "$day.$month.$year $time"
-                else -> "$day.$month $time"
+                else -> "$day.$month.$year $time"
             }
         } catch (e: Exception) {
             // Fallback: просто заменяем T на пробел и обрезаем до HH:MM

@@ -12,6 +12,7 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
+import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.PlaySoundResponse
@@ -110,7 +111,7 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Query("skip") skip: Int = 0,
         @Query("limit") limit: Int = 50
-    ): PaginatedResponse<InventorizationSessionDto>
+    ): List<InventorizationSessionDto>
 
     @GET("inventorization/sessions/{session_id}/items/")
     suspend fun getInventorizationSessionItems(
@@ -152,6 +153,13 @@ interface AssetApiService {
         @Query("asset_id") assetId: Int?,
         @Query("session_id") sessionId: Int?,
     ): NotificationResponseDto
+
+    // Пометить уведомление как прочитанное
+    @PATCH("notifications/{notification_id}/read")
+    suspend fun readNotification(
+        @Header("Authorization") token: String,
+        @Path("notification_id") notificationId: Int
+    ): NotificationDto
 
     @GET("asset-history/{assetId}")
     suspend fun getAssetHistory(

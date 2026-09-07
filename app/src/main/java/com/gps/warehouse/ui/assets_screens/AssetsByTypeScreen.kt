@@ -399,18 +399,18 @@ fun AssetCardPaginated(asset: AssetResponseDto, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Инв. номер: ${asset.inventoryId}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                     asset.serialNumber?.let { sn ->
                         Text(
-                            text = "S/N: $sn",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            text = "Серийный номер: $sn",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    Text(
+                        text = "Инв. номер: ${asset.inventoryId}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
