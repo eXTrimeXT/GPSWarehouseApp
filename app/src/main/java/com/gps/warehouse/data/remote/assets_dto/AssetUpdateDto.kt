@@ -1,7 +1,6 @@
 package com.gps.warehouse.data.remote.assets_dto
 
 import com.google.gson.annotations.SerializedName
-import java.time.LocalDate
 
 data class AssetUserUpdate(
     @SerializedName("employee_id") val employeeId: String
@@ -56,9 +55,9 @@ data class AssetUpdate(
     @SerializedName("location") val location: AssetLocationUpdate? = null,
 
     // Пользователи
-    @SerializedName("users") val users: List<AssetUserUpdate>? = null,
-    @SerializedName("responsible_users") val responsibleUsers: List<AssetUserUpdate>? = null,
-    @SerializedName("serving_users") val servingUsers: List<AssetUserUpdate>? = null,
+    @SerializedName("users") val users: List<AssetUserFullResponse>? = null,
+    @SerializedName("responsible_users") val responsibleUsers: List<AssetUserFullResponse>? = null,
+    @SerializedName("serving_users") val servingUsers: List<AssetUserFullResponse>? = null,
 
     // Текущий пользователь
     @SerializedName("current_user") val currentUser: String? = null,

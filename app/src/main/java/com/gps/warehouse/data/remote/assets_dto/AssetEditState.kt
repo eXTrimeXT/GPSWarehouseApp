@@ -24,12 +24,10 @@ data class AssetEditState(
     val location: AssetLocationUpdate? = null,
     val currentUser: String? = null,
 
-    val usersToAdd: List<AssetUserUpdate> = emptyList(),
-    val usersToRemove: List<String> = emptyList(),
-    val responsibleUsersToAdd: List<AssetUserUpdate> = emptyList(),
-    val responsibleUsersToRemove: List<String> = emptyList(),
-    val servingUsersToAdd: List<AssetUserUpdate> = emptyList(),
-    val servingUsersToRemove: List<String> = emptyList()
+    // Храним полный текущий список пользователей для отправки на сервер
+    val currentUsers: List<AssetUserFullResponse> = emptyList(),
+    val currentResponsibleUsers: List<AssetUserFullResponse> = emptyList(),
+    val currentServingUsers: List<AssetUserFullResponse> = emptyList()
 ) {
     companion object {
         /** Создаёт состояние из существующего актива */
@@ -55,12 +53,9 @@ data class AssetEditState(
                     AssetLocationUpdate(it.workshopId, it.place, it.level, it.x ?: 0, it.y ?: 0)
                 },
 
-                usersToAdd = emptyList(),
-                usersToRemove = emptyList(),
-                responsibleUsersToAdd = emptyList(),
-                responsibleUsersToRemove = emptyList(),
-                servingUsersToAdd = emptyList(),
-                servingUsersToRemove = emptyList()
+                currentUsers = asset.users ?: emptyList(),
+                currentResponsibleUsers = asset.responsibleUsers ?: emptyList(),
+                currentServingUsers = asset.servingUsers ?: emptyList()
             )
         }
     }
@@ -86,56 +81,55 @@ data class AssetEditState(
             currentUser = currentUser.takeIf { it != original.currentUser },
             location = location.takeIf { it != original.location },
 
-            // Списки пользователей для обновления
-            users = buildUserUpdateList(
-                original = original.users,
-                toAdd = usersToAdd,
-                toRemove = usersToRemove
-            ),
-            responsibleUsers = buildUserUpdateList(
-                original = original.responsibleUsers,
-                toAdd = responsibleUsersToAdd,
-                toRemove = responsibleUsersToRemove
-            ),
-            servingUsers = buildUserUpdateList(
-                original = original.servingUsers,
-                toAdd = servingUsersToAdd,
-                toRemove = servingUsersToRemove
-            )
+            // Отправляем полные списки пользователей, если они изменились
+            users = currentUsers,
+            responsibleUsers = currentResponsibleUsers,
+            servingUsers = currentServingUsers
         )
-    }
-
-    // Вспомогательный метод для формирования списка пользователей
-    private fun buildUserUpdateList(
-        original: List<AssetUserFullResponse>?,
-        toAdd: List<AssetUserUpdate>,
-        toRemove: List<String>
-    ): List<AssetUserUpdate>? {
-        if (toAdd.isEmpty() && toRemove.isEmpty()) return null
-
-        val existingGuids = original?.map { it.guid }.orEmpty()
-        val remainingGuids = existingGuids - toRemove.toSet()
-
-        // Формируем список: существующие (оставшиеся) + новые
-        return (remainingGuids.map { AssetUserUpdate(employeeId = "") } + toAdd)
-            .takeIf { it.isNotEmpty() }
     }
 
     // Методы для управления пользователями
     fun addUser(type: UserType, employee: EmployeeShortResponse): AssetEditState {
-        val newUpdate = AssetUserUpdate(employeeId = employee.employeeId)
+        val newUser = AssetUserFullResponse(
+            guid = employee.guid,
+            employeeId = employee.employeeId,
+            fullNameRu = employee.fullNameRu ?: employee.employeeId,
+            fullNameEn = employee.fullNameEn  ?: employee.employeeId,
+            position = employee.position,
+            department = employee.department,
+            division = employee.division,
+            group = employee.group,
+            society = employee.society,
+            phone = employee.phone,
+            email = employee.email,
+            comment = employee.comment,
+            birthDate = null,
+            employmentDate = null,
+            dismissalDate = null,
+            positionGuid = null,
+            departmentGuid = null,
+            createdAt = null,
+            updatedAt = null,
+            startDate = null,
+            endDate = null,
+            assignmentType = when (type) {
+                UserType.USER -> "user"
+                UserType.RESPONSIBLE -> "responsible"
+                UserType.SERVING -> "serving"
+            }
+        )
         return when (type) {
-            UserType.USER -> copy(usersToAdd = usersToAdd + newUpdate)
-            UserType.RESPONSIBLE -> copy(responsibleUsersToAdd = responsibleUsersToAdd + newUpdate)
-            UserType.SERVING -> copy(servingUsersToAdd = servingUsersToAdd + newUpdate)
+            UserType.USER -> copy(currentUsers = currentUsers + newUser)
+            UserType.RESPONSIBLE -> copy(currentResponsibleUsers = currentResponsibleUsers + newUser)
+            UserType.SERVING -> copy(currentServingUsers = currentServingUsers + newUser)
         }
     }
 
     fun removeUser(type: UserType, userGuid: String): AssetEditState {
         return when (type) {
-            UserType.USER -> copy(usersToRemove = usersToRemove + userGuid)
-            UserType.RESPONSIBLE -> copy(responsibleUsersToRemove = responsibleUsersToRemove + userGuid)
-            UserType.SERVING -> copy(servingUsersToRemove = servingUsersToRemove + userGuid)
+            UserType.USER -> copy(currentUsers = currentUsers.filter { it.guid != userGuid })
+            UserType.RESPONSIBLE -> copy(currentResponsibleUsers = currentResponsibleUsers.filter { it.guid != userGuid })
+            UserType.SERVING -> copy(currentServingUsers = currentServingUsers.filter { it.guid != userGuid })
         }
     }
 }

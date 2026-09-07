@@ -20,8 +20,7 @@ data class InventorizationItemDto(
     @SerializedName("is_checked") val isChecked: Boolean,
     @SerializedName("quantity") val quantity: Int,
     @SerializedName("quantity_fact") val quantityFact: Int?,
-
-    )
+)
 
 data class InventorizationSessionCreateRequest(
     @SerializedName("asset_type_id") val assetTypeId: Int

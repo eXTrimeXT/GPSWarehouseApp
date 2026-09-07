@@ -65,6 +65,8 @@ data class NotificationFilterState(
 @Composable
 fun NotificationsScreen(
     navController: NavHostController,
+    assetId: Int? = null,
+    sessionId: Int? = null,
     highlightNotificationId: Int? = null,
     onHighlightHandled: () -> Unit = {},
     viewModel: AssetViewModel = hiltViewModel()
@@ -80,10 +82,10 @@ fun NotificationsScreen(
     var highlightedId by remember { mutableStateOf<Int?>(null) }
 
     // Загружаем уведомления при первом открытии экрана
-    LaunchedEffect(Unit) {
+    LaunchedEffect(assetId, sessionId) {
         if (uiState !is AssetViewModel.AssetUiState.NotificationsLoaded &&
             uiState !is AssetViewModel.AssetUiState.Loading) {
-            viewModel.loadNotifications()
+            viewModel.loadNotifications(assetId=assetId, sessionId=sessionId)
         }
     }
 
@@ -135,7 +137,7 @@ fun NotificationsScreen(
             isFiltersExpanded = isFiltersExpanded,
             onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
             onFilterStateChange = { filterState = it },
-            onRetry = { viewModel.loadNotifications() },
+            onRetry = { viewModel.loadNotifications(assetId = assetId) },
             onNotificationClick = { notification ->
                 when {
                     notification.assetId != null -> {

@@ -393,9 +393,33 @@ class MainActivity : ComponentActivity() {
                             NotificationsScreen(
                                 navController = navController,
                                 highlightNotificationId = highlightId,
-                                onHighlightHandled = { mainViewModel.setPendingHighlightId(null) }
+                                onHighlightHandled = { mainViewModel.setPendingHighlightId(null) },
                             )
                         }
+
+                        composable("asset_notifications/asset/{assetId}"){ backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull()
+                            val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
+
+                            NotificationsScreen(
+                                navController = navController,
+                                highlightNotificationId = highlightId,
+                                onHighlightHandled = { mainViewModel.setPendingHighlightId(null) },
+                                assetId = assetId,
+                            )
+                        }
+//
+//                        composable("asset_notifications/session/{sessionId}"){ backStackEntry ->
+//                            val sessionId = backStackEntry.arguments?.getString("sessionId")?.toIntOrNull()
+//                            val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
+//
+//                            NotificationsScreen(
+//                                navController = navController,
+//                                highlightNotificationId = highlightId,
+//                                onHighlightHandled = { mainViewModel.setPendingHighlightId(null) },
+//                                sessionId = sessionId,
+//                            )
+//                        }
                     }
 
                     // Показ диалога поверх всего контента (после NavHost):

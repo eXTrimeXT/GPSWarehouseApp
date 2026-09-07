@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,23 +19,25 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
+import com.gps.warehouse.data.remote.assets_dto.PositionResponse
 import com.gps.warehouse.data.remote.assets_dto.UserType
-
-// В EmployeeSearchDialog.kt
+import com.gps.warehouse.data.remote.assets_dto.WorkplaceResponse
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlin.collections.emptyList
 
 @Composable
 fun EmployeeSearchDialog(
-    userType: UserType,  // Новый параметр
+    userType: UserType,
     onDismiss: () -> Unit,
-    onEmployeeSelected: (UserType, EmployeeShortResponse) -> Unit,  // ✅ Теперь принимает UserType
-    onSearch: (employeeId: String?, searchDepartment: String?, page: Int) -> Unit,  // ✅ Добавляем page
-    paginatedEmployees: PaginatedResponse<EmployeeShortResponse>?,  // ✅ Теперь PaginatedResponse
+    onEmployeeSelected: (UserType, EmployeeShortResponse) -> Unit,
+    onSearch: (employeeId: String?, searchDepartment: String?, page: Int) -> Unit,
+    paginatedEmployees: PaginatedResponse<EmployeeShortResponse>?,
     isLoading: Boolean = false,
     currentPage: Int = 1
 ) {
     var employeeId by remember { mutableStateOf("") }
     var searchDepartment by remember { mutableStateOf("") }
-    var currentDialogPage by remember { mutableStateOf(currentPage) }
+    var currentDialogPage by remember { mutableIntStateOf(currentPage) }
 
     // Сброс страницы при изменении фильтров
     fun performSearch(page: Int = 1) {
@@ -104,52 +108,52 @@ fun EmployeeSearchDialog(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                "Найдено: ${paginatedEmployees?.total ?: 0}",
+                                "Найдено: ${paginatedEmployees.total}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                "Стр. ${paginatedEmployees?.page ?: 1}/${paginatedEmployees?.totalPages ?: 1}",
+                                "Стр. ${paginatedEmployees.page}/${paginatedEmployees.totalPages}",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
 
                         LazyColumn(modifier = Modifier.heightIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            items(paginatedEmployees?.items.orEmpty()) { employee ->
+                            items(paginatedEmployees.items) { employee ->
                                 EmployeeSearchItem(
                                     employee = employee,
-                                    userType = userType,  // ✅ Передаём тип
+                                    userType = userType,  // Передаём тип
                                     onClick = {
-                                        onEmployeeSelected(userType, employee)  // ✅ Вызываем с UserType
-                                        onDismiss()  // ✅ Закрываем диалог после выбора
+                                        onEmployeeSelected(userType, employee)  // Вызываем с UserType
+                                        onDismiss()  // Закрываем диалог после выбора
                                     }
                                 )
                             }
                         }
 
                         // Пагинация
-                        if ((paginatedEmployees?.totalPages ?: 1) > 1) {
+                        if ((paginatedEmployees.totalPages) > 1) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 OutlinedButton(
                                     onClick = { performSearch(currentDialogPage - 1) },
-                                    enabled = paginatedEmployees?.hasPrevious == true,
+                                    enabled = paginatedEmployees.hasPrevious,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Icon(Icons.Default.ArrowBack, null, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text("Назад")
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
                                 OutlinedButton(
                                     onClick = { performSearch(currentDialogPage + 1) },
-                                    enabled = paginatedEmployees?.hasNext == true,
+                                    enabled = paginatedEmployees.hasNext,
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Text("Вперёд")
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(Icons.Default.ArrowForward, null, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(16.dp))
                                 }
                             }
                         }
@@ -165,7 +169,7 @@ fun EmployeeSearchDialog(
 @Composable
 private fun EmployeeSearchItem(
     employee: EmployeeShortResponse,
-    userType: UserType,  // ✅ Новый параметр
+    userType: UserType,
     onClick: () -> Unit
 ) {
     Surface(
@@ -259,4 +263,98 @@ private fun getEmployeeInitials(fullName: String): String {
         .mapNotNull { it.firstOrNull()?.uppercase() }
         .joinToString("")
         .takeIf { it.isNotEmpty() } ?: "?"
+}
+
+// ==================== PREVIEWS ====================
+
+@Preview(showBackground = true, showSystemUi = false, name = "EmployeeSearchDialog (Данные загружены)")
+@Composable
+fun EmployeeSearchDialogPreview_Loaded() {
+    // Мокаем должность и подразделение для реалистичности
+    val mockPosition = PositionResponse(name = "Инженер-программист", nameEn = "Software Engineer")
+    val mockDepartment = WorkplaceResponse(
+        guid = "dept-1",
+        name = "Департамент информационных технологий",
+        nameEn = "IT Department",
+        shortName = "ДИТ",
+        creationDate = null,
+        closureDate = null,
+        parentGuid = null
+    )
+
+    // Создаем список тестовых сотрудников
+    val mockEmployees = listOf(
+        EmployeeShortResponse(
+            guid = "emp-1",
+            employeeId = "0000012345",
+            fullNameRu = "Иванов Иван Иванович",
+            fullNameEn = "Ivanov Ivan Ivanovich",
+            email = "i.ivanov@hmmr.ru",
+            phone = "+79001234567",
+            comment = null,
+            society = null,
+            department = mockDepartment,
+            division = null,
+            group = null,
+            position = mockPosition
+        ),
+        EmployeeShortResponse(
+            guid = "emp-2",
+            employeeId = "0000067890",
+            fullNameRu = "Петрова Анна Сергеевна",
+            fullNameEn = "Petrova Anna Sergeevna",
+            email = "a.petrova@hmmr.ru",
+            phone = "+79009876543",
+            comment = "Удаленный сотрудник",
+            society = null,
+            department = mockDepartment,
+            division = null,
+            group = null,
+            position = PositionResponse(name = "Системный аналитик", nameEn = "System Analyst")
+        )
+    )
+
+    // Создаем объект пагинации
+    val paginatedResponse = PaginatedResponse(
+        items = mockEmployees,
+        total = 2,
+        page = 1,
+        pageSize = 20,
+        totalPages = 1,
+        hasNext = false,
+        hasPrevious = false
+    )
+
+    // Рендерим диалог
+    MaterialTheme {
+        Surface {
+            EmployeeSearchDialog(
+                userType = UserType.USER, // UserType.RESPONSIBLE или UserType.SERVING
+                onDismiss = { },
+                onEmployeeSelected = { type, employee -> },
+                onSearch = { empId, dept, page -> },
+                paginatedEmployees = paginatedResponse,
+                isLoading = false,
+                currentPage = 1
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = false, name = "EmployeeSearchDialog (Загрузка)")
+@Composable
+fun EmployeeSearchDialogPreview_Loading() {
+    MaterialTheme {
+        Surface {
+            EmployeeSearchDialog(
+                userType = UserType.RESPONSIBLE,
+                onDismiss = { },
+                onEmployeeSelected = { type, employee -> },
+                onSearch = { empId, dept, page -> },
+                paginatedEmployees = null, // Или пустой список
+                isLoading = true,          // Включаем индикатор загрузки
+                currentPage = 1
+            )
+        }
+    }
 }

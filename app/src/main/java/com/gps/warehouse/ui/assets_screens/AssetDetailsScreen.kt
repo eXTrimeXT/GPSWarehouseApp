@@ -88,7 +88,6 @@ fun AssetDetailsScreen(
                 (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
                     viewModel.updateAsset(assetId, state.toUpdate(original))
                 }
-                viewModel.loadAssetDetails(assetId)
             }
         },
         onCancelEdit = {
@@ -99,6 +98,7 @@ fun AssetDetailsScreen(
         },
         onShowHistory = { showHistoryDialog = true },
         onBackClick = { navController.popBackStack() },
+        onNavigateToNotifications = {assetId -> navController.navigate("asset_notifications/asset/$assetId")},
         onNavigateToParent = { parentId -> navController.navigate("asset_details/$parentId") },
         onRetryClick = { firstLoadData(viewModel = viewModel, assetId = assetId) },
 
@@ -174,6 +174,7 @@ fun AssetDetailsContent(
     onCancelEdit: () -> Unit,
     onShowHistory: () -> Unit,
     onBackClick: () -> Unit,
+    onNavigateToNotifications: (Int) -> Unit,
     onNavigateToParent: (Int) -> Unit,
     onRetryClick: () -> Unit,
     onAddUser: ((UserType) -> Unit)? = null,
@@ -196,9 +197,6 @@ fun AssetDetailsContent(
                         onBackClick = onBackClick,
                         actionButton = {
                             Row {
-                                IconButton(onClick = onShowHistory) {
-                                    Icon(Icons.Default.History, "История", tint = MaterialTheme.colorScheme.primary)
-                                }
                                 if (isEditing) {
                                     IconButton(onClick = onSave) {
                                         Icon(Icons.Default.Save, "Сохранить", tint = MaterialTheme.colorScheme.primary)
@@ -207,6 +205,12 @@ fun AssetDetailsContent(
                                         Icon(Icons.Default.Close, "Отмена", tint = MaterialTheme.colorScheme.error)
                                     }
                                 } else {
+                                    IconButton(onClick = { onNavigateToNotifications(asset.assetId) }) {
+                                        Icon(Icons.Default.NotificationsNone, "Уведомления", tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                    IconButton(onClick = onShowHistory) {
+                                        Icon(Icons.Default.History, "История", tint = MaterialTheme.colorScheme.primary)
+                                    }
                                     IconButton(onClick = onToggleEdit) {
                                         Icon(Icons.Default.Edit, "Редактировать", tint = MaterialTheme.colorScheme.primary)
                                     }
@@ -263,40 +267,78 @@ fun AssetDetailsContent(
                             )
                         }
 
+//                        // Пользователи
+//                        item {
+//                            UsersSection(
+//                                title = "Пользователи",
+//                                users = asset.users,
+//                                icon = Icons.Default.Person,
+//                                color = MaterialTheme.colorScheme.surfaceVariant,
+//                                isEditing = isEditing,
+//                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.USER) } } else null,
+////                                onRemoveUser = if (isEditing) { { userGuid -> onRemoveUser?.invoke(UserType.USER, userGuid) } } else null
+//                                onRemoveUser = onRemoveUser
+//                            )
+//                        }
+//                        item {
+//                            UsersSection(
+//                                title = "Ответственные",
+//                                users = asset.responsibleUsers,
+//                                icon = Icons.Default.VerifiedUser,
+//                                color = MaterialTheme.colorScheme.primaryContainer,
+//                                isEditing = isEditing,
+//                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.RESPONSIBLE) } } else null,
+////                                onRemoveUser = if (isEditing) { { guid -> onRemoveUser?.invoke(UserType.RESPONSIBLE, guid) } } else null
+//                            )
+//                        }
+//                        item {
+//                            UsersSection(
+//                                title = "Обслуживающий персонал",
+//                                users = asset.servingUsers,
+//                                icon = Icons.Default.Build,
+//                                color = MaterialTheme.colorScheme.tertiaryContainer,
+//                                isEditing = isEditing,
+//                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.SERVING) } } else null,
+////                                onRemoveUser = if (isEditing) { { guid -> onRemoveUser?.invoke(UserType.SERVING, guid) } } else null
+//                            )
+//                        }
+
                         // Пользователи
                         item {
                             UsersSection(
                                 title = "Пользователи",
-                                users = asset.users,
+                                users = editState?.currentUsers ?: asset.users,
                                 icon = Icons.Default.Person,
                                 color = MaterialTheme.colorScheme.surfaceVariant,
                                 isEditing = isEditing,
                                 onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.USER) } } else null,
-                                // ✅ ИСПРАВЛЕНО: сначала UserType, потом guid
-//                                onRemoveUser = if (isEditing) { { userGuid -> onRemoveUser?.invoke(UserType.USER, userGuid) } } else null
                                 onRemoveUser = onRemoveUser
                             )
                         }
+
+                        // Ответственные
                         item {
                             UsersSection(
                                 title = "Ответственные",
-                                users = asset.responsibleUsers,
+                                users = editState?.currentResponsibleUsers ?: asset.responsibleUsers,
                                 icon = Icons.Default.VerifiedUser,
                                 color = MaterialTheme.colorScheme.primaryContainer,
                                 isEditing = isEditing,
                                 onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.RESPONSIBLE) } } else null,
-//                                onRemoveUser = if (isEditing) { { guid -> onRemoveUser?.invoke(UserType.RESPONSIBLE, guid) } } else null
+                                onRemoveUser = onRemoveUser
                             )
                         }
+
+                        // Обслуживающий персонал
                         item {
                             UsersSection(
                                 title = "Обслуживающий персонал",
-                                users = asset.servingUsers,
+                                users = editState?.currentServingUsers ?: asset.servingUsers,
                                 icon = Icons.Default.Build,
                                 color = MaterialTheme.colorScheme.tertiaryContainer,
                                 isEditing = isEditing,
                                 onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.SERVING) } } else null,
-//                                onRemoveUser = if (isEditing) { { guid -> onRemoveUser?.invoke(UserType.SERVING, guid) } } else null
+                                onRemoveUser = onRemoveUser
                             )
                         }
 
@@ -702,7 +744,7 @@ private fun ExpandableUserCard(
     isEditing: Boolean,
     onRemove: (() -> Unit)? = null
 ) {
-    var expanded by rememberSaveable(user.guid) { mutableStateOf(true) }
+    var expanded by rememberSaveable(user.guid) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -727,7 +769,7 @@ private fun ExpandableUserCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = user.fullNameRu ?: user.employeeId,
+                        text = user.fullNameRu,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
@@ -870,6 +912,7 @@ private fun AssetDetailsPreview_ViewMode() {
                 onCancelEdit = {},
                 onShowHistory = {},
                 onBackClick = {},
+                onNavigateToNotifications = {},
                 onNavigateToParent = {},
                 onRetryClick = {},
                 onAddUser = {},
@@ -896,6 +939,7 @@ private fun AssetDetailsPreview_EditMode() {
                 onCancelEdit = {},
                 onShowHistory = {},
                 onBackClick = {},
+                onNavigateToNotifications = {},
                 onNavigateToParent = {},
                 onRetryClick = {},
                 onAddUser = {},

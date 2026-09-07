@@ -79,7 +79,7 @@ class AssetViewModel @Inject constructor(
     sealed class InventorizationUiState {
         object Idle : InventorizationUiState()
         object Loading : InventorizationUiState()
-        data class SessionsLoaded(val sessions: List<InventorizationSessionDto>) : InventorizationUiState()
+        data class SessionsLoaded(val sessions: PaginatedResponse<InventorizationSessionDto>) : InventorizationUiState()
         data class Error(val message: String) : InventorizationUiState()
     }
 
@@ -103,8 +103,8 @@ class AssetViewModel @Inject constructor(
     private val _inventorizationUiState = MutableStateFlow<InventorizationUiState>(InventorizationUiState.Idle)
     val inventorizationUiState: StateFlow<InventorizationUiState> = _inventorizationUiState.asStateFlow()
 
-    private val _inventorizationSessions = MutableStateFlow<List<InventorizationSessionDto>>(emptyList())
-    val inventorizationSessions: StateFlow<List<InventorizationSessionDto>> = _inventorizationSessions.asStateFlow()
+    private val _inventorizationSessions = MutableStateFlow<PaginatedResponse<InventorizationSessionDto>?>(null)
+    val inventorizationSessions: StateFlow<PaginatedResponse<InventorizationSessionDto>?> = _inventorizationSessions.asStateFlow()
 
     private val _inventorizationItems = MutableStateFlow<List<InventorizationItemDto>>(emptyList())
     val inventorizationItems: StateFlow<List<InventorizationItemDto>> = _inventorizationItems.asStateFlow()
@@ -209,6 +209,7 @@ class AssetViewModel @Inject constructor(
             try {
                 val updated = assetApiService.updateAsset("Bearer ${getToken()}", assetId, update)
                 _uiState.value = AssetUiState.AssetDetailsLoaded(updated)
+                loadAssetDetails(assetId)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка обновления")
             }
@@ -376,14 +377,17 @@ class AssetViewModel @Inject constructor(
     // ================== Инвентаризация ==================
 
     // ================== Уведомления ==================
-    fun loadNotifications() {
+    fun loadNotifications(assetId: Int? = null, sessionId: Int? = null) {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
 
                 // Делаем ОДИН обычный запрос через Retrofit для получения начального списка
-                val response = assetApiService.getNotifications("Bearer ${getToken()}")
-//                Log.d(TAG, "loadNotifications: response = $response")
+                val response = assetApiService.getNotifications(
+                    token = "Bearer ${getToken()}",
+                    assetId = assetId,
+                    sessionId = sessionId
+                )
 
                 // Сохраняем список в состояние
                 _uiState.value = AssetUiState.NotificationsLoaded(response.items)
@@ -498,9 +502,6 @@ class AssetViewModel @Inject constructor(
         searchPosition: String? = null
     ) {
         viewModelScope.launch {
-            if (page == 1) {
-                _uiState.value = AssetUiState.Loading
-            }
             try {
                 val response = assetApiService.getEmployees(
                     token = "Bearer ${getToken()}",
@@ -521,7 +522,9 @@ class AssetViewModel @Inject constructor(
                 )
                 _employees.value = response
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки сотрудников")
+//                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки сотрудников")
+                Log.e(TAG, "Ошибка загрузки сотрудников: ${e.message}")
+                _employees.value = null
             }
         }
     }

@@ -18,6 +18,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
+import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
@@ -66,7 +67,7 @@ fun InventorizationSessionsScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventorizationSessionsContent(
-    sessions: List<InventorizationSessionDto>,
+    sessions: PaginatedResponse<InventorizationSessionDto>?,
     assetTypes: List<AssetTypeDto>,
     uiState: AssetViewModel.InventorizationUiState,
     showCreateDialog: Boolean,
@@ -106,7 +107,8 @@ fun InventorizationSessionsContent(
                 }
             }
             is AssetViewModel.InventorizationUiState.SessionsLoaded -> {
-                if (sessions.isEmpty()) {
+                val items = sessions?.items.orEmpty()
+                if (items.isEmpty()) {
                     EmptySessionsState(modifier = Modifier.padding(paddingValues))
                 } else {
                     LazyColumn(
@@ -114,7 +116,7 @@ fun InventorizationSessionsContent(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        items(sessions) { session ->
+                        items(items) { session ->
                             SessionCard(
                                 session = session,
                                 onClick = {
@@ -318,18 +320,27 @@ fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
 @PreviewLightDark
 @Composable
 private fun InventorizationSessionsContentPreview_Loaded() {
+    val mockSessions = PaginatedResponse(
+        items = listOf(
+            InventorizationSessionDto(1, 1, "Компьютеры", "computers", "in_progress", "2026-07-23T08:59:53.158615Z"),
+            InventorizationSessionDto(2, 7, "Сетевое оборудование", "network_equipment", "completed", "2026-07-20T14:30:00.000000Z")
+        ),
+        total = 2,
+        page = 1,
+        pageSize = 20,
+        totalPages = 1,
+        hasNext = false,
+        hasPrevious = false
+    )
     MaterialTheme {
         Surface {
             InventorizationSessionsContent(
-                sessions = listOf(
-                    InventorizationSessionDto(1, 1, "Компьютеры", "computers", "in_progress", "2026-07-23T08:59:53.158615Z"),
-                    InventorizationSessionDto(2, 7, "Сетевое оборудование", "network_equipment", "completed", "2026-07-20T14:30:00.000000Z")
-                ),
+                sessions = mockSessions,
                 assetTypes = listOf(
                     AssetTypeDto(1, "Компьютеры", "computers", null, "2026-07-06T07:18:41.873769", null),
                     AssetTypeDto(7, "Сетевое оборудование", "network_equipment", null, "2026-07-06T07:21:39.334371", null)
                 ),
-                uiState = AssetViewModel.InventorizationUiState.SessionsLoaded(emptyList()),
+                uiState = AssetViewModel.InventorizationUiState.SessionsLoaded(mockSessions),
                 showCreateDialog = false,
                 selectedAssetTypeId = 0,
                 onSessionClick = { _, _ -> },
