@@ -92,6 +92,7 @@ fun AssetsByTypeScreen(
         scannerManager.barcodeFlow.collect { scannedData -> processScannedData(scannedData) }
     }
     DisposableEffect(Unit) { scannerManager.init(); onDispose { scannerManager.release() } }
+
     if (showCameraDialog) {
         CameraScannerDialog(
             onDismiss = { showCameraDialog = false },

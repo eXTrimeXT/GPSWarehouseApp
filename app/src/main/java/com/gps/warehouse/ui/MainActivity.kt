@@ -293,7 +293,7 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("assets_list/{assetTypeId}/{assetTypeName}") {backStackEntry ->
-                            val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() ?: 0
+                            val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() // Передаем null, чтобы показать активы без типа
                             val assetTypeName = backStackEntry.arguments?.getString("assetTypeName").toString()
                             val assetViewModel: AssetViewModel = hiltViewModel()
                             AssetsByTypeScreen(
