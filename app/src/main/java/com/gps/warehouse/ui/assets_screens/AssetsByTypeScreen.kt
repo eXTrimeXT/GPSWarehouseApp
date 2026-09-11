@@ -340,7 +340,7 @@ fun AssetsByTypeScreenContent(
                                 items(assets) { asset ->
                                     AssetCardPaginated(
                                         asset = asset,
-                                        onClick = { onAssetClick(asset.assetId) })
+                                        onClick = { asset.assetId?.let { onAssetClick(it) } })
                                 }
                                 if (uiState.hasNext) {
                                     item {
@@ -349,7 +349,6 @@ fun AssetsByTypeScreenContent(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(top = 8.dp),
-                                            enabled = uiState !is AssetViewModel.AssetUiState.Loading
                                         ) { Text("Загрузить еще") }
                                     }
                                 }
@@ -472,8 +471,8 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                     page = 1,
                     pageSize = 50,
                     totalPages = 1,
-                    hasNext = false,
-                    hasPrevious = false
+                    hasNext = true,
+                    hasPrevious = true
                 ),
                 cameraScanEnabled = true,
                 onCameraScanClick = {},
@@ -515,8 +514,8 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                     page = 1,
                     pageSize = 50,
                     totalPages = 0,
-                    hasNext = false,
-                    hasPrevious = false
+                    hasNext = true,
+                    hasPrevious = true
                 ),
                 cameraScanEnabled = true,
                 onCameraScanClick = {},

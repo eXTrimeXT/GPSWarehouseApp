@@ -85,43 +85,173 @@ fun WmsReceiveScreen(
     // Для диалога подтверждения удаления
     var deleteConfirmIndex by remember { mutableStateOf<Int?>(null) }
 
+    // Запоминаем номер заказа, с которого началось сканирование, чтобы блокировать добавление из других заказов
+    var activeOrderNumber by remember { mutableStateOf(orderNumber) }
+
     val honeywellHelper = remember { ScannerManager(context) }
+
+//    fun processScannedData(scannedData: String) {
+//        if (scannedData.isNotEmpty()) {
+//            val trimmedData = scannedData.trim()
+//            if (isBase64EncodedJson(trimmedData)) {
+//                val scanResult = decodeWmsReceiveScreen(trimmedData)
+//                Log.d(TAG, "scanResult = $scanResult")
+//
+//                if (scanResult != null) {
+//                    if (showDialog) {
+//                        // Если диалог открыт — заполняем ТОЛЬКО артикул
+//                        dialogMaterial = scanResult.matNumScan
+//                    } else {
+//                        // Сначала создаём элемент ВРЕМЕННО без имени
+//                        val orderNumberToUse =
+//                            if (scanResult.matNumOrder == orderNumber || orderNumber.isEmpty()) {
+//                                scanResult.matNumOrder
+//                            } else {
+//                                orderNumber
+//                            }
+//                        val tempItem = WmsReceiveItem(
+//                            matNumScan = scanResult.matNumScan,
+//                            matNumOrder = orderNumberToUse,
+//                            matQtyOrder = scanResult.matQtyScan,
+//                            checkQuality = true,
+//                            Expi = "",
+//                            matPositionSap = scanResult.matPosition,
+//                            isPositionFromScan = true,
+//                            matName = "", // Временно пусто,
+//                            qtyOrder = scanResult.matQtyScan
+//                        )
+//
+//                        // Сразу добавляем элемент в список (чтобы он отобразился)
+//                        receiveItems = receiveItems + tempItem
+//
+//
+//                        // Асинхронно запрашиваем имя и обновляем элемент в списке
+//                        scope.launch {
+//                            val nameMaterial = viewModel.getNameMaterial(scanResult.matNumScan)
+//                            Log.d(TAG, "MATERIAL NAME: $nameMaterial")
+//                            val index = receiveItems.indexOfFirst {
+//                                it.matNumScan == scanResult.matNumScan && it.matName.isEmpty()
+//                            }
+//                            if (index != -1) {
+//                                receiveItems = receiveItems.toMutableList().apply {
+//                                    set(index, get(index).copy(matName = nameMaterial))
+//                                }
+//                            }
+//                        }
+//                    }
+//                } else {
+//                    Toast.makeText(
+//                        context,
+//                        "Ошибка распознавания данных скана!",
+//                        Toast.LENGTH_SHORT
+//                    ).show()
+//                }
+//            } else {
+//                // Не base64 JSON — просто артикул (типичный случай для камеры)
+//                if (showDialog) {
+//                    // Если открыт диалог редактирования — подставляем артикул в поле
+//                    dialogMaterial = trimmedData
+//                    // Автозапрос имени для превью в диалоге
+//                    scope.launch {
+//                        isUpdatingName = true
+//                        dialogMatName = viewModel.getNameMaterial(trimmedData)
+//                        isUpdatingName = false
+//                    }
+//                } else {
+//                    // Диалог ЗАКРЫТ — добавляем материал в список как новый элемент
+//                    val tempItem = WmsReceiveItem(
+//                        matNumScan = trimmedData,
+//                        matNumOrder = orderNumber.ifEmpty { "" },
+//                        matQtyOrder = 1,
+//                        checkQuality = true,
+//                        Expi = "",
+//                        matPositionSap = "",
+//                        isPositionFromScan = false,
+//                        matName = "",
+//                        qtyOrder = 1
+//                    )
+//                    receiveItems = receiveItems + tempItem
+//
+//                    // Асинхронно запрашиваем имя и обновляем элемент в списке
+//                    scope.launch {
+//                        val nameMaterial = viewModel.getNameMaterial(trimmedData)
+//                        Log.d(TAG, "CAMERA MATERIAL NAME: $nameMaterial")
+//                        val index = receiveItems.indexOfFirst {
+//                            it.matNumScan == trimmedData && it.matName.isEmpty()
+//                        }
+//                        if (index != -1) {
+//                            receiveItems = receiveItems.toMutableList().apply {
+//                                set(index, get(index).copy(matName = nameMaterial))
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     fun processScannedData(scannedData: String) {
         if (scannedData.isNotEmpty()) {
             val trimmedData = scannedData.trim()
+
             if (isBase64EncodedJson(trimmedData)) {
                 val scanResult = decodeWmsReceiveScreen(trimmedData)
                 Log.d(TAG, "scanResult = $scanResult")
+
                 if (scanResult != null) {
                     if (showDialog) {
-                        // Если диалог открыт — заполняем ТОЛЬКО артикул
+                        // Если диалог открыт — просто заполняем поле артикула
                         dialogMaterial = scanResult.matNumScan
                     } else {
-                        // Сначала создаём элемент ВРЕМЕННО без имени
-                        val orderNumberToUse =
-                            if (scanResult.matNumOrder == orderNumber || orderNumber.isEmpty()) {
-                                scanResult.matNumOrder
-                            } else {
-                                orderNumber
+                        // ПРАВИЛО ИЗОЛЯЦИИ ЗАКАЗОВ
+                        // Если это первый скан и активный заказ еще не задан, блокируем его на этом заказе
+                        if (activeOrderNumber.isEmpty() && scanResult.matNumOrder.isNotEmpty()) {
+                            activeOrderNumber = scanResult.matNumOrder
+                        }
+
+                        // Если активный заказ уже заблокирован, и новый скан из ДРУГОГО заказа — блокируем!
+                        if (activeOrderNumber.isNotEmpty() && scanResult.matNumOrder.isNotEmpty() && scanResult.matNumOrder != activeOrderNumber) {
+                            Toast.makeText(
+                                context,
+                                "Ошибка: Материал из другого заказа (${scanResult.matNumOrder})!\nОжидался заказ: $activeOrderNumber",
+                                Toast.LENGTH_LONG
+                            ).show()
+                            return // Прерываем выполнение, материал НЕ добавляется
+                        }
+
+                        // ПРАВИЛО ДУБЛИКАТОВ С УЧЕТОМ ПОЗИЦИИ
+                        val existingItem = receiveItems.find { it.matNumScan == scanResult.matNumScan && it.matPositionSap == scanResult.matPosition }
+                        if (existingItem != null) {
+                            // Если позиция совпадает (или обе пустые), считаем это полным дубликатом
+                            if (existingItem.matPositionSap == scanResult.matPosition) {
+                                Toast.makeText(
+                                    context,
+                                    "Материал уже добавлен в список с этой позицией!",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                return // Прерываем выполнение
                             }
+                            // Если позиция РАЗНАЯ, код идет дальше и добавляет материал как новую строку
+                        }
+
+                        // 3. ДОБАВЛЕНИЕ МАТЕРИАЛА
                         val tempItem = WmsReceiveItem(
                             matNumScan = scanResult.matNumScan,
-                            matNumOrder = orderNumberToUse,
+                            matNumOrder = activeOrderNumber.ifEmpty { scanResult.matNumOrder }, // Используем заблокированный или из скана
                             matQtyOrder = scanResult.matQtyScan,
                             checkQuality = true,
                             Expi = "",
                             matPositionSap = scanResult.matPosition,
                             isPositionFromScan = true,
-                            matName = "", // Временно пусто,
+                            matName = "",
                             qtyOrder = scanResult.matQtyScan
                         )
-                        // Сразу добавляем элемент в список (чтобы он отобразился)
+
                         receiveItems = receiveItems + tempItem
-                        // Асинхронно запрашиваем имя и обновляем элемент в списке
+
+                        // Асинхронное получение имени
                         scope.launch {
                             val nameMaterial = viewModel.getNameMaterial(scanResult.matNumScan)
-                            Log.d(TAG, "MATERIAL NAME: $nameMaterial")
                             val index = receiveItems.indexOfFirst {
                                 it.matNumScan == scanResult.matNumScan && it.matName.isEmpty()
                             }
@@ -133,28 +263,32 @@ fun WmsReceiveScreen(
                         }
                     }
                 } else {
-                    Toast.makeText(
-                        context,
-                        "Ошибка распознавания данных скана!",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(context, "Ошибка распознавания данных скана!", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                // Не base64 JSON — просто артикул (типичный случай для камеры)
+                // Обработка обычного штрихкода (без JSON, без позиции и заказа)
                 if (showDialog) {
-                    // Если открыт диалог редактирования — подставляем артикул в поле
                     dialogMaterial = trimmedData
-                    // Автозапрос имени для превью в диалоге
                     scope.launch {
                         isUpdatingName = true
                         dialogMatName = viewModel.getNameMaterial(trimmedData)
                         isUpdatingName = false
                     }
                 } else {
-                    // Диалог ЗАКРЫТ — добавляем материал в список как новый элемент
+                    // Для обычного штрихкода мы не знаем позицию. Проверяем на дубликат.
+                    val existingItem = receiveItems.find { it.matNumScan == trimmedData }
+                    if (existingItem != null) {
+                        Toast.makeText(
+                            context,
+                            "Материал уже в списке. Отсканируйте QR-код с позицией или измените существующий.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        return
+                    }
+
                     val tempItem = WmsReceiveItem(
                         matNumScan = trimmedData,
-                        matNumOrder = orderNumber.ifEmpty { "" },
+                        matNumOrder = activeOrderNumber, // Привязываем к активному заказу
                         matQtyOrder = 1,
                         checkQuality = true,
                         Expi = "",
@@ -165,10 +299,8 @@ fun WmsReceiveScreen(
                     )
                     receiveItems = receiveItems + tempItem
 
-                    // Асинхронно запрашиваем имя и обновляем элемент в списке
                     scope.launch {
                         val nameMaterial = viewModel.getNameMaterial(trimmedData)
-                        Log.d(TAG, "CAMERA MATERIAL NAME: $nameMaterial")
                         val index = receiveItems.indexOfFirst {
                             it.matNumScan == trimmedData && it.matName.isEmpty()
                         }
@@ -286,10 +418,16 @@ fun WmsReceiveScreen(
                 materialName = itemToDelete.matName,
                 materialNumber = itemToDelete.matNumScan,
                 onConfirm = {
+                    // Удаляем элемент
                     receiveItems = receiveItems.toMutableList().apply {
                         removeAt(deleteConfirmIndex!!)
                     }
                     deleteConfirmIndex = null
+
+                    // Если список стал пустым, сбрасываем активный заказ
+                    if (receiveItems.isEmpty()) {
+                        activeOrderNumber = orderNumber // Сброс к исходному значению (обычно пустая строка)
+                    }
                 },
                 onDismiss = { deleteConfirmIndex = null }
             )
@@ -425,7 +563,7 @@ fun WmsReceiveScreen(
             dialogQty = "1"
             dialogQtyOrder = "1"
             dialogMatName = ""
-            dialogOrderNumber = orderNumber.ifEmpty { "" }
+            dialogOrderNumber = activeOrderNumber.ifEmpty { orderNumber }
             dialogQuality = true
             dialogExpi = ""
             dialogPosition = ""
@@ -833,8 +971,8 @@ fun EditReceiveItemDialog(
                             Toast.makeText(context, "Номер заказа скопирован", Toast.LENGTH_SHORT).show()
                         },
                     singleLine = true,
-                    readOnly = isEditing,
-                    enabled = !isEditing,
+                    readOnly = isEditing || orderNumber != "",
+                    enabled = !isEditing && orderNumber == "",
                     textStyle = MaterialTheme.typography.titleMedium
                 )
 

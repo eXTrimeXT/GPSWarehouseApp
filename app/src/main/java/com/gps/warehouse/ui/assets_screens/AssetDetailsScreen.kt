@@ -289,6 +289,7 @@ fun AssetDetailsContent(
                                         Icon(Icons.Default.Close, "Отмена", tint = MaterialTheme.colorScheme.error)
                                     }
                                 } else {
+                                    if (asset.assetId != null)
                                     IconButton(onClick = { onNavigateToNotifications(asset.assetId) }) {
                                         Icon(Icons.Default.NotificationsNone, "Уведомления", tint = MaterialTheme.colorScheme.primary)
                                     }
@@ -1041,6 +1042,7 @@ fun AssetHistoryDialogPreview() {
 fun getSampleAsset(): AssetResponseDto {
     return AssetResponseDto(
         assetId = 48,
+        materialId = null,
         name = "Актив 2",
         inventoryId = "INV_NUMBER_48",
         serialNumber = "SER_NUMBER_48",
