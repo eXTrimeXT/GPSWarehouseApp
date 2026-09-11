@@ -18,6 +18,7 @@ data class AssetLocationUpdate(
 // ПОЛНАЯ КОПИЯ AssetResponseDto — все поля опциональны
 data class AssetUpdate(
     @SerializedName("asset_id") val assetId: Int? = null,
+    @SerializedName("material_id") val materialId: String? = null,
     @SerializedName("name") val name: String? = null,
     @SerializedName("inventory_id") val inventoryId: String? = null,
     @SerializedName("serial_number") val serialNumber: String? = null,

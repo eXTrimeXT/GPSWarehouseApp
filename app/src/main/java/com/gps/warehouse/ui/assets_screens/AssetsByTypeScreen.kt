@@ -17,20 +17,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
-import com.gps.warehouse.data.remote.assets_dto.AssetLocationResponse
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
-import com.gps.warehouse.data.remote.assets_dto.AssetUserFullResponse
-import com.gps.warehouse.data.remote.assets_dto.PositionResponse
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.ui.assets_screens.AssetCardPaginated
 import com.gps.warehouse.ui.components.CameraScanButton
 import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.ScannerManager
-import com.gps.warehouse.utils.InventoryQrParser // Импорт утилиты
+import com.gps.warehouse.utils.InventoryQrParser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -153,7 +149,7 @@ fun AssetsByTypeScreen(
         )
         },
         onLoadMore = { currentPage++ },
-        onAssetClick = { assetId -> navController.navigate("asset_details/$assetId") },
+        onAssetClick = { assetId, materialId -> navController.navigate("asset_details?assetId=$assetId&materialId=$materialId")},
         onBackClick = { navController.popBackStack() }
     )
 }
@@ -179,7 +175,7 @@ fun AssetsByTypeScreenContent(
     onResetFilters: () -> Unit,
     onRetry: () -> Unit,
     onLoadMore: () -> Unit,
-    onAssetClick: (Int) -> Unit,
+    onAssetClick: (Int?, String?) -> Unit,
     onBackClick: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -340,7 +336,7 @@ fun AssetsByTypeScreenContent(
                                 items(assets) { asset ->
                                     AssetCardPaginated(
                                         asset = asset,
-                                        onClick = { asset.assetId?.let { onAssetClick(it) } })
+                                        onClick = { onAssetClick(asset.assetId, asset.materialId) })
                                 }
                                 if (uiState.hasNext) {
                                     item {
@@ -494,7 +490,7 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                 onResetFilters = {},
                 onRetry = {},
                 onLoadMore = {},
-                onAssetClick = {},
+                onAssetClick = { _, _ -> {} },
                 onBackClick = {}
             )
         }
@@ -537,7 +533,7 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                 onResetFilters = {},
                 onRetry = {},
                 onLoadMore = {},
-                onAssetClick = {},
+                onAssetClick = { _, _ -> {} },
                 onBackClick = {}
             )
         }
@@ -568,7 +564,7 @@ fun AssetsByTypeScreenContentPreview_Error() {
                 onResetFilters = {},
                 onRetry = {},
                 onLoadMore = {},
-                onAssetClick = {},
+                onAssetClick = { _, _ -> {} },
                 onBackClick = {}
             )
         }

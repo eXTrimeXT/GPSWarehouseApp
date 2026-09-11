@@ -37,7 +37,8 @@ import com.gps.warehouse.utils.formatIsoToReadable
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetDetailsScreen(
-    assetId: Int,
+    assetId: Int? = null,
+    materialId: String? = null,
     navController: NavHostController,
     viewModel: AssetViewModel = hiltViewModel()
 ) {
@@ -59,7 +60,7 @@ fun AssetDetailsScreen(
 
     // Загружаем данные при открытии
     LaunchedEffect(assetId) {
-        firstLoadData(viewModel = viewModel, assetId = assetId)
+        firstLoadData(viewModel = viewModel, assetId = assetId, materialId = materialId)
     }
 
     // Инициализируем editState ТОЛЬКО когда asset + статусы + типы загружены
@@ -205,7 +206,18 @@ fun AssetDetailsScreen(
         onSave = {
             editState?.let { state ->
                 (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
-                    viewModel.updateAsset(assetId, state.toUpdate(original))
+                    // 1. Берем assetId из загруженного объекта (это самый актуальный источник истины).
+                    // 2. Если вдруг он null (что маловероятно при успешной загрузке), используем assetId из параметров экрана.
+                    val idToUpdate = original.assetId ?: assetId
+
+                    // 3. Безопасно вызываем обновление только если ID точно известен
+                    if (idToUpdate != null) {
+                        viewModel.updateAsset(idToUpdate, state.toUpdate(original))
+                    } else {
+                        // Теоретически недостижимый блок, если сервер работает корректно,
+                        // но он нужен компилятору Kotlin для гарантии безопасности типов.
+                        android.util.Log.e("AssetDetailsScreen", "Невозможно обновить: assetId отсутствует")
+                    }
                 }
             }
         },
@@ -219,7 +231,7 @@ fun AssetDetailsScreen(
         onBackClick = { navController.popBackStack() },
         onNavigateToNotifications = {assetId -> navController.navigate("asset_notifications/asset/$assetId")},
         onNavigateToParent = { parentId -> navController.navigate("asset_details/$parentId") },
-        onRetryClick = { firstLoadData(viewModel = viewModel, assetId = assetId) },
+        onRetryClick = { firstLoadData(viewModel = viewModel, assetId = assetId, materialId = materialId) },
 
         // onAddUser: открываем диалог поиска
         onAddUser = { userType ->
@@ -235,11 +247,10 @@ fun AssetDetailsScreen(
     )
 }
 
-fun firstLoadData(viewModel: AssetViewModel, assetId: Int) {
-    viewModel.loadAssetDetails(assetId)
+fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?) {
+    viewModel.loadAssetDetails(assetId = assetId, materialId = materialId)
     viewModel.loadAssetStatuses()
     viewModel.loadAssetTypes()
-    viewModel.loadAssetHistory(assetId)
 }
 
 // ==================== CONTENT: UI + Preview ====================
@@ -470,7 +481,9 @@ fun StatusCard(
                             readOnly = true,
                             label = { Text("Выберите статус") },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
                             singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedContainerColor = MaterialTheme.colorScheme.surface,
@@ -585,7 +598,9 @@ fun EditableInfoSection(
                 readOnly = true,
                 label = { Text("Тип актива") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
                 singleLine = true
             )
             ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -749,7 +764,9 @@ fun ServiceCard(
                 },
                 label = { Text("Период (дни)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth().widthIn(min = 60.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(min = 60.dp),
                 singleLine = true
             )
         }

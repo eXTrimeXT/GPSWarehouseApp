@@ -63,6 +63,8 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Query("page") page: Int = 1,
         @Query("page_size") pageSize: Int = 50,
+        @Query("asset_id") assetId: Int? = null,
+        @Query("material_id") materialId: String? = null,
         @Query("name") name: String? = null,
         @Query("inventory_id") inventoryId: String? = null,
         @Query("serial_number") serialNumber: String? = null,

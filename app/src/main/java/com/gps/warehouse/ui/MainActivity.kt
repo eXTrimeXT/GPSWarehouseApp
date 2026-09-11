@@ -343,11 +343,41 @@ class MainActivity : ComponentActivity() {
                         }
 
 
-                        composable("asset_details/{assetId}") { backStackEntry ->
-                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: return@composable
+//                        composable("asset_details/{assetId}") { backStackEntry ->
+//                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: return@composable
+//                            AssetDetailsScreen(
+//                                assetId = assetId,
+//                                navController = navController,
+//                            )
+//                        }
+                        composable(
+                            route = "asset_details?assetId={assetId}&materialId={materialId}",
+                            arguments = listOf(
+                                navArgument("assetId") {
+                                    type = NavType.IntType
+                                    nullable = true
+                                    defaultValue = null
+                                },
+                                navArgument("materialId") {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                }
+                            )
+                        ) { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getInt("assetId")
+                            val materialId = backStackEntry.arguments?.getString("materialId")
+
+                            // Защита: если не передан ни один идентификатор, возвращаемся назад
+                            if (assetId == null && materialId == null) {
+                                navController.popBackStack()
+                                return@composable
+                            }
+
                             AssetDetailsScreen(
                                 assetId = assetId,
-                                navController = navController,
+                                materialId = materialId,
+                                navController = navController
                             )
                         }
 

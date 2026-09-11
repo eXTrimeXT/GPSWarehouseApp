@@ -293,12 +293,46 @@ class AssetViewModel @Inject constructor(
     }
 
     // Метод для загрузки деталей актива
-    fun loadAssetDetails(assetId: Int) {
+//    fun loadAssetDetails(assetId: Int) {
+//        viewModelScope.launch {
+//            _uiState.value = AssetUiState.Loading
+//            try {
+//                val asset = assetApiService.getAssetById("Bearer ${getToken()}", assetId)
+//                _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
+//            } catch (e: Exception) {
+//                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+//            }
+//        }
+//    }
+    // В файле AssetViewModel.kt
+
+    // Замените старый loadAssetDetails на этот:
+    fun loadAssetDetails(assetId: Int? = null, materialId: String? = null) {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
-                val asset = assetApiService.getAssetById("Bearer ${getToken()}", assetId)
-                _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
+                require(assetId != null || materialId != null) { "Должен быть указан assetId или materialId" }
+
+                // Запрашиваем список с pageSize = 1 и нужными фильтрами
+                val response = assetApiService.getAssets(
+                    token = "Bearer ${getToken()}",
+                    page = 1,
+                    pageSize = 1, // Нам нужен только 1 конкретный элемент
+                    assetId = assetId,
+                    materialId = materialId
+                )
+
+                if (response.items.isNotEmpty()) {
+                    val asset = response.items.first()
+                    _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
+
+                    // Как только получили актив, извлекаем его assetId и загружаем историю
+                    asset.assetId?.let { id ->
+                        loadAssetHistory(id)
+                    }
+                } else {
+                    _uiState.value = AssetUiState.Error("Актив не найден")
+                }
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
             }
