@@ -343,18 +343,21 @@ class MainActivity : ComponentActivity() {
                         }
 
 
-//                        composable("asset_details/{assetId}") { backStackEntry ->
-//                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: return@composable
-//                            AssetDetailsScreen(
-//                                assetId = assetId,
-//                                navController = navController,
-//                            )
-//                        }
+                        // Перейти на экран актива по assetId (необходимо для уведомлений)
+                        composable("asset_details/{assetId}") { backStackEntry ->
+                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: return@composable
+                            AssetDetailsScreen(
+                                assetId = assetId,
+                                navController = navController,
+                            )
+                        }
+
                         composable(
                             route = "asset_details?assetId={assetId}&materialId={materialId}",
                             arguments = listOf(
                                 navArgument("assetId") {
-                                    type = NavType.IntType
+                                    // ✅ ИЗМЕНЕНО: IntType не поддерживает nullable. Используем StringType.
+                                    type = NavType.StringType
                                     nullable = true
                                     defaultValue = null
                                 },
@@ -365,7 +368,9 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         ) { backStackEntry ->
-                            val assetId = backStackEntry.arguments?.getInt("assetId")
+                            // Безопасно получаем строку и парсим её в Int?
+                            val assetIdStr = backStackEntry.arguments?.getString("assetId")
+                            val assetId = assetIdStr?.toIntOrNull()
                             val materialId = backStackEntry.arguments?.getString("materialId")
 
                             // Защита: если не передан ни один идентификатор, возвращаемся назад
