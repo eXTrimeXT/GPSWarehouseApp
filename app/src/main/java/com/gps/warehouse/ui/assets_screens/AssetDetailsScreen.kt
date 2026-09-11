@@ -289,9 +289,14 @@ fun AssetDetailsContent(
                                         Icon(Icons.Default.Close, "Отмена", tint = MaterialTheme.colorScheme.error)
                                     }
                                 } else {
-                                    if (asset.assetId != null)
-                                    IconButton(onClick = { onNavigateToNotifications(asset.assetId) }) {
-                                        Icon(Icons.Default.NotificationsNone, "Уведомления", tint = MaterialTheme.colorScheme.primary)
+                                    if (asset.assetId != null) {
+                                        IconButton(onClick = { onNavigateToNotifications(asset.assetId) }) {
+                                            Icon(
+                                                Icons.Default.NotificationsNone,
+                                                "Уведомления",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                     IconButton(onClick = onShowHistory) {
                                         Icon(Icons.Default.History, "История", tint = MaterialTheme.colorScheme.primary)
