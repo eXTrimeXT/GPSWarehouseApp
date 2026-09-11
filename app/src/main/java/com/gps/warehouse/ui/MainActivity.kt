@@ -356,7 +356,7 @@ class MainActivity : ComponentActivity() {
                             route = "asset_details?assetId={assetId}&materialId={materialId}",
                             arguments = listOf(
                                 navArgument("assetId") {
-                                    // ✅ ИЗМЕНЕНО: IntType не поддерживает nullable. Используем StringType.
+                                    // ИЗМЕНЕНО: IntType не поддерживает nullable. Используем StringType.
                                     type = NavType.StringType
                                     nullable = true
                                     defaultValue = null

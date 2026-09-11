@@ -121,7 +121,7 @@ fun AssetTypeListScreenContent(
                         item {
                             OtherTypesCard(
                                 onClick = {
-                                    onNavigate("assets_list/null/Без типа")
+                                    onNavigate("assets_list/null/Все активы")
                                 }
                             )
                         }
@@ -219,7 +219,7 @@ fun OtherTypesCard(onClick: () -> Unit) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Другие типы",
+                    text = "Все типы активов",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
