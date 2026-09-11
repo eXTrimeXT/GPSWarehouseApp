@@ -51,8 +51,8 @@ object GpsNetworkModule {
 
         return OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)            // Добавляем логгер
-            .connectTimeout(30, TimeUnit.SECONDS)   // Тайм-аут на установление соединения
-            .readTimeout(30, TimeUnit.SECONDS)      // Тайм-аут на чтение данных
+            .connectTimeout(300, TimeUnit.SECONDS)   // Тайм-аут на установление соединения
+            .readTimeout(300, TimeUnit.SECONDS)      // Тайм-аут на чтение данных
             .cookieJar(cookieJar)                          // Устанавливаем менеджер куки
             .build()
     }

@@ -247,8 +247,53 @@ class AssetViewModel @Inject constructor(
     }
 
     // Метод загрузки с фильтрами:
+//    fun loadAssetsByFilters(
+//        page: Int,
+//        pageSize: Int,
+//        name: String? = null,
+//        inventoryId: String? = null,
+//        serialNumber: String? = null,
+//        assetStatus: String? = null,
+//        modelId: Int? = null,
+//        assetTypeId: Int? = null,
+//        parentId: Int? = null,
+//        locationId: Int? = null
+//    ) {
+//        viewModelScope.launch {
+//            if (page == 1) {
+//                _uiState.value = AssetUiState.Loading
+//            }
+//            try {
+//                val response = assetApiService.getAssets(
+//                    token = "Bearer ${getToken()}",
+//                    page = page,
+//                    pageSize = pageSize,
+//                    name = name,
+//                    inventoryId = inventoryId,
+//                    serialNumber = serialNumber,
+//                    assetStatus = assetStatus,
+//                    modelId = modelId,
+//                    assetTypeId = assetTypeId,
+//                    parentId = parentId,
+//                    locationId = locationId
+//                )
+//                _uiState.value = AssetUiState.AssetsLoadedPaginated(
+//                    assets = response.items,
+//                    total = response.total,
+//                    page = response.page,
+//                    pageSize = response.pageSize,
+//                    totalPages = response.totalPages,
+//                    hasNext = response.hasNext,
+//                    hasPrevious = response.hasPrevious
+//                )
+//            } catch (e: Exception) {
+//                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+//            }
+//        }
+//    }
+
     fun loadAssetsByFilters(
-        page: Int = 1,
+        page: Int,
         pageSize: Int = 50,
         name: String? = null,
         inventoryId: String? = null,
@@ -260,10 +305,16 @@ class AssetViewModel @Inject constructor(
         locationId: Int? = null
     ) {
         viewModelScope.launch {
-            if (page == 1) {
-                _uiState.value = AssetUiState.Loading
-            }
             try {
+                // 1. Если это не первая страница, сохраняем текущие активы из состояния
+                val currentState = _uiState.value
+                val oldAssets = if (currentState is AssetUiState.AssetsLoadedPaginated && page > 1) {
+                    currentState.assets // Берем старые данные!
+                } else {
+                    emptyList() // Если страница 1, начинаем с пустого списка
+                }
+
+                // 2. Делаем запрос к API (замените на ваш реальный вызов репозитория)
                 val response = assetApiService.getAssets(
                     token = "Bearer ${getToken()}",
                     page = page,
@@ -277,36 +328,29 @@ class AssetViewModel @Inject constructor(
                     parentId = parentId,
                     locationId = locationId
                 )
+
+                // 3. ОБЪЕДИНЯЕМ старые и новые данные
+                val updatedAssets = oldAssets + response.items
+
+                // 4. Обновляем состояние объединенным списком
                 _uiState.value = AssetUiState.AssetsLoadedPaginated(
-                    assets = response.items,
+                    assets = updatedAssets, // <-- ВОТ ЭТО ГАРАНТИРУЕТ, что ползунок не прыгнет
                     total = response.total,
-                    page = response.page,
-                    pageSize = response.pageSize,
+                    page = page,
+                    pageSize = pageSize,
                     totalPages = response.totalPages,
                     hasNext = response.hasNext,
                     hasPrevious = response.hasPrevious
                 )
+
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                // Если ошибка при пагинации, не стираем старые данные, просто показываем ошибку
+                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки")
             }
         }
     }
 
     // Метод для загрузки деталей актива
-//    fun loadAssetDetails(assetId: Int) {
-//        viewModelScope.launch {
-//            _uiState.value = AssetUiState.Loading
-//            try {
-//                val asset = assetApiService.getAssetById("Bearer ${getToken()}", assetId)
-//                _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
-//            } catch (e: Exception) {
-//                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
-//            }
-//        }
-//    }
-    // В файле AssetViewModel.kt
-
-    // Замените старый loadAssetDetails на этот:
     fun loadAssetDetails(assetId: Int? = null, materialId: String? = null) {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
