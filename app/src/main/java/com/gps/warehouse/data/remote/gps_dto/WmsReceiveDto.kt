@@ -24,6 +24,7 @@ data class WmsReceiveItem(
 data class WmsResponseDto(
     @SerializedName("data") val data: List<WmsItemDto>,
     @SerializedName("page") val page: Int,
-    @SerializedName("page_qty") val pageQty: Int,                   // Общее количество страниц
-    @SerializedName("materials_count") val materialsCount: Int = 0  // Общее количество записей
+    @SerializedName("page_qty") val totalPages: Int,                   // Общее количество страниц
+    @SerializedName("materials_count") val totalCount: Int = 0  // Общее количество записей
+
 )

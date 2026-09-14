@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -65,6 +66,9 @@ fun WmsScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val availableWarehouses by viewModel.availableWarehouses.collectAsState()
+
+    // === Пагинация и фильтры ===
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
 
     // === Состояния для редактирования ===
     var showEditDialog by remember { mutableStateOf(false) }
@@ -155,7 +159,10 @@ fun WmsScreen(
 
     // Фильтры
     LaunchedEffect(searchQuery, selectedStorageFilterId, showOnlyNonZeroQty) {
-        viewModel.updateWmsFilters(selectedStorageFilterId, searchQuery, showOnlyNonZeroQty)
+        viewModel.updateWmsFilters(
+            storageId = selectedStorageFilterId,
+            searchQuery = searchQuery,
+            hideZeroQty = showOnlyNonZeroQty)
     }
 
     DisposableEffect(Unit) {
@@ -231,7 +238,9 @@ fun WmsScreen(
             showOnlyNonZeroQty = false
             viewModel.updateWmsFilters(null, "", false)
         },
-        availableWarehouses = availableWarehouses
+        availableWarehouses = availableWarehouses,
+        isLoadingMore = isLoadingMore,
+        onLoadMore = { viewModel.loadMoreWmsData() },
     )
 
     // === ДИАЛОГ РЕДАКТИРОВАНИЯ ===
@@ -408,7 +417,9 @@ fun WmsContent(
     showOnlyNonZeroQty: Boolean,
     onShowOnlyNonZeroQtyChange: (Boolean) -> Unit,
     onResetFilters: () -> Unit,
-    availableWarehouses: List<WarehousePermissionDto>
+    availableWarehouses: List<WarehousePermissionDto>,
+    isLoadingMore: Boolean,
+    onLoadMore: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         MyCustomActionBar(
@@ -472,40 +483,105 @@ fun WmsContent(
             is MainViewModel.UiState.Loading -> {
                 if (!showMoveDialog) CustomLoadingView()
             }
+//            is MainViewModel.UiState.WmsLoaded -> {
+//                val allItems = uiState.items
+//                val lazyListState = rememberLazyListState()
+//
+//                LaunchedEffect(lazyListState) {
+//                    snapshotFlow { lazyListState.layoutInfo }
+//                        .map { info ->
+//                            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+//                            last >= info.totalItemsCount - 15
+//                        }
+//                        .distinctUntilChanged()
+//                        .filter { it }
+//                        .collect {
+//                            // viewModel.loadMoreWmsData()
+//                        }
+//                }
+//
+//                Column(modifier = Modifier.weight(1f)) {
+//                    Text(
+//                        text = "Загружено: ${allItems.size} материалов",
+//                        style = MaterialTheme.typography.bodySmall,
+//                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                        modifier = Modifier
+//                            .align(Alignment.Start)
+//                            .padding(horizontal = 16.dp, vertical = 4.dp)
+//                    )
+//                    LazyColumn(
+//                        modifier = Modifier.weight(1f),
+//                        contentPadding = PaddingValues(16.dp),
+//                        verticalArrangement = Arrangement.spacedBy(8.dp),
+//                        state = lazyListState
+//                    ) {
+//                        items(allItems) { item ->
+//                            WmsItemCard(item = item, onClick = { onItemClick(item) })
+//                        }
+//                    }
+//                }
+//            }
             is MainViewModel.UiState.WmsLoaded -> {
                 val allItems = uiState.items
                 val lazyListState = rememberLazyListState()
 
-                LaunchedEffect(lazyListState) {
+                // Триггер пагинации: когда пользователь доскроллил до конца
+                LaunchedEffect(lazyListState, isLoadingMore) {
                     snapshotFlow { lazyListState.layoutInfo }
                         .map { info ->
-                            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                            last >= info.totalItemsCount - 15
+                            val lastVisibleIndex = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+                            lastVisibleIndex >= info.totalItemsCount - 5 // За 5 элементов до конца
                         }
                         .distinctUntilChanged()
                         .filter { it }
                         .collect {
-                            // viewModel.loadMoreWmsData()
+                            if (!isLoadingMore) onLoadMore()
                         }
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
+                    // Заголовок с количеством
                     Text(
                         text = "Загружено: ${allItems.size} материалов",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .align(Alignment.Start)
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                        modifier = Modifier.align(Alignment.Start).padding(horizontal = 16.dp, vertical = 4.dp)
                     )
+
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         state = lazyListState
                     ) {
+                        // Элементы списка
                         items(allItems) { item ->
                             WmsItemCard(item = item, onClick = { onItemClick(item) })
+                        }
+
+                        // Индикатор загрузки (футер)
+                        if (isLoadingMore) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                }
+                            }
+                        }
+
+                        // Сообщение "Всё загружено"
+                        if (allItems.isNotEmpty()) {
+                            item {
+                                Text(
+                                    text = "• Все материалы загружены •",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         }
                     }
                 }
@@ -693,285 +769,6 @@ fun WmsItemCard(item: WmsItemDto, onClick: () -> Unit) {
 }
 
 // ====================== ДИАЛОГ РЕДАКТИРОВАНИЯ ======================
-//@SuppressLint("ConfigurationScreenWidthHeight")
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun EditWmsItemDialog(
-//    item: WmsItemDto,
-//    currentStorageId: String,
-//    topologies: List<TopologyDto>,
-//    isLoadingTopologies: Boolean,
-//    initialPosition: String,
-//    initialPositionId: String,
-//    initialMax: String,
-//    initialMin: String,
-//    initialMaterial: String,
-//    initialQty: String,
-//    onPositionSelected: (String, String) -> Unit,
-//    onMaxChange: (String) -> Unit,
-//    onMinChange: (String) -> Unit,
-//    onMaterialChange: (String) -> Unit,
-//    onQtyChange: (String) -> Unit,
-//    onDismiss: () -> Unit,
-//    onSave: () -> Unit,
-//    onLoadTopologies: (String) -> Unit
-//) {
-//    val scrollState = rememberScrollState()
-//
-//    // Локальные состояния с защитой от null
-//    var materialField by remember { mutableStateOf(initialMaterial) }
-//    var positionField by remember { mutableStateOf(initialPosition) }
-//    var positionIdField by remember { mutableStateOf(initialPositionId) }
-//    var qtyField by remember { mutableStateOf(initialQty) }
-//    var maxField by remember { mutableStateOf(initialMax) }
-//    var minField by remember { mutableStateOf(initialMin) }
-//
-//    var expanded by remember { mutableStateOf(false) }
-//
-//    // Загрузка топологий
-//    LaunchedEffect(Unit) {
-//        if (topologies.isEmpty() && currentStorageId.isNotBlank()) {
-//            onLoadTopologies(currentStorageId)
-//        }
-//    }
-//
-//    // Синхронизация с внешними изменениями
-//    LaunchedEffect(initialMaterial) { materialField = initialMaterial }
-//    LaunchedEffect(initialPosition) { positionField = initialPosition }
-//    LaunchedEffect(initialPositionId) { positionIdField = initialPositionId }
-//    LaunchedEffect(initialQty) { qtyField = initialQty }
-//    LaunchedEffect(initialMax) { maxField = initialMax }
-//    LaunchedEffect(initialMin) { minField = initialMin }
-//
-//    val configuration = LocalConfiguration.current
-//    val maxDialogHeight = (configuration.screenHeightDp * 0.59).dp
-//
-//    AlertDialog(
-//        onDismissRequest = onDismiss,
-//        modifier = Modifier,
-////        .fillMaxWidth()
-////        .heightIn(max = maxDialogHeight),
-//        properties = androidx.compose.ui.window.DialogProperties(
-//            usePlatformDefaultWidth = false
-//        ),
-//        title = {
-//            Text(
-//                "Редактирование материала",
-//                style = MaterialTheme.typography.titleLarge,
-//                fontWeight = FontWeight.Bold
-//            )
-//        },
-//        text = {
-//            Column(
-//                modifier = Modifier
-//                    .verticalScroll(scrollState)
-//                    .padding(vertical = 16.dp),
-//                verticalArrangement = Arrangement.spacedBy(16.dp)
-//            ) {
-//                // === Артикул ===
-//                OutlinedTextField(
-//                    value = materialField,
-//                    onValueChange = {
-//                        materialField = it
-//                        onMaterialChange(it)  // Уведомляем родителя
-//                    },
-//                    label = { Text("Артикул") },
-//                    modifier = Modifier.fillMaxWidth(),
-//                    // readOnly только для SAP-материалов
-//                    readOnly = (item.sapA == 1),
-//                    enabled = (item.sapA == 0),
-//                    singleLine = true,
-//                    isError = item.sapA == 0 && materialField.isBlank(),
-//                    supportingText = {
-//                        if (item.sapA == 0 && materialField.isBlank()) {
-//                            Text("Обязательное поле", color = MaterialTheme.colorScheme.error)
-//                        } else if (item.sapA == 1) {
-//                            Text("Не редактируется для SAP", style = MaterialTheme.typography.labelSmall)
-//                        }
-//                    }
-//                )
-//
-//                // === Наименование (read-only всегда) ===
-//                OutlinedTextField(
-//                    value = item.name,
-//                    onValueChange = {},
-//                    label = { Text("Наименование") },
-//                    modifier = Modifier.fillMaxWidth(),
-//                    readOnly = true,
-//                    enabled = false,
-//                    singleLine = true
-//                )
-//
-//                // === Позиция (топология) ===
-//                Text("Позиция", style = MaterialTheme.typography.bodyLarge)
-//                ExposedDropdownMenuBox(
-//                    expanded = expanded,
-//                    onExpandedChange = { expanded = !expanded }
-//                ) {
-//                    OutlinedTextField(
-//                        value = positionField,
-//                        onValueChange = {},
-//                        label = { Text("Выберите позицию") },
-//                        modifier = Modifier
-//                            .fillMaxWidth()
-//                            .menuAnchor(),
-//                        readOnly = true,
-//                        trailingIcon = {
-//                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-//                        }
-//                    )
-//                    ExposedDropdownMenu(
-//                        expanded = expanded,
-//                        onDismissRequest = { expanded = false },
-//                        modifier = Modifier.fillMaxWidth(0.9f)
-//                    ) {
-//                        if (isLoadingTopologies) {
-//                            DropdownMenuItem(text = { Text("Загрузка...") }, onClick = {})
-//                        } else if (topologies.isEmpty()) {
-//                            DropdownMenuItem(text = { Text("Нет доступных позиций") }, onClick = {})
-//                        } else {
-//                            topologies.forEach { topology ->
-//                                DropdownMenuItem(
-//                                    text = { Text(topology.position) },
-//                                    onClick = {
-//                                        onPositionSelected(topology.position, topology.id.toString())
-//                                        positionField = topology.position
-//                                        positionIdField = topology.id.toString()
-//                                        expanded = false
-//                                    },
-////                                    leadingIcon = {
-////                                        if (topology.id.toString() == positionIdField) {
-////                                            Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
-////                                        }
-////                                    }
-//                                )
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                // === Количество (только для non-SAP) ===
-//                if (item.sapA == 0) {
-//                    OutlinedTextField(
-//                        value = qtyField,
-//                        onValueChange = { newValue ->
-//                            if (newValue.all { c -> c.isDigit() }) {
-//                                qtyField = newValue
-//                                onQtyChange(newValue)  // Уведомляем родителя
-//                            }
-//                        },
-//                        label = { Text("Количество") },
-//                        modifier = Modifier.fillMaxWidth(),
-//                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-//                        singleLine = true,
-//                        isError = qtyField.toIntOrNull() == null && qtyField.isNotBlank(),
-//                        supportingText = {
-//                            if (qtyField.toIntOrNull() == null && qtyField.isNotBlank()) {
-//                                Text("Введите число", color = MaterialTheme.colorScheme.error)
-//                            }
-//                        }
-//                    )
-//                }
-//
-////                // === Мин. остаток ===
-////                OutlinedTextField(
-////                    value = minField,
-////                    onValueChange = { newValue ->
-////                        if (newValue.all { c -> c.isDigit() }) {
-////                            minField = newValue
-////                            onMinChange(newValue)
-////                        }
-////                    },
-////                    label = { Text("Мин. остаток") },
-////                    modifier = Modifier.fillMaxWidth(),
-////                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-////                    singleLine = true,
-////                    isError = minField.toIntOrNull() == null && minField.isNotBlank()
-////                )
-////
-////                // === Макс. остаток ===
-////                OutlinedTextField(
-////                    value = maxField,
-////                    onValueChange = { newValue ->
-////                        if (newValue.all { c -> c.isDigit() }) {
-////                            maxField = newValue
-////                            onMaxChange(newValue)
-////                        }
-////                    },
-////                    label = { Text("Макс. остаток") },
-////                    modifier = Modifier.fillMaxWidth(),
-////                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-////                    singleLine = true,
-////                    isError = maxField.toIntOrNull() == null && maxField.isNotBlank()
-////                )
-//                Surface(
-//                    shape = RoundedCornerShape(16.dp),
-//                    color = MaterialTheme.colorScheme.surface,
-//                    shadowElevation = 2.dp,
-//                    modifier = Modifier.fillMaxWidth()
-//                ) {
-//                    Column(modifier = Modifier.padding(16.dp)) {
-//                        Text("Лимиты остатков", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
-//                        Spacer(Modifier.height(8.dp))
-//
-//                        Row(
-//                            modifier = Modifier.fillMaxWidth(),
-//                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-//                        ) {
-//                            // Мин. остаток
-//                            OutlinedTextField(
-//                                value = minField,
-//                                onValueChange = { newValue ->
-//                                    if (newValue.all { c -> c.isDigit() }) {
-//                                        minField = newValue
-//                                        onMinChange(newValue)
-//                                    }
-//                                },
-//                                label = { Text("Мин.") },
-//                                modifier = Modifier.weight(1f),
-//                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-//                                singleLine = true,
-//                                textStyle = MaterialTheme.typography.bodyMedium
-//                            )
-//                            // Макс. остаток
-//                            OutlinedTextField(
-//                                value = maxField,
-//                                onValueChange = { newValue ->
-//                                    if (newValue.all { c -> c.isDigit() }) {
-//                                        maxField = newValue
-//                                        onMaxChange(newValue)
-//                                    }
-//                                },
-//                                label = { Text("Макс.") },
-//                                modifier = Modifier.weight(1f),
-//                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-//                                singleLine = true,
-//                                textStyle = MaterialTheme.typography.bodyMedium,
-//                                isError = maxField.toIntOrNull() != null &&
-//                                        minField.toIntOrNull() != null &&
-//                                        maxField.toInt() < minField.toInt()
-//                            )
-//                        }
-//                        if (maxField.toIntOrNull() != null && minField.toIntOrNull() != null && maxField.toInt() < minField.toInt()) {
-//                            Text("Макс. не может быть меньше мин.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
-//                        }
-//                    }
-//                }
-//            }
-//        },
-//        confirmButton = {
-//            Button(onClick = onSave, modifier = Modifier.height(48.dp)) {
-//                Text("Сохранить")
-//            }
-//        },
-//        dismissButton = {
-//            TextButton(onClick = onDismiss, modifier = Modifier.height(48.dp)) {
-//                Text("Отмена")
-//            }
-//        }
-//    )
-//}
-
 @SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1031,7 +828,6 @@ fun EditWmsItemDialog(
         ),
         modifier = Modifier
             .fillMaxWidth()
-//            .heightIn(min = 400.dp, max = 520.dp)
             .imePadding(), // Учитывает клавиатуру
         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         shape = RoundedCornerShape(20.dp),
@@ -1635,7 +1431,9 @@ fun WmsPreviewLoaded() {
                 availableWarehouses = listOf(
                     WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
                     WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0")
-                )
+                ),
+                isLoadingMore = true,
+                onLoadMore = {}
             )
         }
     }
