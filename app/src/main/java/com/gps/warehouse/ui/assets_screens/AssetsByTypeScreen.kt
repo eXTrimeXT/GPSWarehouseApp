@@ -1047,7 +1047,7 @@ fun AssetsByTypeScreenContent(
     }
 
     // Триггер пагинации. БЕЗ distinctUntilChanged — иначе повторный триггер в конце списка теряется.
-    LaunchedEffect(listState) {
+    LaunchedEffect(listState, uiState) {
         snapshotFlow {
             val layoutInfo = listState.layoutInfo
             val visibleItems = layoutInfo.visibleItemsInfo
@@ -1574,7 +1574,7 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                     AssetStatusDto(2, "В ремонте"),
                     AssetStatusDto(7, "Списан")
                 ),
-                searchQuery = "Несуществующий актив",
+                searchQuery = "",
                 onSearchQueryChange = {},
                 isFiltersExpanded = true,
                 onToggleFilters = {},

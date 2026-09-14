@@ -175,3 +175,6 @@ data class GetNameMaterialResponse(
     val material: String,
     val name: String
 )
+
+// Запрос для API getwmsrequests
+

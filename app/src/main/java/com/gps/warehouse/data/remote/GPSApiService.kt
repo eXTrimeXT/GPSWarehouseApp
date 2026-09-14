@@ -74,6 +74,16 @@ interface GPSApiService {
     @POST("getwmsrequests")
     suspend fun getWmsRequests(@Body request: GetWmsRequestsRequest): List<WmsRequestDto>
 
+    @POST("get_list_topology")
+    suspend fun getListTopology(
+
+    )
+
+    @POST("setwms")
+    suspend fun setWms(
+
+    )
+
     // Запрос на изменение или удаление материала из заказа
     @POST("order_mats")
     @Headers(

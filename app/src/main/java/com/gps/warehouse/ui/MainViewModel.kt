@@ -560,6 +560,8 @@ class MainViewModel @Inject constructor(
         }
     }
 
+
+
     // Методы для обновления фильтров с перезагрузкой данных
     fun updateWmsFilters(
         storageId: String?,
