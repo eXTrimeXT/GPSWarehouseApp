@@ -33,7 +33,7 @@ interface GPSApiService {
 
     // Упаковка материала
     @POST("matdoneps")
-    suspend fun packMaterial(@Body request: PackMaterialRequest): PackMaterialResponse
+    suspend fun packMaterial(@Body request: PackMaterialRequest): ApiSuccessResponse
 
     // Список материалов на складе / Доступные материалы
     @POST("getqrps")
@@ -68,21 +68,18 @@ interface GPSApiService {
 
     // Перемещение материала между складами
     @POST("movewms")
-    suspend fun moveWms(@Body request: MoveWmsRequest): MoveWmsResponse
+    suspend fun moveWms(@Body request: MoveWmsRequest): ApiSuccessResponse
 
     // Получение складских запросов
     @POST("getwmsrequests")
     suspend fun getWmsRequests(@Body request: GetWmsRequestsRequest): List<WmsRequestDto>
 
-    @POST("get_list_topology")
-    suspend fun getListTopology(
 
-    )
+    @POST("get_list_topology")
+    suspend fun getTopologies(@Body request: GetTopologyRequest): List<TopologyDto>
 
     @POST("setwms")
-    suspend fun setWms(
-
-    )
+    suspend fun updateWmsItem(@Body request: UpdateWmsRequest): Response<ResponseBody>
 
     // Запрос на изменение или удаление материала из заказа
     @POST("order_mats")
@@ -110,7 +107,7 @@ interface GPSApiService {
         "X-Requested-With: XMLHttpRequest",
         "Origin: $BASE_URL_API"
     )
-    suspend fun cancelWmsRequest(@Body request: WmsRequestAction): WmsRequestActionResponse
+    suspend fun cancelWmsRequest(@Body request: WmsRequestAction): ApiSuccessResponse
 
     // Принятие входящего запроса
     @POST("actwmsrequests")
@@ -120,7 +117,7 @@ interface GPSApiService {
         "X-Requested-With: XMLHttpRequest",
         "Origin: $BASE_URL_API"
     )
-    suspend fun acceptWmsRequest(@Body request: WmsRequestAction): WmsRequestActionResponse
+    suspend fun acceptWmsRequest(@Body request: WmsRequestAction): ApiSuccessResponse
 
      // Списание материалов со склада
     @POST("wms_write_off")

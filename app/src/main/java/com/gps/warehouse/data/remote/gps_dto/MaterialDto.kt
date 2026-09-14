@@ -23,11 +23,6 @@ data class OrderMatRequest(
     @SerializedName("id_mat") val id_mat: String
 )
 
-data class OrderMatResponse(
-    @SerializedName("status") val status: String?,
-    @SerializedName("message") val message: String?
-)
-
 data class OrderWithMaterials(
     @SerializedName("norder") val norder: String,
     val materials: List<MaterialDto>
@@ -44,11 +39,6 @@ data class PackMaterialRequest(
     val material: String,       // Номер материала
     val qty: Int,               // Количество
     val code: String            // Уникальный код (штрихкод)
-)
-
-data class PackMaterialResponse(
-    val status: String,
-    val message: String
 )
 
 data class MaterialQty(
@@ -87,7 +77,7 @@ data class GetWmsRequest(
     @SerializedName("stlo_pop") val stloPop: String = "",       // Фильтр по id склада *
     @SerializedName("is_hide_stock") val isHideStock: Int = 0,  // Скрыть нулевые остатки
     @SerializedName("page") val page: Int = 1,                  // Номер страницы
-    @SerializedName("limit") val limit: Int = 20                // Явный лимит 20 записей
+    @SerializedName("limit") val limit: Int = 50                // Явный лимит количества записей
 )
 
 // Ответ от API getwms (один элемент списка)
@@ -96,7 +86,8 @@ data class WmsItemDto(
     val material: String,       // Артикул
     val max: Int,               // Максимальный остаток
     val min: Int,               // Минимальный остаток
-    val position: String,       // Позиция (например, BUFF)
+    val positionId: Int,        // ID Топологии: 0 по умолчанию
+    val position: String,       // Топология (например, BUFF)
     val price: Double,          // Цена
     val qty: Double,            // Количество
     @SerializedName("sap_a") val sapA: Int,
@@ -117,18 +108,11 @@ data class MoveWmsRequest(
     @SerializedName("sap_a_pop") val sapAPop: Int = 0,
     @SerializedName("min_pop") val minPop: String = "",
     @SerializedName("max_pop") val maxPop: String = "",
-
     @SerializedName("move_material") val moveMaterial: String,  // Артикул
     @SerializedName("move_from") val moveFrom: String,          // Текущий склад
     @SerializedName("move_to") val moveTo: String,              // Целевой склад
     @SerializedName("move_qty") val moveQty: String,            // Количество
     @SerializedName("type") val type: String = "stock"
-)
-
-// Ответ от API movewms
-data class MoveWmsResponse(
-    val status: String, // success/error
-    val message: String? = null
 )
 
 // DTO для складских запросов (getwmsrequests)
@@ -159,13 +143,6 @@ data class WmsRequestAction(
     val type: String  // "cancel" (отмена/отклонить) или "accept" (принять)
 )
 
-// Ответ от сервера на действие с запросом
-data class WmsRequestActionResponse(
-    val status: String,  // "success" или "error"
-    val message: String?
-)
-
-
 data class GetNameMaterialRequest(
     val token: String,
     val material: String
@@ -175,6 +152,3 @@ data class GetNameMaterialResponse(
     val material: String,
     val name: String
 )
-
-// Запрос для API getwmsrequests
-

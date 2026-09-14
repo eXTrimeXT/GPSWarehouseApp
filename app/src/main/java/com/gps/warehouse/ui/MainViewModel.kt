@@ -163,6 +163,11 @@ class MainViewModel @Inject constructor(
     private val _pendingHighlightNotificationId = MutableStateFlow<Int?>(null)
     val pendingHighlightNotificationId: StateFlow<Int?> = _pendingHighlightNotificationId.asStateFlow()
 
+    // ====================== Состояние для топологий =========================
+    private val _topologies = MutableStateFlow<List<TopologyDto>>(emptyList())
+    val topologies: StateFlow<List<TopologyDto>> = _topologies.asStateFlow()
+    // ========================================================================
+
     init {
         viewModelScope.launch {
             // Собираем поток токена
@@ -297,7 +302,7 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Вызовите этот метод при выходе из системы (logout)
+    // Вызываем этот метод при выходе из системы (logout)
     fun stopGlobalNotifications() {
         notificationSseManager.stopListening()
     }
@@ -343,14 +348,15 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // Загрузка доступных складов
     fun loadAvailableWarehouses() {
         viewModelScope.launch {
             try {
                 val token = getTokenOrThrow()
-                // Загружаем через GPS API из профиля (не Assets API)
+                // Загружаем через GPS API из профиля
                 val profile = apiService.getUserProfile(GetUserProfileRequest(token))
                 val storages = profile.warehousePermissions ?: emptyList()
-                _availableWarehouses.value = storages.map { it } // или как у вас в DTO
+                _availableWarehouses.value = storages.map { it }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка загрузки складов", e)
             }
@@ -401,6 +407,145 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // Загрузка топологий для склада
+    fun loadTopologies(storageId: String) {
+        viewModelScope.launch {
+            try {
+                val token = getTokenOrThrow()
+                val request = GetTopologyRequest(storageId = storageId, token = token)
+                val result = apiService.getTopologies(request)
+                _topologies.value = result
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки топологий", e)
+                _topologies.value = emptyList()
+            }
+        }
+    }
+
+    // Обновление материала
+//    fun updateWmsItem(
+//        item: WmsItemDto,
+//        newPosition: String,        // Выбранная позиция (текст)
+//        newPositionId: String,      // ID позиции
+//        newMin: Int,                // Новый мин. остаток
+//        newMax: Int,                // Новый макс. остаток
+//        onSuccess: () -> Unit,
+//        onError: (String) -> Unit
+//    ) {
+//        viewModelScope.launch {
+//            try {
+//                val token = getTokenOrThrow()
+//                val request = UpdateWmsRequest(
+//                    id = item.id,
+//                    material = item.material,
+//                    max = newMax,
+//                    min = newMin,
+//                    positionId = newPositionId,
+//                    position = newPosition,  // Текст для поиска на этикетках
+//                    storageId = item.storageId.toString(),
+//                    storage = item.storage,
+//                    price = item.price.toString(),
+//                    qty = item.qty.toInt(),
+//                    sapA = item.sapA,
+//                    name = item.name,
+//                    token = token
+//                )
+//                val responseBody = apiService.updateWmsItem(request)
+//                val responseString = responseBody.toString().trim()
+//
+//                if (responseString.contains("success", ignoreCase = true) ||
+//                    responseString.contains("ok", ignoreCase = true)) {
+//                    onSuccess()
+//                } else {
+//                    onError(responseString.ifEmpty { "Ошибка сервера" })
+//                }
+//            } catch (e: Exception) {
+//                Log.e("MainViewModel", "Ошибка обновления материала", e)
+//                onError(e.message ?: "Ошибка сети")
+//            }
+//        }
+//    }
+
+    /**
+     * Обновление материала с передачей всех изменяемых полей
+     */
+    fun updateWmsItem(
+        item: WmsItemDto,
+        newPosition: String,
+        newPositionId: String,
+        newMin: Int,
+        newMax: Int,
+        newMaterial: String? = null,    // Опционально: новый артикул (только для non-SAP)
+        newQty: Int? = null,            // Опционально: новое количество (только для non-SAP)
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val token = getTokenOrThrow()
+                val request = UpdateWmsRequest(
+                    id = item.id,
+                    // Если передано новое значение — используем его, иначе берём из item
+                    material = newMaterial?.ifBlank { item.material } ?: item.material,
+                    max = newMax,
+                    min = newMin,
+                    positionId = newPositionId,
+                    position = newPosition,
+                    storageId = item.storageId?.toString() ?: "",
+                    storage = item.storage,
+                    price = item.price.toString(),
+                    // Количество: новое или из item
+                    qty = newQty ?: item.qty.toInt(),
+                    sapA = item.sapA,
+                    name = item.name,
+                    token = token
+                )
+                val responseBody = apiService.updateWmsItem(request)
+                val responseString = responseBody.toString().trim()
+
+                if (responseString.contains("success", ignoreCase = true) ||
+                    responseString.contains("ok", ignoreCase = true)) {
+                    onSuccess()
+                } else {
+                    onError(responseString.ifEmpty { "Ошибка сервера" })
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка обновления материала", e)
+                onError(e.message ?: "Ошибка сети")
+            }
+        }
+    }
+
+    // Комбинированное действие: изменить + переместить
+//    fun updateAndMoveWmsItem(
+//        item: WmsItemDto,
+//        newPosition: String,
+//        newPositionId: String,
+//        targetStorage: String,
+//        moveQty: Int,
+//        onSuccess: () -> Unit,
+//        onError: (String) -> Unit
+//    ) {
+//        // Сначала обновляем материал
+//        updateWmsItem(
+//            item = item,
+//            newPosition = newPosition,
+//            newPositionId = newPositionId,
+//            onSuccess = {
+//                // После успешного обновления — перемещаем
+//                moveWmsMaterial(
+//                    material = item.material,
+//                    fromStorage = item.storage,
+//                    toStorage = targetStorage,
+//                    qty = moveQty
+//                )
+//                // Успех перемещения обработается через UiState.WmsMoveSuccess
+//                onSuccess()
+//            },
+//            onError = onError
+//        )
+//    }
+
     /**
      * Извлекает логин из JWT токена
      */
@@ -413,7 +558,7 @@ class MainViewModel @Inject constructor(
                 Log.i("PAYLOAD:", payload)
                 val json = JSONObject(payload)
                 Log.i("JSON:", json.toString())
-                json.optString("login", null)
+                json.optString("login", "login")
             } else {
                 null
             }
@@ -519,7 +664,7 @@ class MainViewModel @Inject constructor(
                     stloPop = currentStorageFilterId ?: "",
                     isHideStock = if (currentHideZeroQty) 1 else 0,
                     page = page,
-                    limit = 20
+                    limit = 50
                 )
 
                 val response = apiService.getWmsData(request)

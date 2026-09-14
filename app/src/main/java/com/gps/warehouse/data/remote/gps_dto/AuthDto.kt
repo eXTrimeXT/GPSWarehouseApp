@@ -2,6 +2,12 @@ package com.gps.warehouse.data.remote.gps_dto
 
 import com.google.gson.annotations.SerializedName
 
+// Ответ сервера (универсальный)
+data class ApiSuccessResponse(
+    @SerializedName("status") val status: String,
+    @SerializedName("message") val message: String
+)
+
 // Запрос на авторизацию
 data class LoginRequest(
     val login: String,
