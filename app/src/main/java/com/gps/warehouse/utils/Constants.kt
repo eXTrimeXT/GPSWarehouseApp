@@ -22,6 +22,6 @@ object Constants {
     const val ASSET_URL = "http://10.168.143.7:8800/api/"
 
     // Константа в миллисекундах: час*минута*секунда*миллисекунда
-//    const val SESSION_DURATION_MS = 12 * 60 * 60 * 1000L // 12 часов
-    const val SESSION_DURATION_MS = 30 * 1000L // 30 sec
+    const val SESSION_DURATION_MS = 12 * 60 * 60 * 1000L // 12 часов
+//    const val SESSION_DURATION_MS = 30 * 1000L // 30 sec
 }
