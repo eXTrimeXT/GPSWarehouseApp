@@ -19,7 +19,6 @@ import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 //import com.gps.warehouse.data.remote.assets_dto.MyAssetDto
 import com.gps.warehouse.ui.AssetViewModel
-import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 
@@ -27,16 +26,16 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 @Composable
 fun MyAssetsScreen(
     navController: NavHostController,
-    viewModel: AssetViewModel = hiltViewModel(),
+    assetViewModel: AssetViewModel,
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val assetStatuses by viewModel.assetStatuses.collectAsState()
-    val assetTypes by viewModel.assetTypes.collectAsState()
+    val uiState by assetViewModel.uiState.collectAsState()
+//    val assetStatuses by assetViewModel.assetStatuses.collectAsState()
+//    val assetTypes by assetViewModel.assetTypes.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.loadMyAssets()
-        viewModel.loadAssetStatuses()
-        viewModel.loadAssetTypes()
+        assetViewModel.loadMyAssets()
+        assetViewModel.loadAssetStatuses()
+        assetViewModel.loadAssetTypes()
     }
 
     Scaffold(
@@ -103,7 +102,7 @@ fun MyAssetsScreen(
             is AssetViewModel.AssetUiState.Error -> {
                 ErrorStateView(
                     message = state.message,
-                    onRetry = { viewModel.loadMyAssets() }
+                    onRetry = { assetViewModel.loadMyAssets() }
                 )
             }
             else -> {}

@@ -27,16 +27,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.delay
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 // ==========================================
 // МОДЕЛИ ФИЛЬТРОВ
@@ -70,9 +66,9 @@ fun NotificationsScreen(
     sessionId: Int? = null,
     highlightNotificationId: Int? = null,
     onHighlightHandled: () -> Unit = {},
-    viewModel: AssetViewModel = hiltViewModel()
+    assetViewModel: AssetViewModel
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by assetViewModel.uiState.collectAsState()
 
     // Состояние фильтров храним на уровне экрана
     var filterState by remember { mutableStateOf(NotificationFilterState()) }
@@ -84,7 +80,7 @@ fun NotificationsScreen(
 
     // Загружаем уведомления по активу или сессии инвентаризации
     LaunchedEffect(assetId, sessionId) {
-        viewModel.loadNotifications(assetId = assetId, sessionId = sessionId)
+        assetViewModel.loadNotifications(assetId = assetId, sessionId = sessionId)
     }
 
     // Обработка прокрутки и включения подсветки
@@ -135,9 +131,9 @@ fun NotificationsScreen(
             isFiltersExpanded = isFiltersExpanded,
             onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
             onFilterStateChange = { filterState = it },
-            onRetry = { viewModel.loadNotifications(assetId = assetId) },
+            onRetry = { assetViewModel.loadNotifications(assetId = assetId) },
             onNotificationClick = { notification ->
-                viewModel.readNotification(notification.notificationId)
+                assetViewModel.readNotification(notification.notificationId)
                 when {
                     notification.assetId != null -> {
                         navController.navigate("asset_details/${notification.assetId}")

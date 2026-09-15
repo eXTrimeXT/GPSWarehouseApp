@@ -32,12 +32,12 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 @Composable
 fun MyPcsScreen(
     navController: NavHostController,
-    viewModel: AssetViewModel = hiltViewModel()
+    assetViewModel: AssetViewModel
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by assetViewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
-        viewModel.loadMyPcs()
+        assetViewModel.loadMyPcs()
     }
 
     Scaffold(
@@ -83,7 +83,7 @@ fun MyPcsScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = state.message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadMyPcs() }) { Text("Повторить") }
+                        Button(onClick = { assetViewModel.loadMyPcs() }) { Text("Повторить") }
                     }
                 }
             }

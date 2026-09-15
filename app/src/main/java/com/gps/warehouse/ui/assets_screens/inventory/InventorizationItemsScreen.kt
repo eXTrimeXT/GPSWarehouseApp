@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.ui.AssetViewModel
@@ -47,10 +46,10 @@ fun InventorizationItemsScreen(
     sessionId: Int,
     isCompleted: Boolean,
     navController: NavHostController,
-    viewModel: AssetViewModel = hiltViewModel(),
-    mainViewModel: MainViewModel = hiltViewModel()
+    assetViewModel: AssetViewModel,
+    mainViewModel: MainViewModel
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by assetViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val scannerManager = remember { ScannerManager(context) }
     val focusManager = LocalFocusManager.current
@@ -65,18 +64,25 @@ fun InventorizationItemsScreen(
     // Используем вынесенный парсер
     fun processScannedData(scannedData: String) {
         if (scannedData.isEmpty()) return
+
         if (isCompleted) {
             Toast.makeText(context, "Инвентаризация завершена. Изменения невозможны.", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val parsedSerial = InventoryQrParser.parseSerialNumber(scannedData)
-        if (parsedSerial != null) {
+        val scannedValue = InventoryQrParser.parseAny(scannedData)
+
+        if (scannedValue != null) {
             val currentState = uiState
             if (currentState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
-                val foundAsset = currentState.items.find { it.serialNumber == parsedSerial }
+                // Ищем актив по серийному номеру ИЛИ инвентарному номеру
+                val foundAsset = currentState.items.find {
+                    it.serialNumber.equals(scannedValue, ignoreCase = true) ||
+                            it.inventoryId.equals(scannedValue, ignoreCase = true)
+                }
+
                 if (foundAsset != null) {
-                    if (selectedAsset?.serialNumber == foundAsset.serialNumber) {
+                    if (selectedAsset?.assetId == foundAsset.assetId) {
                         selectedAsset = null
                         focusManager.clearFocus()
                     } else {
@@ -84,13 +90,17 @@ fun InventorizationItemsScreen(
                         inputQty = ""
                     }
                 } else {
-                    Toast.makeText(context, "Серийный номер '$parsedSerial' не найден в сессии", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Актив с номером '$scannedValue' не найден в сессии",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             } else {
                 Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
             }
         } else {
-            Toast.makeText(context, "Неверный формат QR-кода. Ожидается: ID&SerialNumber", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Не удалось распознать QR-код", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -123,7 +133,7 @@ fun InventorizationItemsScreen(
     }
 
     LaunchedEffect(sessionId) {
-        viewModel.loadInventorizationItems(sessionId)
+        assetViewModel.loadInventorizationItems(sessionId)
     }
 
     InventorizationItemsContent(
@@ -150,7 +160,7 @@ fun InventorizationItemsScreen(
             selectedAsset?.let { asset ->
                 val qty = inputQty.toIntOrNull() ?: 0
                 if (qty >= 0) {
-                    viewModel.checkInventorizationItem(sessionId, asset.assetId, qty)
+                    assetViewModel.checkInventorizationItem(sessionId, asset.assetId, qty)
                     selectedAsset = null
                     focusManager.clearFocus()
                 }
@@ -158,11 +168,11 @@ fun InventorizationItemsScreen(
         },
         onShowCompleteDialogChange = { showCompleteDialog = it },
         onCompleteSession = {
-            viewModel.completeInventorizationSession(sessionId)
+            assetViewModel.completeInventorizationSession(sessionId)
             navController.popBackStack()
         },
         onDetailsClick = { assetId -> navController.navigate("asset_details/$assetId") },
-        onRetry = { viewModel.loadInventorizationItems(sessionId) },
+        onRetry = { assetViewModel.loadInventorizationItems(sessionId) },
         onBackClick = { navController.popBackStack() }
     )
 }
@@ -435,15 +445,15 @@ private fun InventorizationItemsContentPreview() {
                 uiState = AssetViewModel.AssetUiState.InventorizationItemsLoaded(
                     sessionId = 42,
                     items = listOf(
-                        InventorizationItemDto(1, 42, 101, "serial_number", "Компьютер Dell", true, 10, 8),
-                        InventorizationItemDto(2, 42, 102, "serial_number","Монитор LG", false, 5, null),
-                        InventorizationItemDto(3, 42, 103, "serial_number","Клавиатура", false, 20, null)
+                        InventorizationItemDto(1, 42, 101, "serial_number", "inv_number", "Компьютер Dell", true, 10, 8),
+                        InventorizationItemDto(2, 42, 102, "serial_number","inv_number","Монитор LG", false, 5, null),
+                        InventorizationItemDto(3, 42, 103, "serial_number","inv_number","Клавиатура", false, 20, null)
                     )
                 ),
                 cameraScanEnabled = true,
                 onCameraScanClick = {},
                 isCompleted = false,
-                selectedAsset = InventorizationItemDto(1, 42, 101, "serial_number", "Компьютер Dell", true, 10, 8),
+                selectedAsset = InventorizationItemDto(1, 42, 101, "serial_number", "inv_number","Компьютер Dell", true, 10, 8),
                 inputQty = "",
                 showCompleteDialog = false,
                 quantityFocusRequester = FocusRequester.Default,

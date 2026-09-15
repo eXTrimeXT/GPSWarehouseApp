@@ -10,7 +10,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.ComponentsInfoDto
 import com.gps.warehouse.data.remote.assets_dto.CpuInfoDto
@@ -29,14 +28,14 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 fun MyPcDetailsScreen(
     pcId: Int,
     navController: NavHostController,
-    viewModel: AssetViewModel = hiltViewModel()
+    assetViewModel: AssetViewModel
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val myPcsList by viewModel.myPcsList.collectAsState()
+    val uiState by assetViewModel.uiState.collectAsState()
+    val myPcsList by assetViewModel.myPcsList.collectAsState()
 
     LaunchedEffect(Unit) {
         if (myPcsList.isEmpty()) {
-            viewModel.loadMyPcs()
+            assetViewModel.loadMyPcs()
         }
     }
 
@@ -77,7 +76,7 @@ fun MyPcDetailsScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(text = (uiState as AssetViewModel.AssetUiState.Error).message, color = MaterialTheme.colorScheme.error)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadMyPcs() }) { Text("Повторить") }
+                        Button(onClick = { assetViewModel.loadMyPcs() }) { Text("Повторить") }
                     }
                 }
             }

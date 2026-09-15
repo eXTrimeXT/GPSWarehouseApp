@@ -20,7 +20,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Devices
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.gps.warehouse.data.remote.assets_dto.BatteryInfo
 import com.gps.warehouse.data.remote.assets_dto.DeviceInfo
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
@@ -34,19 +33,15 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.isRecentWithinOneMinute
 import kotlinx.coroutines.delay
-import java.time.Duration
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.DateTimeParseException
 
 // SCREEN: Обертка с ViewModel и бизнес-логикой
 @Composable
 fun MobileDevicesScreen(
-    viewModel: MobileDevicesViewModel = hiltViewModel(),
+    mobileViewModel: MobileDevicesViewModel,
     onDeviceClick: (String) -> Unit,
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.mobileUiState.collectAsState()
+    val uiState by mobileViewModel.mobileUiState.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var debounceQuery by remember { mutableStateOf("") }
 
@@ -57,7 +52,7 @@ fun MobileDevicesScreen(
 
     LaunchedEffect(debounceQuery) {
         val query = debounceQuery.takeIf { it.isNotBlank() }
-        viewModel.loadDevices(serialNumber = query)
+        mobileViewModel.loadDevices(serialNumber = query)
     }
 
     // Делегируем отрисовку чистому UI-компоненту
@@ -66,7 +61,7 @@ fun MobileDevicesScreen(
         searchQuery = searchQuery,
         onSearchQueryChange = { searchQuery = it },
         onSearch = { debounceQuery = searchQuery },
-        onRetry = { viewModel.loadDevices(serialNumber = debounceQuery.takeIf { it.isNotBlank() }) },
+        onRetry = { mobileViewModel.loadDevices(serialNumber = debounceQuery.takeIf { it.isNotBlank() }) },
         onDeviceClick = onDeviceClick,
         onNavigateBack = onNavigateBack
     )

@@ -26,7 +26,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
@@ -46,10 +45,10 @@ fun AssetsByTypeScreen(
     assetTypeId: Int?,
     assetTypeName: String,
     navController: NavHostController,
-    viewModel: AssetViewModel = hiltViewModel(),
-    mainViewModel: MainViewModel = hiltViewModel()
+    assetViewModel: AssetViewModel,
+    mainViewModel: MainViewModel
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by assetViewModel.uiState.collectAsState()
     val context = LocalContext.current
     val scannerManager = remember { ScannerManager(context) }
     val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
@@ -70,32 +69,66 @@ fun AssetsByTypeScreen(
 
     LaunchedEffect(Unit) {
         Log.d(TAG, "Initial load: requesting asset statuses")
-        viewModel.loadAssetStatuses()
+        assetViewModel.loadAssetStatuses()
     }
+
+//    fun processScannedData(scannedData: String) {
+//        if (scannedData.isEmpty()) return
+//        Log.d(TAG, "processScannedData: $scannedData")
+//        val parseSerialNumber = InventoryQrParser.parseSerialNumber(scannedData)
+//        if (parseSerialNumber != null) {
+//            val currentState = uiState
+//            if (currentState is AssetViewModel.AssetUiState.AssetsLoadedPaginated) {
+//                val foundAsset = currentState.assets.find {
+//                    it.assetId.toString() == parseSerialNumber ||
+//                            it.serialNumber.equals(parseSerialNumber, ignoreCase = true) ||
+//                            it.inventoryId.equals(parseSerialNumber, ignoreCase = true)
+//                }
+//                if (foundAsset != null) {
+//                    Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
+//                    navController.navigate("asset_details/${foundAsset.assetId}")
+//                } else {
+//                    Toast.makeText(context, "Серийный номер '$parseSerialNumber' не найден в списке", Toast.LENGTH_SHORT).show()
+//                }
+//            } else {
+//                Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
+//            }
+//        } else {
+//            Toast.makeText(context, "Неверный формат QR-кода", Toast.LENGTH_SHORT).show()
+//        }
+//    }
 
     fun processScannedData(scannedData: String) {
         if (scannedData.isEmpty()) return
         Log.d(TAG, "processScannedData: $scannedData")
-        val parseSerialNumber = InventoryQrParser.parseSerialNumber(scannedData)
-        if (parseSerialNumber != null) {
+
+        val scannedValue = InventoryQrParser.parseAny(scannedData)
+
+        if (scannedValue != null) {
             val currentState = uiState
             if (currentState is AssetViewModel.AssetUiState.AssetsLoadedPaginated) {
+                // Ищем актив по серийному номеру ИЛИ инвентарному номеру
                 val foundAsset = currentState.assets.find {
-                    it.assetId.toString() == parseSerialNumber ||
-                            it.serialNumber.equals(parseSerialNumber, ignoreCase = true) ||
-                            it.inventoryId.equals(parseSerialNumber, ignoreCase = true)
+                    it.assetId.toString() == scannedValue ||
+                            it.serialNumber.equals(scannedValue, ignoreCase = true) ||
+                            it.inventoryId.equals(scannedValue, ignoreCase = true)
                 }
+
                 if (foundAsset != null) {
                     Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
                     navController.navigate("asset_details/${foundAsset.assetId}")
                 } else {
-                    Toast.makeText(context, "Серийный номер '$parseSerialNumber' не найден в списке", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Актив с номером '$scannedValue' не найден в списке",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             } else {
                 Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
             }
         } else {
-            Toast.makeText(context, "Неверный формат QR-кода", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Не удалось распознать QR-код", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -138,7 +171,7 @@ fun AssetsByTypeScreen(
         )
         isRequestInFlight = true
         try {
-            viewModel.loadAssetsByFilters(
+            assetViewModel.loadAssetsByFilters(
                 page = currentPage,
                 pageSize = 50,
                 name = searchQuery.takeIf { it.isNotBlank() },
@@ -175,7 +208,7 @@ fun AssetsByTypeScreen(
         uiState = uiState,
         cameraScanEnabled = cameraScanEnabled,
         onCameraScanClick = { showCameraDialog = true },
-        assetStatuses = viewModel.assetStatuses.collectAsState().value,
+        assetStatuses = assetViewModel.assetStatuses.collectAsState().value,
         searchQuery = searchQuery,
         onSearchQueryChange = {
             Log.d(TAG, "searchQuery changed: '$it'")

@@ -85,7 +85,7 @@ fun LoginScreenContent(
             modifier = Modifier.fillMaxWidth(),
             enabled = uiState !is MainViewModel.UiState.Loading
         )
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
             value = password,
@@ -107,7 +107,7 @@ fun LoginScreenContent(
             },
             enabled = uiState !is MainViewModel.UiState.Loading
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Button(
             onClick = onLoginClick,

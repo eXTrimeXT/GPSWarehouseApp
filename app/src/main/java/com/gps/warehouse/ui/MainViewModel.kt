@@ -104,11 +104,10 @@ class MainViewModel @Inject constructor(
     }
 
     val _uiState = MutableStateFlow<UiState>(UiState.Idle)
+    val uiState = _uiState.asStateFlow()
 
     // Свойство для фонового мониторинга сессии
     private val sessionMonitorScope = CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
-
-    val uiState = _uiState.asStateFlow()
 
     private var currentToken: String? = null
     private var currentLogin: String? = null // Сохраняем логин при успешном входе

@@ -87,7 +87,7 @@ class AssetViewModel @Inject constructor(
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
-    val uiState: StateFlow<AssetUiState> = _uiState.asStateFlow()
+    val uiState = _uiState.asStateFlow()
 
     private val sessionMonitorScope = CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
 
@@ -152,13 +152,12 @@ class AssetViewModel @Inject constructor(
 
     // Получить текущий токен
     suspend fun getToken(): String {
-        if (localStorage.getToken().isNullOrEmpty()){
-//            mainViewModel.logout()
+        val token = localStorage.getToken()
+        if (token.isNullOrEmpty()){
             _uiState.value = AssetUiState.SessionExpired
             throw Exception("Пользователь не авторизован. Автовыход.")
         }
-        return localStorage.getToken()
-            ?: throw Exception("Пользователь не авторизован")
+        return token
     }
 
     // Метод получения ПК текущего пользователя

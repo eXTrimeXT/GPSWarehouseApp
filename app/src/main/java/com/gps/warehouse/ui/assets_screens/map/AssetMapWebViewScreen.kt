@@ -18,10 +18,7 @@ import com.gps.warehouse.utils.Constants
 
 @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
 @Composable
-fun AssetMapWebViewScreen(
-    navController: NavController,
-    viewModel: AssetViewModel = hiltViewModel()
-) {
+fun AssetMapWebViewScreen(navController: NavController) {
     // URL бэкенда (map-fetch / map-crud)
     val mapUrl = "${Constants.ASSET_URL}map-crud"
 

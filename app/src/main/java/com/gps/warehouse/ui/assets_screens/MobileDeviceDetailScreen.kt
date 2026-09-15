@@ -35,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import com.gps.warehouse.ui.viewmodels.MobileDevicesViewModel
 import com.gps.warehouse.ui.viewmodels.UiState
@@ -47,13 +46,13 @@ import com.gps.warehouse.ui.components.ErrorStateView
 @Composable
 fun MobileDeviceDetailScreen(
     serialNumber: String,
-    viewModel: MobileDevicesViewModel = hiltViewModel(),
+    mobileViewModel: MobileDevicesViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val uiState by viewModel.detailUiState.collectAsState()
+    val uiState by mobileViewModel.detailUiState.collectAsState()
 
     LaunchedEffect(serialNumber) {
-        viewModel.loadDeviceDetails(serialNumber)
+        mobileViewModel.loadDeviceDetails(serialNumber)
     }
 
     when (val state = uiState) {
@@ -64,7 +63,7 @@ fun MobileDeviceDetailScreen(
         is UiState.Error -> {
             ErrorStateView(
                 message = state.message,
-                onRetry = { viewModel.loadDeviceDetails(serialNumber) },
+                onRetry = { mobileViewModel.loadDeviceDetails(serialNumber) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -75,7 +74,7 @@ fun MobileDeviceDetailScreen(
                 MobileDeviceDetailContent(
                     device = device,
                     onNavigateBack = onNavigateBack,
-                    onPlaySoundClick = { viewModel.playDeviceSound(device.serial_number) }
+                    onPlaySoundClick = { mobileViewModel.playDeviceSound(device.serial_number) }
                 )
             } else {
                 ErrorStateView(

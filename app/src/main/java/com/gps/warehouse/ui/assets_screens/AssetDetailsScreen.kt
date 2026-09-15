@@ -23,14 +23,12 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.*
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.EmployeeSearchDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
-import com.gps.warehouse.ui.gps_screens.warehouse.formatDate
 import com.gps.warehouse.utils.formatIsoToReadable
 
 // ==================== SCREEN: Логика + Навигация ====================
@@ -40,14 +38,14 @@ fun AssetDetailsScreen(
     assetId: Int? = null,
     materialId: String? = null,
     navController: NavHostController,
-    viewModel: AssetViewModel = hiltViewModel()
+    assetViewModel: AssetViewModel
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val assetStatuses by viewModel.assetStatuses.collectAsState()
-    val assetTypes by viewModel.assetTypes.collectAsState()
+    val uiState by assetViewModel.uiState.collectAsState()
+    val assetStatuses by assetViewModel.assetStatuses.collectAsState()
+    val assetTypes by assetViewModel.assetTypes.collectAsState()
 
     var showEmployeeSearchDialog by remember { mutableStateOf<UserType?>(null) }
-    val employees by viewModel.employees.collectAsState()
+    val employees by assetViewModel.employees.collectAsState()
 
     var isEditing by remember { mutableStateOf(false) }
     var showHistoryDialog by remember { mutableStateOf(false) }
@@ -60,7 +58,7 @@ fun AssetDetailsScreen(
 
     // Загружаем данные при открытии
     LaunchedEffect(assetId) {
-        firstLoadData(viewModel = viewModel, assetId = assetId, materialId = materialId)
+        firstLoadData(viewModel = assetViewModel, assetId = assetId, materialId = materialId)
     }
 
     // Инициализируем editState ТОЛЬКО когда asset + статусы + типы загружены
@@ -83,7 +81,7 @@ fun AssetDetailsScreen(
     // Диалог истории
     if (showHistoryDialog) {
         AssetHistoryDialog(
-            history = viewModel.assetHistory.collectAsState().value,
+            history = assetViewModel.assetHistory.collectAsState().value,
             onDismiss = { showHistoryDialog = false }
         )
     }
@@ -101,7 +99,7 @@ fun AssetDetailsScreen(
                 showEmployeeSearchDialog = null  // Закрываем диалог
             },
             onSearch = { employeeId, searchDepartment, page ->  // Добавляем page
-                viewModel.loadEmployees(
+                assetViewModel.loadEmployees(
                     page = page,
                     pageSize = 20,
                     employeeId = employeeId,
@@ -212,7 +210,7 @@ fun AssetDetailsScreen(
 
                     // 3. Безопасно вызываем обновление только если ID точно известен
                     if (idToUpdate != null) {
-                        viewModel.updateAsset(idToUpdate, state.toUpdate(original))
+                        assetViewModel.updateAsset(idToUpdate, state.toUpdate(original))
                     } else {
                         // Теоретически недостижимый блок, если сервер работает корректно,
                         // но он нужен компилятору Kotlin для гарантии безопасности типов.
@@ -231,12 +229,12 @@ fun AssetDetailsScreen(
         onBackClick = { navController.popBackStack() },
         onNavigateToNotifications = {assetId -> navController.navigate("asset_notifications/asset/$assetId")},
         onNavigateToParent = { parentId -> navController.navigate("asset_details/$parentId") },
-        onRetryClick = { firstLoadData(viewModel = viewModel, assetId = assetId, materialId = materialId) },
+        onRetryClick = { firstLoadData(viewModel = assetViewModel, assetId = assetId, materialId = materialId) },
 
         // onAddUser: открываем диалог поиска
         onAddUser = { userType ->
             showEmployeeSearchDialog = userType
-            viewModel.loadEmployees(page = 1, pageSize = 20)
+            assetViewModel.loadEmployees(page = 1, pageSize = 20)
         },
 
         // onRemoveUser: сохраняем какого пользователя надо удалить

@@ -14,11 +14,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
-import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
@@ -28,16 +26,16 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 @Composable
 fun InventorizationSessionsScreen(
     navController: NavHostController,
-    viewModel: AssetViewModel = hiltViewModel()
+    assetViewModel: AssetViewModel
 ) {
     // Отдельные StateFlow для данных и UI-статуса
-    val inventorizationSessions by viewModel.inventorizationSessions.collectAsState()
-    val assetTypes by viewModel.assetTypes.collectAsState()
-    val uiState by viewModel.inventorizationUiState.collectAsState() // Только статус
+    val inventorizationSessions by assetViewModel.inventorizationSessions.collectAsState()
+    val assetTypes by assetViewModel.assetTypes.collectAsState()
+    val uiState by assetViewModel.inventorizationUiState.collectAsState() // Только статус
 
     LaunchedEffect(Unit) {
-        viewModel.loadAssetTypes()
-        viewModel.loadInventorizationSessions()
+        assetViewModel.loadAssetTypes()
+        assetViewModel.loadInventorizationSessions()
     }
 
     var showCreateDialog by remember { mutableStateOf(false) }
@@ -55,10 +53,10 @@ fun InventorizationSessionsScreen(
         onShowCreateDialogChange = { showCreateDialog = it },
         onSelectedAssetTypeIdChange = { selectedAssetTypeId = it },
         onCreateSession = { assetTypeId ->
-            viewModel.startInventorizationSession(assetTypeId)
+            assetViewModel.startInventorizationSession(assetTypeId)
             showCreateDialog = false
         },
-        onRetry = { viewModel.loadInventorizationSessions() },
+        onRetry = { assetViewModel.loadInventorizationSessions() },
         onBackClick = { navController.popBackStack() }
     )
 }

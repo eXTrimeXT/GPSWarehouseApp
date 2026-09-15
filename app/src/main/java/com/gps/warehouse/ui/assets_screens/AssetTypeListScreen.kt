@@ -25,8 +25,8 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 @Composable
 fun AssetTypeListScreen(
     navController: NavHostController,
-    assetViewModel: AssetViewModel = hiltViewModel(),
-    mainViewModel: MainViewModel = hiltViewModel() // Добавляем для получения прав доступа
+    assetViewModel: AssetViewModel,
+    mainViewModel: MainViewModel // Добавляем для получения прав доступа
 ) {
     // Собираем состояния из ViewModel
     val uiState by assetViewModel.uiState.collectAsState()
