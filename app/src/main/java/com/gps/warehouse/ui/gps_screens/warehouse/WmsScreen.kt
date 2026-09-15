@@ -463,13 +463,13 @@ fun WmsContent(
                     if (allItems.size != lastLoadedCount) {
                         Log.d(
                             "WMS_PAGINATION_UI",
-                            "📦 Items changed: $lastLoadedCount -> ${allItems.size}. Reset localLoading=false"
+                            "Items changed: $lastLoadedCount -> ${allItems.size}. Reset localLoading=false"
                         )
                         lastLoadedCount = allItems.size
                         localLoading = false
                     }
                     if (!isLoadingMore && localLoading) {
-                        Log.d("WMS_PAGINATION_UI", "🔓 VM isLoadingMore=false, reset localLoading")
+                        Log.d("WMS_PAGINATION_UI", "VM isLoadingMore=false, reset localLoading")
                         localLoading = false
                     }
                 }
@@ -486,18 +486,18 @@ fun WmsContent(
                     }.collect { isNearEnd ->
                         Log.d(
                             "WMS_PAGINATION_UI",
-                            "📏 isNearEnd=$isNearEnd | localLoading=$localLoading | " +
+                            "isNearEnd=$isNearEnd | localLoading=$localLoading | " +
                                     "vmLoading=$currentIsLoading | hasMore=$currentHasMore | " +
                                     "items=$currentItemsCount"
                         )
                         if (isNearEnd && !localLoading && !currentIsLoading && currentHasMore) {
-                            Log.d("WMS_PAGINATION_UI", "✅ TRIGGERING onLoadMore!")
+                            Log.d("WMS_PAGINATION_UI", "TRIGGERING onLoadMore!")
                             localLoading = true
                             onLoadMore()
                         } else if (isNearEnd) {
                             Log.d(
                                 "WMS_PAGINATION_UI",
-                                "⏹️ isNearEnd but ignored (localLoading=$localLoading, " +
+                                "isNearEnd but ignored (localLoading=$localLoading, " +
                                         "vmLoading=$currentIsLoading, hasMore=$currentHasMore)"
                             )
                         }

@@ -91,8 +91,4 @@ open class MobileDevicesViewModel @Inject constructor(
             }
         }
     }
-
-    fun clearActionMessage() {
-        _actionMessage.value = null
-    }
 }

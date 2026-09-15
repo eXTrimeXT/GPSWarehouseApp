@@ -47,25 +47,21 @@ class MainViewModel @Inject constructor(
         data class Error(val message: String) : UiState()
         // ====================== Состояния ======================
 
-
         // ====================== Заказы ======================
         data class OrdersLoaded(val orders: List<OrderDto>) : UiState()
         data class ArchiveLoaded(val orders: List<OrderDto>) : UiState()
         // ====================== Заказы ======================
-
 
         // ====================== Материалы ======================
         data class MaterialsLoaded(val materials: List<MaterialDto>) : UiState()
         data class WarehouseMaterialsLoaded(val materials: List<WarehouseMaterialDto>) : UiState()
         // ====================== Материалы ======================
 
-
         // ====================== Профиль ======================
         data class ProfileLoaded(
             val profile: UserProfileResponse,
         ) : UiState()
         // ====================== Профиль ======================
-
 
         // ====================== Упаковка/Приемка материала ======================
         data class PackToWarehouseIdle(
