@@ -23,4 +23,5 @@ object Constants {
 
     // Константа в миллисекундах: час*минута*секунда*миллисекунда
     const val SESSION_DURATION_MS = 12 * 60 * 60 * 1000L // 12 часов
+//    const val SESSION_DURATION_MS = 30 * 1000L // 30 sec
 }

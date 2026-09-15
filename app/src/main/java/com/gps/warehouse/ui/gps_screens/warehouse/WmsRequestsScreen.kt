@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.NorthEast
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SouthWest
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,7 +36,7 @@ import com.gps.warehouse.ui.components.SearchAndFilterBar
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannerManager
 
-// ====================== 1. ЭКРАН (Владеет состоянием и ViewModel) ======================
+// ====================== ЭКРАН (Владеет состоянием и ViewModel) ======================
 @Composable
 fun WmsRequestsScreen(
     navController: NavHostController,
@@ -56,6 +57,9 @@ fun WmsRequestsScreen(
 
     // Состояние выбранного запроса для диалога
     var selectedRequest by remember { mutableStateOf<WmsRequestDto?>(null) }
+    var requestForConfirmation by remember { mutableStateOf<WmsRequestDto?>(null) }
+    var pendingActionType by remember { mutableStateOf<String?>(null) }
+    var isProcessingAction by remember { mutableStateOf(false) }
 
     // === Состояния для диалога результата (успех/ошибка) ===
     var showResultDialog by remember { mutableStateOf(false) }
@@ -70,8 +74,10 @@ fun WmsRequestsScreen(
     // === Обработка состояний успеха/ошибки от ViewModel ===
     LaunchedEffect(uiState) {
         when (val state = uiState) {
-            // Успешное действие с запросом
             is MainViewModel.UiState.WmsRequestAccepted -> {
+                isProcessingAction = false
+                pendingActionType = null
+                requestForConfirmation = null
                 isResultSuccess = true
                 resultMessage = state.message ?: "Запрос успешно принят"
                 showResultDialog = true
@@ -79,28 +85,29 @@ fun WmsRequestsScreen(
                 viewModel.resetWmsRequestActionState()
             }
             is MainViewModel.UiState.WmsRequestCancelled -> {
+                isProcessingAction = false
+                pendingActionType = null
+                requestForConfirmation = null
                 isResultSuccess = true
                 resultMessage = state.message ?: "Запрос отклонён"
                 showResultDialog = true
                 selectedRequest = null
                 viewModel.resetWmsRequestActionState()
             }
-            // Ошибка при действии с запросом
             is MainViewModel.UiState.Error -> {
-                // Показываем ошибку только если мы ждали результат действия с запросом
-                if (selectedRequest != null) {
+                if (selectedRequest != null && pendingActionType != null) {
+                    isProcessingAction = false
+                    pendingActionType = null
                     isResultSuccess = false
-                    // Очищаем сообщение от HTML-тегов, если они есть
                     resultMessage = state.message
-                        .replace(Regex("<[^>]*>"), "") // Удаляем все HTML-теги
+                        .replace(Regex("<[^>]*>"), "")
                         .trim()
-                        ?: "Неизвестная ошибка"
+                        .ifEmpty { "Неизвестная ошибка" }
                     showResultDialog = true
                     selectedRequest = null
                     viewModel.resetWmsRequestActionState()
                 }
             }
-            is MainViewModel.UiState.WmsRequestsLoaded -> Log.d("WmsRequestsScreen", "WmsRequestsLoaded")
             else -> {}
         }
     }
@@ -122,18 +129,50 @@ fun WmsRequestsScreen(
         }
     }
 
-    // === ДИАЛОГ ДЕЙСТВИЙ С ЗАПРОСОМ ===
-    if (selectedRequest != null) {
+    // === ДИАЛОГ ДЕЙСТВИЙ С ЗАПРОСОМ (первый шаг) ===
+    if (selectedRequest != null && pendingActionType == null) {
         WmsRequestActionDialog(
             request = selectedRequest!!,
             onDismiss = { selectedRequest = null },
             onConfirm = { actionType ->
-                selectedRequest?.let { req ->
-                    when (actionType) {
-                        "cancel" -> viewModel.cancelWmsRequest(req.id)
-                        "accept" -> viewModel.acceptWmsRequest(req.id)
-                    }
-                    // Диалог закроется после получения ответа от сервера
+                // Переносим запрос в "подтверждение" и закрываем первый диалог
+                requestForConfirmation = selectedRequest
+                pendingActionType = actionType
+                selectedRequest = null   // <-- ВАЖНО: закрываем первый диалог
+            }
+        )
+    }
+
+    // === ДИАЛОГ ПОДТВЕРЖДЕНИЯ (второй шаг) ===
+    if (requestForConfirmation != null && pendingActionType != null) {
+        ConfirmWmsRequestActionDialog(
+            request = requestForConfirmation!!,
+            actionType = pendingActionType!!,
+            isProcessing = isProcessingAction,
+            onDismiss = {
+                if (!isProcessingAction) {
+                    requestForConfirmation = null
+                    pendingActionType = null
+                }
+            },
+            onConfirm = {
+                val req = requestForConfirmation ?: return@ConfirmWmsRequestActionDialog
+                val action = pendingActionType ?: return@ConfirmWmsRequestActionDialog
+                isProcessingAction = true
+
+                val callback: (Boolean, String?) -> Unit = { success, message ->
+                    // Сбрасываем состояние ЗДЕСЬ, а не в LaunchedEffect(uiState)
+                    isProcessingAction = false
+                    pendingActionType = null
+                    requestForConfirmation = null
+                    isResultSuccess = success
+                    resultMessage = message ?: if (success) "Успешно" else "Ошибка"
+                    showResultDialog = true
+                }
+
+                when (action) {
+                    "cancel" -> viewModel.cancelWmsRequest(req.id, callback)
+                    "accept" -> viewModel.acceptWmsRequest(req.id, callback)
                 }
             }
         )
@@ -190,24 +229,13 @@ fun WmsRequestsScreen(
         onIsIncomingSelected = { selectedIsIncoming = it },
         isFiltersExpanded = isFiltersExpanded,
         onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
-        // Передаем выбранный запрос и колбэки
-        selectedRequest = selectedRequest,
-        onRequestClick = { selectedRequest = it },
-        onDismissDialog = { selectedRequest = null },
-        onConfirmDialog = { actionType ->
-            selectedRequest?.let { req ->
-                when (actionType) {
-                    "cancel" -> viewModel.cancelWmsRequest(req.id)
-                    "accept" -> viewModel.acceptWmsRequest(req.id)
-                }
-            }
-        },
+        onRequestClick = { selectedRequest = it },   // <-- только это
         onRetryClick = { viewModel.loadWmsRequests() },
         onBackClick = { navController.popBackStack() }
     )
 }
 
-// ====================== 2. ЧИСТЫЙ UI КОМПОНЕНТ ======================
+// ====================== ЧИСТЫЙ UI КОМПОНЕНТ ======================
 @Composable
 fun WmsRequestsContent(
     uiState: MainViewModel.UiState,
@@ -221,10 +249,10 @@ fun WmsRequestsContent(
     onIsIncomingSelected: (String?) -> Unit,
     isFiltersExpanded: Boolean,
     onToggleFilters: () -> Unit,
-    selectedRequest: WmsRequestDto?,
+//    selectedRequest: WmsRequestDto?,
     onRequestClick: (WmsRequestDto) -> Unit,
-    onDismissDialog: () -> Unit,
-    onConfirmDialog: (String) -> Unit,
+//    onDismissDialog: () -> Unit,
+//    onConfirmDialog: (String) -> Unit,
     onRetryClick: () -> Unit,
     onBackClick: () -> Unit
 ) {
@@ -244,9 +272,10 @@ fun WmsRequestsContent(
             searchQuery = searchQuery,
             onSearchQueryChange = onSearchQueryChange,
             isFiltersExpanded = isFiltersExpanded,
-            onToggleFilters = onToggleFilters
+            onToggleFilters = onToggleFilters,
+            hasActiveFilters = selectedStatus != null || selectedStorage != null || selectedIsIncoming != null
         ) {
-            // 1. Статус
+            // Статус
             Text("Статус: ", style = MaterialTheme.typography.labelMedium)
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 FilterChip(
@@ -270,7 +299,7 @@ fun WmsRequestsContent(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 2. Склад
+            // Склад
             if (uiState is MainViewModel.UiState.WmsRequestsLoaded) {
                 val storages =
                     uiState.requests.map { it.fromStorage.trim() }.filter { it.isNotEmpty() }
@@ -298,7 +327,7 @@ fun WmsRequestsContent(
             }
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 3. Тип запроса
+            // Тип запроса
             Text("Тип запроса: ", style = MaterialTheme.typography.labelMedium)
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -324,50 +353,6 @@ fun WmsRequestsContent(
                 )
             }
         }
-
-//        when (uiState) {
-//            is MainViewModel.UiState.Loading -> CustomLoadingView()
-//            is MainViewModel.UiState.Error -> ErrorStateView(message = uiState.message, onRetry = onRetryClick, modifier = Modifier.weight(1f))
-//            is MainViewModel.UiState.WmsRequestsLoaded -> {
-//                val allRequests = uiState.requests
-//                val filteredRequests = allRequests.filter { request ->
-//                    val statusMatch = selectedStatus == null || request.isActive == selectedStatus
-//                    val cleanStorage = request.fromStorage.trim()
-//                    val storageMatch = selectedStorage == null || cleanStorage == selectedStorage.trim()
-//                    val typeMatch = selectedIsIncoming == null || request.isIncoming == selectedIsIncoming
-//                    val query = searchQuery.lowercase()
-//                    val searchMatch = query.isEmpty() || request.material.lowercase().contains(query) || request.name.lowercase().contains(query)
-//                    statusMatch && storageMatch && typeMatch && searchMatch
-//                }
-//
-//                if (filteredRequests.isEmpty()) {
-//                    Box(modifier = Modifier
-//                        .fillMaxWidth()
-//                        .weight(1f), contentAlignment = Alignment.Center) {
-//                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-//                            Text("Нет запросов по фильтрам")
-//                            if (allRequests.isNotEmpty()) {
-//                                TextButton(onClick = { onSearchQueryChange(""); onStorageSelected(null); onStatusSelected(null); onIsIncomingSelected(null) }) {
-//                                    Text("Сбросить фильтры")
-//                                }
-//                            }
-//                        }
-//                    }
-//                } else {
-//                    LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-//                        item {
-//                            Spacer(modifier = Modifier.height(8.dp))
-//                            Text("Найдено: ${filteredRequests.size} из ${allRequests.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End))
-//                        }
-//                        items(filteredRequests.reversed()) { request ->
-//                            // Разрешаем клик только если статус в ожидании
-//                            WmsRequestCard(request = request, onClick = { if (request.isActive == "1") onRequestClick(request) })
-//                        }
-//                    }
-//                }
-//            }
-//            else -> CustomLoadingView()
-//        }
 
         when (uiState) {
             is MainViewModel.UiState.Loading -> CustomLoadingView()
@@ -408,19 +393,10 @@ fun WmsRequestsContent(
             }
             else -> {}
         }
-
-        // Диалог действий (перенесён выше, но оставляем для совместимости)
-        if (selectedRequest != null) {
-            WmsRequestActionDialog(
-                request = selectedRequest,
-                onDismiss = onDismissDialog,
-                onConfirm = onConfirmDialog
-            )
-        }
     }
 }
 
-// ====================== 3. КАРТОЧКА ЗАПРОСА ======================
+// ====================== КАРТОЧКА ЗАПРОСА ======================
 @Composable
 fun WmsRequestCard(request: WmsRequestDto, onClick: () -> Unit) {
     Card(
@@ -513,7 +489,7 @@ fun WmsRequestCard(request: WmsRequestDto, onClick: () -> Unit) {
     }
 }
 
-// ====================== 4. ДИАЛОГ ДЕЙСТВИЙ ======================
+// ====================== ДИАЛОГ ДЕЙСТВИЙ ======================
 @Composable
 fun WmsRequestActionDialog(
     request: WmsRequestDto,
@@ -557,8 +533,123 @@ fun WmsRequestActionDialog(
     )
 }
 
-// ====================== 5. ПРЕВЬЮ ======================
-@Preview(showBackground = true, showSystemUi = true, name = "WmsRequests - Фильтры активны", device = "spec:width=380dp,height=1400dp")
+// ================ ДИАЛОГ ПОДТВЕРЖДЕНИЯ ДЕЙСТВИЯ ================
+@Composable
+fun ConfirmWmsRequestActionDialog(
+    request: WmsRequestDto,
+    actionType: String,                     // "accept" или "cancel"
+    isProcessing: Boolean,                  // идёт ли запрос прямо сейчас
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val isAccept = actionType == "accept"
+    val actionLabel = if (isAccept) "принять" else "отклонить"
+    val actionLabelRu = if (isAccept) "Принять" else "Отклонить"
+    val accentColor = if (isAccept) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.error
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isProcessing) onDismiss() },
+        icon = {
+            Icon(
+                imageVector = if (isAccept) Icons.Default.CheckCircle else Icons.Default.Warning,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = "Подтверждение",
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Вы уверены, что хотите $actionLabel этот запрос?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = request.material,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = request.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "${request.fromStorage} → ${request.toStorage}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            text = "Количество: ${request.qty}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                if (!isAccept) {
+                    Text(
+                        text = "Отклонение необратимо. Запрос будет закрыт без навсегда.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isProcessing,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = accentColor
+                ),
+                modifier = Modifier.height(48.dp)
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(actionLabelRu)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isProcessing,
+                modifier = Modifier.height(48.dp)
+            ) {
+                Text("Отмена")
+            }
+        }
+    )
+}
+
+// ====================== ПРЕВЬЮ ======================
+@Preview(showBackground = true, showSystemUi = true, name = "WmsRequests - Фильтры активны", device = "spec:width=380dp,height=1000dp")
 @Composable
 fun WmsRequestsPreviewWithFilters() {
     val fakeRequests = listOf(
@@ -589,10 +680,10 @@ fun WmsRequestsPreviewWithFilters() {
                 onIsIncomingSelected = {},
                 isFiltersExpanded = true,
                 onToggleFilters = {},
-                selectedRequest = fakeRequests.first(),
+//                selectedRequest = fakeRequests.first(),
                 onRequestClick = {},
-                onDismissDialog = {},
-                onConfirmDialog = {},
+//                onDismissDialog = {},
+//                onConfirmDialog = {},
                 onRetryClick = {},
                 onBackClick = {}
             )

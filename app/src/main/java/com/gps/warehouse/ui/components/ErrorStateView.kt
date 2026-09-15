@@ -36,7 +36,7 @@ fun ErrorStateView(
         // Сбрасываем таймер при каждом новом сообщении об ошибке
         secondsLeft = secondsDelay
 
-        // Отсчет времени
+        // Отсчет времени (каждые 10 сек)
         while (secondsLeft > 0) {
             delay(1000L)
             secondsLeft--

@@ -1,9 +1,8 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
 import android.annotation.SuppressLint
+import android.util.Log
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,7 +22,6 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Warehouse
 import androidx.compose.material3.*
@@ -31,7 +29,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
@@ -53,9 +50,6 @@ import com.gps.warehouse.ui.components.SearchAndFilterBar
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannedData
 import com.gps.warehouse.utils.ScannerManager
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
 
 // ====================== ЭКРАН: ЛОГИКА ======================
 @Composable
@@ -69,6 +63,7 @@ fun WmsScreen(
 
     // === Пагинация и фильтры ===
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
+    val hasMore by viewModel.hasMoreWms.collectAsState()
 
     // === Состояния для редактирования ===
     var showEditDialog by remember { mutableStateOf(false) }
@@ -179,7 +174,6 @@ fun WmsScreen(
         selectedStorageFilterId = selectedStorageFilterId,
         onStorageFilterSelected = { selectedStorageFilterId = it },
         isFiltersExpanded = isFiltersExpanded,
-        showDialogSuccess = showDialogSuccess,
         onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
         onBackClick = { navController.popBackStack() },
         onNavigateToRequests = { navController.navigate("wms_requests") },
@@ -193,43 +187,6 @@ fun WmsScreen(
             showMoveDialog = true
         },
         showMoveDialog = showMoveDialog,
-        itemToMove = itemToMove,
-        moveQty = moveQty,
-        onMoveQtyChange = { moveQty = it },
-        targetStorage = targetStorage,
-        onTargetStorageChange = { targetStorage = it },
-        dialogError = dialogError,
-        onClearDialogError = { dialogError = null },
-        onDismissMoveDialog = {
-            if (!showDialogSuccess && uiState !is MainViewModel.UiState.Loading) {
-                showMoveDialog = false
-                itemToMove = null
-                dialogError = null
-            }
-        },
-        onConfirmMove = { item, qtyStr, toStorage ->
-            val qty = qtyStr.toDoubleOrNull()?.toInt() ?: 0
-            if (qty > 0 && toStorage.isNotEmpty()) {
-                if (showEditDialog && itemToEdit?.id == item.id) {
-                    moveAfterEdit = true
-                    pendingMoveTarget = toStorage
-                    pendingMoveQty = qtyStr
-                } else {
-                    dialogError = null
-                    showDialogSuccess = false
-                    viewModel.moveWmsMaterial(item.material, item.storage, toStorage, qty)
-                }
-            }
-        },
-        onSuccessAcknowledge = {
-            showMoveDialog = false
-            showDialogSuccess = false
-            itemToMove = null
-            moveQty = "1"
-            targetStorage = ""
-            Toast.makeText(context, "Перемещение успешно", Toast.LENGTH_SHORT).show()
-            viewModel.loadWmsData()
-        },
         showOnlyNonZeroQty = showOnlyNonZeroQty,
         onShowOnlyNonZeroQtyChange = { showOnlyNonZeroQty = it },
         onResetFilters = {
@@ -240,6 +197,7 @@ fun WmsScreen(
         },
         availableWarehouses = availableWarehouses,
         isLoadingMore = isLoadingMore,
+        hasMore = hasMore,
         onLoadMore = { viewModel.loadMoreWmsData() },
     )
 
@@ -247,7 +205,7 @@ fun WmsScreen(
     if (showEditDialog && itemToEdit != null) {
         EditWmsItemDialog(
             item = itemToEdit!!,
-            currentStorageId = selectedStorageFilterId ?: itemToEdit!!.storageId.toString().orEmpty(),
+            currentStorageId = selectedStorageFilterId ?: itemToEdit!!.storageId.toString(),
             topologies = topologies,
             isLoadingTopologies = isLoadingTopologies,
             initialPosition = editPosition,
@@ -397,28 +355,18 @@ fun WmsContent(
     selectedStorageFilterId: String?,
     onStorageFilterSelected: (String?) -> Unit,
     isFiltersExpanded: Boolean,
-    showDialogSuccess: Boolean,
     onToggleFilters: () -> Unit,
     onBackClick: () -> Unit,
     onNavigateToRequests: () -> Unit,
     onRetryClick: () -> Unit,
     onItemClick: (WmsItemDto) -> Unit,
     showMoveDialog: Boolean,
-    itemToMove: WmsItemDto?,
-    moveQty: String,
-    onMoveQtyChange: (String) -> Unit,
-    targetStorage: String,
-    onTargetStorageChange: (String) -> Unit,
-    dialogError: String?,
-    onClearDialogError: () -> Unit,
-    onDismissMoveDialog: () -> Unit,
-    onConfirmMove: (WmsItemDto, String, String) -> Unit,
-    onSuccessAcknowledge: () -> Unit,
     showOnlyNonZeroQty: Boolean,
     onShowOnlyNonZeroQtyChange: (Boolean) -> Unit,
     onResetFilters: () -> Unit,
     availableWarehouses: List<WarehousePermissionDto>,
     isLoadingMore: Boolean,
+    hasMore: Boolean,
     onLoadMore: () -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -427,7 +375,11 @@ fun WmsContent(
             text = "Склады",
             actionButton = {
                 IconButton(onClick = onNavigateToRequests) {
-                    Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = "Запросы", tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.AutoMirrored.Filled.ListAlt,
+                        contentDescription = "Запросы",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         )
@@ -436,7 +388,8 @@ fun WmsContent(
             searchQuery = searchQuery,
             onSearchQueryChange = onSearchQueryChange,
             isFiltersExpanded = isFiltersExpanded,
-            onToggleFilters = onToggleFilters
+            onToggleFilters = onToggleFilters,
+            hasActiveFilters = selectedStorageFilterId != null || showOnlyNonZeroQty
         ) {
             Text("Склад: ", style = MaterialTheme.typography.labelMedium)
             Row(
@@ -465,12 +418,20 @@ fun WmsContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Только с остатком", style = MaterialTheme.typography.bodyMedium)
-                Checkbox(checked = showOnlyNonZeroQty, onCheckedChange = onShowOnlyNonZeroQtyChange)
+                Checkbox(
+                    checked = showOnlyNonZeroQty,
+                    onCheckedChange = onShowOnlyNonZeroQtyChange
+                )
             }
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
                 TextButton(
                     onClick = onResetFilters,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
                     Icon(Icons.Default.Clear, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
@@ -483,69 +444,74 @@ fun WmsContent(
             is MainViewModel.UiState.Loading -> {
                 if (!showMoveDialog) CustomLoadingView()
             }
-//            is MainViewModel.UiState.WmsLoaded -> {
-//                val allItems = uiState.items
-//                val lazyListState = rememberLazyListState()
-//
-//                LaunchedEffect(lazyListState) {
-//                    snapshotFlow { lazyListState.layoutInfo }
-//                        .map { info ->
-//                            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-//                            last >= info.totalItemsCount - 15
-//                        }
-//                        .distinctUntilChanged()
-//                        .filter { it }
-//                        .collect {
-//                            // viewModel.loadMoreWmsData()
-//                        }
-//                }
-//
-//                Column(modifier = Modifier.weight(1f)) {
-//                    Text(
-//                        text = "Загружено: ${allItems.size} материалов",
-//                        style = MaterialTheme.typography.bodySmall,
-//                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                        modifier = Modifier
-//                            .align(Alignment.Start)
-//                            .padding(horizontal = 16.dp, vertical = 4.dp)
-//                    )
-//                    LazyColumn(
-//                        modifier = Modifier.weight(1f),
-//                        contentPadding = PaddingValues(16.dp),
-//                        verticalArrangement = Arrangement.spacedBy(8.dp),
-//                        state = lazyListState
-//                    ) {
-//                        items(allItems) { item ->
-//                            WmsItemCard(item = item, onClick = { onItemClick(item) })
-//                        }
-//                    }
-//                }
-//            }
+
             is MainViewModel.UiState.WmsLoaded -> {
                 val allItems = uiState.items
                 val lazyListState = rememberLazyListState()
 
-                // Триггер пагинации: когда пользователь доскроллил до конца
-                LaunchedEffect(lazyListState, isLoadingMore) {
-                    snapshotFlow { lazyListState.layoutInfo }
-                        .map { info ->
-                            val lastVisibleIndex = info.visibleItemsInfo.lastOrNull()?.index ?: -1
-                            lastVisibleIndex >= info.totalItemsCount - 5 // За 5 элементов до конца
+                // Локальные флаги, синхронизированные с реальной загрузкой
+                var lastLoadedCount by remember { mutableIntStateOf(0) }
+                var localLoading by remember { mutableStateOf(false) }
+
+                // Актуальные значения, читаемые из snapshotFlow
+                val currentHasMore by rememberUpdatedState(hasMore)
+                val currentIsLoading by rememberUpdatedState(isLoadingMore)
+                val currentItemsCount by rememberUpdatedState(allItems.size)
+
+                // Сброс localLoading: либо пришло больше элементов, либо VM закончил загрузку
+                LaunchedEffect(allItems.size, isLoadingMore) {
+                    if (allItems.size != lastLoadedCount) {
+                        Log.d(
+                            "WMS_PAGINATION_UI",
+                            "📦 Items changed: $lastLoadedCount -> ${allItems.size}. Reset localLoading=false"
+                        )
+                        lastLoadedCount = allItems.size
+                        localLoading = false
+                    }
+                    if (!isLoadingMore && localLoading) {
+                        Log.d("WMS_PAGINATION_UI", "🔓 VM isLoadingMore=false, reset localLoading")
+                        localLoading = false
+                    }
+                }
+
+                // Триггер пагинации. БЕЗ distinctUntilChanged, БЕЗ uiState в ключах.
+                LaunchedEffect(lazyListState) {
+                    snapshotFlow {
+                        val layoutInfo = lazyListState.layoutInfo
+                        val visibleItems = layoutInfo.visibleItemsInfo
+                        if (visibleItems.isEmpty()) return@snapshotFlow false
+                        val lastVisibleIndex = visibleItems.last().index
+                        val totalItems = layoutInfo.totalItemsCount
+                        lastVisibleIndex >= totalItems - 5
+                    }.collect { isNearEnd ->
+                        Log.d(
+                            "WMS_PAGINATION_UI",
+                            "📏 isNearEnd=$isNearEnd | localLoading=$localLoading | " +
+                                    "vmLoading=$currentIsLoading | hasMore=$currentHasMore | " +
+                                    "items=$currentItemsCount"
+                        )
+                        if (isNearEnd && !localLoading && !currentIsLoading && currentHasMore) {
+                            Log.d("WMS_PAGINATION_UI", "✅ TRIGGERING onLoadMore!")
+                            localLoading = true
+                            onLoadMore()
+                        } else if (isNearEnd) {
+                            Log.d(
+                                "WMS_PAGINATION_UI",
+                                "⏹️ isNearEnd but ignored (localLoading=$localLoading, " +
+                                        "vmLoading=$currentIsLoading, hasMore=$currentHasMore)"
+                            )
                         }
-                        .distinctUntilChanged()
-                        .filter { it }
-                        .collect {
-                            if (!isLoadingMore) onLoadMore()
-                        }
+                    }
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
-                    // Заголовок с количеством
                     Text(
                         text = "Загружено: ${allItems.size} материалов",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.Start).padding(horizontal = 16.dp, vertical = 4.dp)
+                        modifier = Modifier
+                            .align(Alignment.Start)
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
                     )
 
                     LazyColumn(
@@ -554,16 +520,17 @@ fun WmsContent(
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         state = lazyListState
                     ) {
-                        // Элементы списка
                         items(allItems) { item ->
                             WmsItemCard(item = item, onClick = { onItemClick(item) })
                         }
 
-                        // Индикатор загрузки (футер)
-                        if (isLoadingMore) {
+                        // Индикатор загрузки внизу
+                        if (isLoadingMore || localLoading) {
                             item {
                                 Box(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
@@ -571,14 +538,16 @@ fun WmsContent(
                             }
                         }
 
-                        // Сообщение "Всё загружено"
-                        if (allItems.isNotEmpty()) {
+                        // Сообщение "всё загружено" — только когда реально нет следующей страницы
+                        if (!hasMore && allItems.isNotEmpty()) {
                             item {
                                 Text(
                                     text = "• Все материалы загружены •",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp),
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -586,6 +555,7 @@ fun WmsContent(
                     }
                 }
             }
+
             is MainViewModel.UiState.Error -> {
                 if (!showMoveDialog) {
                     ErrorStateView(
@@ -597,27 +567,6 @@ fun WmsContent(
             }
             else -> {}
         }
-    }
-
-    // Диалог перемещения
-    if (showMoveDialog && itemToMove != null) {
-        MoveMaterialDialog(
-            itemToMove = itemToMove,
-            moveQty = moveQty,
-            targetStorage = targetStorage,
-            isLoading = uiState is MainViewModel.UiState.Loading && !showDialogSuccess,
-            isSuccess = showDialogSuccess,
-            errorMessage = dialogError,
-            onEditClick = { item -> onItemClick(item) },
-            onDismissRequest = onDismissMoveDialog,
-            onQtyChange = onMoveQtyChange,
-            onTargetStorageChange = onTargetStorageChange,
-            onClearError = onClearDialogError,
-            onConfirmMove = { item, qtyStr, toStorage ->
-                onConfirmMove(item, qtyStr, toStorage)
-            },
-            onSuccessAcknowledge = onSuccessAcknowledge
-        )
     }
 }
 
@@ -643,7 +592,7 @@ fun WmsItemCard(item: WmsItemDto, onClick: () -> Unit) {
                 verticalAlignment = Alignment.Top
             ) {
                 Text(
-                    text = item.material.orEmpty(),
+                    text = item.material,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
@@ -710,7 +659,7 @@ fun WmsItemCard(item: WmsItemDto, onClick: () -> Unit) {
 
             // === Название материала ===
             Text(
-                text = item.name.orEmpty().ifBlank { "Без названия" },
+                text = item.name.ifBlank { "Без названия" },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
@@ -735,7 +684,7 @@ fun WmsItemCard(item: WmsItemDto, onClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = item.storage.orEmpty().ifBlank { "—" },
+                        text = item.storage.ifBlank { "—" },
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -755,7 +704,7 @@ fun WmsItemCard(item: WmsItemDto, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.surfaceContainerHigh
                     ) {
                         Text(
-                            text = item.position.orEmpty().ifBlank { "—" },
+                            text = item.position.ifBlank { "—" },
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1135,7 +1084,7 @@ fun MoveMaterialDialog(
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(horizontalArrangement = Arrangement.SpaceBetween) {
                                 Text("Со склада:", style = MaterialTheme.typography.labelSmall)
-                                Text(itemToMove.storage.orEmpty(), fontWeight = FontWeight.Bold)
+                                Text(itemToMove.storage, fontWeight = FontWeight.Bold)
                             }
                             Spacer(Modifier.height(4.dp))
                             Row(horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1166,7 +1115,7 @@ fun MoveMaterialDialog(
                         Column(modifier = Modifier.padding(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = itemToMove.material.orEmpty(),
+                                    text = itemToMove.material,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold,
                                     maxLines = 1,
@@ -1408,23 +1357,12 @@ fun WmsPreviewLoaded() {
                 selectedStorageFilterId = null,
                 onStorageFilterSelected = {},
                 isFiltersExpanded = false,
-                showDialogSuccess = true,
                 onToggleFilters = {},
                 onBackClick = {},
                 onNavigateToRequests = {},
                 onRetryClick = {},
                 onItemClick = {},
                 showMoveDialog = false,
-                itemToMove = null,
-                moveQty = "1",
-                onMoveQtyChange = {},
-                targetStorage = "",
-                onTargetStorageChange = {},
-                dialogError = null,
-                onClearDialogError = {},
-                onDismissMoveDialog = {},
-                onConfirmMove = { _, _, _ -> },
-                onSuccessAcknowledge = {},
                 showOnlyNonZeroQty = true,
                 onShowOnlyNonZeroQtyChange = {},
                 onResetFilters = {},
@@ -1433,6 +1371,7 @@ fun WmsPreviewLoaded() {
                     WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0")
                 ),
                 isLoadingMore = true,
+                hasMore = true,
                 onLoadMore = {}
             )
         }

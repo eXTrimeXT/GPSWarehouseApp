@@ -2,6 +2,7 @@ package com.gps.warehouse.ui
 
 import android.util.Base64
 import android.util.Log
+import androidx.compose.runtime.currentRecomposeScope
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.LocalStorage
@@ -120,13 +121,17 @@ class MainViewModel @Inject constructor(
     var currentInventoryOrder: String? = null
     var currentInventoryWarehouse: String? = null
 
-    // ================== Пагинация ==================
+    // ================== Пагинация WMS ==================
     private var wmsCurrentPage = 1
     private var wmsTotalPages = 1
     private var totalMaterialsCount = 0
 
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMoreWms = MutableStateFlow(false)
+    val hasMoreWms: StateFlow<Boolean> = _hasMoreWms.asStateFlow()
+    // ====================================================
 
     // Реактивное свойство для UI
     val canLoadMore: Boolean get() = wmsCurrentPage < wmsTotalPages && !_isLoadingMore.value
@@ -209,7 +214,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-
     /**
      * Проверяет, валидность времени сессии по токену
      *
@@ -279,18 +283,41 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Метод для сброса состояния (например, при уходе с экрана)
+    /**
+    * Метод для сброса состояния (например, при уходе с экрана)
+     */
     fun resetStateToIdle() {
         _uiState.value = UiState.Idle
+    }
+
+    /**
+     * Сбрасывает состояние после успешного списания
+     */
+    fun resetWriteOffState() {
+        if (_uiState.value is UiState.WmsWriteOffSuccess) {
+            _uiState.value = UiState.Idle
+        }
+    }
+
+    /**
+     * Сбрасывает состояние после успешной приемки на складе
+     */
+    fun resetReceiveState() {
+        if (_uiState.value is UiState.WmsReceiveSuccess) {
+            _uiState.value = UiState.Idle
+        }
     }
 
     fun logout() {
         viewModelScope.launch {
             localStorage.clearToken()
             currentToken = null
-            _uiState.value = UiState.Idle
+//            _uiState.value = UiState.Idle
+            _uiState.value = UiState.SessionExpired
         }
         stopGlobalNotifications()
+        Log.e("", "Токен отсутствует. Автовыход.")
+//        throw Exception("Пользователь не авторизован")
     }
 
     // Вызываем этот метод при успешной авторизации
@@ -422,50 +449,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Обновление материала
-//    fun updateWmsItem(
-//        item: WmsItemDto,
-//        newPosition: String,        // Выбранная позиция (текст)
-//        newPositionId: String,      // ID позиции
-//        newMin: Int,                // Новый мин. остаток
-//        newMax: Int,                // Новый макс. остаток
-//        onSuccess: () -> Unit,
-//        onError: (String) -> Unit
-//    ) {
-//        viewModelScope.launch {
-//            try {
-//                val token = getTokenOrThrow()
-//                val request = UpdateWmsRequest(
-//                    id = item.id,
-//                    material = item.material,
-//                    max = newMax,
-//                    min = newMin,
-//                    positionId = newPositionId,
-//                    position = newPosition,  // Текст для поиска на этикетках
-//                    storageId = item.storageId.toString(),
-//                    storage = item.storage,
-//                    price = item.price.toString(),
-//                    qty = item.qty.toInt(),
-//                    sapA = item.sapA,
-//                    name = item.name,
-//                    token = token
-//                )
-//                val responseBody = apiService.updateWmsItem(request)
-//                val responseString = responseBody.toString().trim()
-//
-//                if (responseString.contains("success", ignoreCase = true) ||
-//                    responseString.contains("ok", ignoreCase = true)) {
-//                    onSuccess()
-//                } else {
-//                    onError(responseString.ifEmpty { "Ошибка сервера" })
-//                }
-//            } catch (e: Exception) {
-//                Log.e("MainViewModel", "Ошибка обновления материала", e)
-//                onError(e.message ?: "Ошибка сети")
-//            }
-//        }
-//    }
-
     /**
      * Обновление материала с передачей всех изменяемых полей
      */
@@ -516,36 +499,6 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    // Комбинированное действие: изменить + переместить
-//    fun updateAndMoveWmsItem(
-//        item: WmsItemDto,
-//        newPosition: String,
-//        newPositionId: String,
-//        targetStorage: String,
-//        moveQty: Int,
-//        onSuccess: () -> Unit,
-//        onError: (String) -> Unit
-//    ) {
-//        // Сначала обновляем материал
-//        updateWmsItem(
-//            item = item,
-//            newPosition = newPosition,
-//            newPositionId = newPositionId,
-//            onSuccess = {
-//                // После успешного обновления — перемещаем
-//                moveWmsMaterial(
-//                    material = item.material,
-//                    fromStorage = item.storage,
-//                    toStorage = targetStorage,
-//                    qty = moveQty
-//                )
-//                // Успех перемещения обработается через UiState.WmsMoveSuccess
-//                onSuccess()
-//            },
-//            onError = onError
-//        )
-//    }
-
     /**
      * Извлекает логин из JWT токена
      */
@@ -595,7 +548,10 @@ class MainViewModel @Inject constructor(
     /**
      * Отменяет исходящий запрос или отклоняет входящий
      */
-    fun cancelWmsRequest(requestId: String) {
+    fun cancelWmsRequest(
+        requestId: String,
+        onComplete: (Boolean, String?) -> Unit
+    ) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {
@@ -605,13 +561,16 @@ class MainViewModel @Inject constructor(
 
                 if (response.status == "success" || response.status == "ok") {
                     _uiState.value = UiState.WmsRequestCancelled(response.message ?: "Запрос отменён")
-                    loadWmsRequests() // Обновляем список
+                    onComplete(true, response.message ?: "Запрос отменён")
                 } else {
                     _uiState.value = UiState.Error(response.message ?: "Ошибка отмены запроса")
+                    onComplete(false, response.message ?: "Ошибка отмены запроса")
                 }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка отмены запроса: $e")
-                _uiState.value = UiState.Error(e.message ?: "Ошибка сети")
+                val msg = e.message ?: "Ошибка сети"
+                _uiState.value = UiState.Error(msg)
+                onComplete(false, msg)
             }
         }
     }
@@ -619,7 +578,10 @@ class MainViewModel @Inject constructor(
     /**
      * Принимает входящий складской запрос
      */
-    fun acceptWmsRequest(requestId: String) {
+    fun acceptWmsRequest(
+        requestId: String,
+        onComplete: (Boolean, String?) -> Unit
+    ) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {
@@ -629,9 +591,11 @@ class MainViewModel @Inject constructor(
 
                 if (response.status == "success" || response.status == "ok") {
                     _uiState.value = UiState.WmsRequestAccepted(response.message ?: "Запрос принят")
-                    loadWmsRequests() // Обновляем список
+                    onComplete(true, response.message ?: "Запрос отменён")
                 } else {
                     _uiState.value = UiState.Error(response.message ?: "Ошибка принятия запроса")
+                    onComplete(false, response.message ?: "Ошибка принятия запроса")
+
                 }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка принятия запроса: $e")
@@ -652,8 +616,19 @@ class MainViewModel @Inject constructor(
 
     fun loadWmsData(page: Int = 1, append: Boolean = false) {
         viewModelScope.launch {
-            // Не ставим Loading если это подгрузка (append), чтобы не мерцал UI
-            if (page == 1 && !append) _uiState.value = UiState.Loading
+            Log.d(
+                "WMS_PAGINATION",
+                "loadWmsData -> page=$page, append=$append, " +
+                        "search='$currentWmsSearchQuery', storage='$currentStorageFilterId', " +
+                        "hideZero=$currentHideZeroQty"
+            )
+
+            if (page == 1 && !append) {
+                _uiState.value = UiState.Loading
+            }
+            if (append) {
+                _isLoadingMore.value = true
+            }
 
             try {
                 val token = getTokenOrThrow()
@@ -667,45 +642,81 @@ class MainViewModel @Inject constructor(
                     limit = 50
                 )
 
-                val response = apiService.getWmsData(request)
+                val response: WmsResponseDto = apiService.getWmsData(request)
 
-                if (response.data.isNotEmpty() || response.page == 1) {
-                    val newItems = response.data
+                Log.d(
+                    "WMS_PAGINATION",
+                    "Response: page=${response.page}, totalPages=${response.totalPages}, " +
+                            "totalCount=${response.totalCount}, items=${response.data.size}"
+                )
 
-                    // Если это первая страница — заменяем список, если подгрузка — добавляем
-                    val updatedList = if (page == 1 || !append) {
-                        newItems
-                    } else {
-                        // Для append нужно получить текущий список из состояния
-                        val currentState = _uiState.value
-                        if (currentState is UiState.WmsLoaded) {
-                            currentState.items + newItems
-                        } else {
-                            newItems
-                        }
-                    }
+                // === Обновляем состояние пагинации из ответа ===
+                // ВАЖНО: page_qty в WmsResponseDto = ОБЩЕЕ ЧИСЛО СТРАНИЦ (см. комментарий в DTO)
+                wmsCurrentPage = response.page
+                wmsTotalPages = response.totalPages
+                totalMaterialsCount = response.totalCount
 
-                    _uiState.value = UiState.WmsLoaded(
-                        items = updatedList
-                    )
+                val hasNext = response.page < response.totalPages
+                _hasMoreWms.value = hasNext
+
+                Log.d(
+                    "WMS_PAGINATION",
+                    "Pagination state: currentPage=$wmsCurrentPage, " +
+                            "totalPages=$wmsTotalPages, total=$totalMaterialsCount, hasNext=$hasNext"
+                )
+
+                // === Объединяем списки ===
+                val currentState = _uiState.value
+                val oldItems = if (append && currentState is UiState.WmsLoaded) {
+                    currentState.items
+                } else {
+                    emptyList()
                 }
-                // НЕ добавляем else { _uiState.value = UiState.Error(...) } для пустого списка!
+
+                val updatedList = oldItems + response.data
+
+                _uiState.value = UiState.WmsLoaded(items = updatedList)
+                Log.d(
+                    "WMS_PAGINATION",
+                    "WmsLoaded updated: oldItems=${oldItems.size}, " +
+                            "newItems=${response.data.size}, total=${updatedList.size}"
+                )
 
             } catch (e: Exception) {
-                // Ошибка — только если реально упал запрос (сеть, 401, 500 и т.д.)
-                Log.e("MainViewModel", "Ошибка загрузки WMS", e)
-                _uiState.value = UiState.Error(e.message ?: "Неизвестная ошибка")
+                Log.e("WMS_PAGINATION", "Ошибка загрузки WMS", e)
+                // При ошибке пагинации НЕ стираем список, показываем ошибку только для первой страницы
+                if (page == 1 && !append) {
+                    _uiState.value = UiState.Error(e.message ?: "Неизвестная ошибка")
+                }
+            } finally {
+                if (append) {
+                    _isLoadingMore.value = false
+                    Log.d("WMS_PAGINATION", "isLoadingMore=false")
+                }
             }
         }
     }
 
     fun loadMoreWmsData() {
-        if (canLoadMore) {
-            loadWmsData(page = wmsCurrentPage + 1, append = true)
+        Log.d(
+            "WMS_PAGINATION",
+            "loadMoreWmsData called: isLoadingMore=${_isLoadingMore.value}, " +
+                    "hasMore=${_hasMoreWms.value}, currentPage=$wmsCurrentPage, totalPages=$wmsTotalPages"
+        )
+        if (_isLoadingMore.value) {
+            Log.d("WMS_PAGINATION", "Ignored: already loading")
+            return
         }
+        if (!_hasMoreWms.value) {
+            Log.d("WMS_PAGINATION", "Ignored: no more pages")
+            return
+        }
+        if (wmsCurrentPage >= wmsTotalPages) {
+            Log.d("WMS_PAGINATION", "Ignored: currentPage >= totalPages")
+            return
+        }
+        loadWmsData(page = wmsCurrentPage + 1, append = true)
     }
-
-
 
     // Методы для обновления фильтров с перезагрузкой данных
     fun updateWmsFilters(
@@ -805,15 +816,6 @@ class MainViewModel @Inject constructor(
                 Log.e("MainViewModel", "Ошибка списания WMS: $e")
                 _uiState.value = UiState.Error(e.message ?: "Ошибка сети или сервера")
             }
-        }
-    }
-
-    /**
-     * Сбрасывает состояние после успешного списания
-     */
-    fun resetWriteOffState() {
-        if (_uiState.value is UiState.WmsWriteOffSuccess) {
-            _uiState.value = UiState.Idle
         }
     }
 
@@ -1016,15 +1018,6 @@ class MainViewModel @Inject constructor(
         _uiState.value = UiState.PackToWarehouseIdle()
     }
 
-    /**
-     * Сброс состояния после успешной упаковки или ошибки
-     */
-    fun resetPackState() {
-        if (_uiState.value is UiState.Packed || _uiState.value is UiState.Error) {
-            _uiState.value = UiState.PackToWarehouseIdle()
-        }
-    }
-
     fun packMaterial(material: String, qty: Int, code: String) {
         executeRequest(
             request = {
@@ -1138,15 +1131,6 @@ class MainViewModel @Inject constructor(
                 Log.e("MainViewModel", "Ошибка приемки WMS: $e")
                 _uiState.value = UiState.Error(e.message ?: "Ошибка сети или сервера")
             }
-        }
-    }
-
-    /**
-     * Сбрасывает состояние после успешной приемки на складе
-     */
-    fun resetReceiveState() {
-        if (_uiState.value is UiState.WmsReceiveSuccess) {
-            _uiState.value = UiState.Idle
         }
     }
 
@@ -1277,8 +1261,11 @@ class MainViewModel @Inject constructor(
 
     // --- Helpers ---
     private suspend fun getTokenOrThrow(): String {
-        return currentToken ?: localStorage.getToken()
-        ?: throw Exception("Пользователь не авторизован")
+        if (currentToken.isNullOrEmpty() || localStorage.getToken().isNullOrEmpty()){
+            logout()
+            throw Exception("Пользователь не авторизован. Автовыход.")
+        }
+        return currentToken ?: localStorage.getToken() ?: throw Exception("Пользователь не авторизован")
     }
 
     private fun <T> executeRequest(

@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -33,6 +34,7 @@ fun SearchAndFilterBar(
     placeholder: String = "Поиск...",
     isFiltersExpanded: Boolean,
     onToggleFilters: () -> Unit,
+    hasActiveFilters: Boolean = false,
     modifier: Modifier = Modifier,
     filterContent: @Composable ColumnScope.() -> Unit
 ) {
@@ -65,19 +67,31 @@ fun SearchAndFilterBar(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Кнопка переключения фильтров
-                FilterChip(
-                    selected = isFiltersExpanded,
-                    onClick = onToggleFilters,
-                    label = { Text("Фильтры") },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.FilterList,
-                            contentDescription = null,
-                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                        )
+                // Кнопка переключения фильтров с бейджем
+                BadgedBox(
+                    modifier = Modifier.align(Alignment.CenterVertically),
+                    badge = {
+                        if (hasActiveFilters) {
+                            Badge(
+                                modifier = Modifier.size(10.dp),
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
-                )
+                ) {
+                    FilterChip(
+                        selected = isFiltersExpanded,
+                        onClick = onToggleFilters,
+                        label = { Text("Фильтры") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.FilterList,
+                                contentDescription = null,
+                                modifier = Modifier.size(FilterChipDefaults.IconSize)
+                            )
+                        }
+                    )
+                }
             }
 
             // Анимированный блок с дополнительными фильтрами

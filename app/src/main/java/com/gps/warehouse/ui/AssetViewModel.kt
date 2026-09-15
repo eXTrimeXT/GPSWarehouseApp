@@ -247,51 +247,6 @@ class AssetViewModel @Inject constructor(
     }
 
     // Метод загрузки с фильтрами:
-//    fun loadAssetsByFilters(
-//        page: Int,
-//        pageSize: Int,
-//        name: String? = null,
-//        inventoryId: String? = null,
-//        serialNumber: String? = null,
-//        assetStatus: String? = null,
-//        modelId: Int? = null,
-//        assetTypeId: Int? = null,
-//        parentId: Int? = null,
-//        locationId: Int? = null
-//    ) {
-//        viewModelScope.launch {
-//            if (page == 1) {
-//                _uiState.value = AssetUiState.Loading
-//            }
-//            try {
-//                val response = assetApiService.getAssets(
-//                    token = "Bearer ${getToken()}",
-//                    page = page,
-//                    pageSize = pageSize,
-//                    name = name,
-//                    inventoryId = inventoryId,
-//                    serialNumber = serialNumber,
-//                    assetStatus = assetStatus,
-//                    modelId = modelId,
-//                    assetTypeId = assetTypeId,
-//                    parentId = parentId,
-//                    locationId = locationId
-//                )
-//                _uiState.value = AssetUiState.AssetsLoadedPaginated(
-//                    assets = response.items,
-//                    total = response.total,
-//                    page = response.page,
-//                    pageSize = response.pageSize,
-//                    totalPages = response.totalPages,
-//                    hasNext = response.hasNext,
-//                    hasPrevious = response.hasPrevious
-//                )
-//            } catch (e: Exception) {
-//                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
-//            }
-//        }
-//    }
-
     fun loadAssetsByFilters(
         page: Int,
         pageSize: Int = 50,
@@ -306,7 +261,7 @@ class AssetViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             try {
-                // 1. Если это не первая страница, сохраняем текущие активы из состояния
+                // Если это не первая страница, сохраняем текущие активы из состояния
                 val currentState = _uiState.value
                 val oldAssets = if (currentState is AssetUiState.AssetsLoadedPaginated && page > 1) {
                     currentState.assets // Берем старые данные!
@@ -314,7 +269,7 @@ class AssetViewModel @Inject constructor(
                     emptyList() // Если страница 1, начинаем с пустого списка
                 }
 
-                // 2. Делаем запрос к API (замените на ваш реальный вызов репозитория)
+                // Делаем запрос к API (замените на ваш реальный вызов репозитория)
                 val response = assetApiService.getAssets(
                     token = "Bearer ${getToken()}",
                     page = page,
@@ -329,10 +284,10 @@ class AssetViewModel @Inject constructor(
                     locationId = locationId
                 )
 
-                // 3. ОБЪЕДИНЯЕМ старые и новые данные
+                // ОБЪЕДИНЯЕМ старые и новые данные
                 val updatedAssets = oldAssets + response.items
 
-                // 4. Обновляем состояние объединенным списком
+                // Обновляем состояние объединенным списком
                 _uiState.value = AssetUiState.AssetsLoadedPaginated(
                     assets = updatedAssets, // <-- ВОТ ЭТО ГАРАНТИРУЕТ, что ползунок не прыгнет
                     total = response.total,
@@ -581,12 +536,6 @@ class AssetViewModel @Inject constructor(
             }
         })
     }
-
-//    override fun onCleared() {
-//        super.onCleared()
-//        eventSource?.cancel()
-//        Log.d(TAG, " onCleared: ViewModel уничтожен, SSE соединение разорвано")
-//    }
     // ================== Уведомления ==================
 
     // ================== Пользователи ==================
