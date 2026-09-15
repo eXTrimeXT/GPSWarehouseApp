@@ -22,6 +22,8 @@ import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,13 +43,14 @@ import kotlin.jvm.java
 @HiltViewModel
 class AssetViewModel @Inject constructor(
     private val localStorage: LocalStorage,
-    private val assetApiService: AssetApiService
+    private val assetApiService: AssetApiService,
 ) : ViewModel() {
 
     val TAG = "AssetViewModel"
     sealed class AssetUiState {
         object Idle : AssetUiState()
         object Loading : AssetUiState()
+        object SessionExpired : AssetUiState() // Явное состояние для истечения сессии
         data class MyAssetsLoaded(val assets: List<AssetResponseDto>) : AssetUiState()
         data class Error(val message: String) : AssetUiState()
         data class MyAssetDetailsLoaded(val asset: AssetResponseDto) : AssetUiState()
@@ -85,6 +88,8 @@ class AssetViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
     val uiState: StateFlow<AssetUiState> = _uiState.asStateFlow()
+
+    private val sessionMonitorScope = CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
 
     // StateFlow для хранения списка активов (для поиска по ID)
     private val _myAssetsList = MutableStateFlow<List<AssetResponseDto>>(emptyList())
@@ -126,7 +131,6 @@ class AssetViewModel @Inject constructor(
 
     private var eventSource: EventSource? = null
 
-
     // Вспомогательная функция парсинга ошибок
     private fun getErrorMessage(e: Exception): String? {
         if (e is HttpException) {
@@ -147,15 +151,14 @@ class AssetViewModel @Inject constructor(
     }
 
     // Получить текущий токен
-//    suspend fun getToken(): String {
-//        return localStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации. Выполните вход заново.")
-//    }
     suspend fun getToken(): String {
         if (localStorage.getToken().isNullOrEmpty()){
-//            logout()
+//            mainViewModel.logout()
+            _uiState.value = AssetUiState.SessionExpired
             throw Exception("Пользователь не авторизован. Автовыход.")
         }
-        return localStorage.getToken() ?: throw Exception("Пользователь не авторизован")
+        return localStorage.getToken()
+            ?: throw Exception("Пользователь не авторизован")
     }
 
     // Метод получения ПК текущего пользователя

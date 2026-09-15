@@ -2,13 +2,8 @@ package com.gps.warehouse.ui
 
 import android.util.Base64
 import android.util.Log
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.currentRecomposeScope
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.NavController
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.rememberNavController
 import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.GPSApiService
 import com.gps.warehouse.data.remote.NotificationSseManager
@@ -32,7 +27,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
-import kotlin.system.exitProcess
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -109,7 +103,7 @@ class MainViewModel @Inject constructor(
         // ========================================================================
     }
 
-    private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
+    val _uiState = MutableStateFlow<UiState>(UiState.Idle)
 
     // Свойство для фонового мониторинга сессии
     private val sessionMonitorScope = CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
@@ -207,7 +201,7 @@ class MainViewModel @Inject constructor(
                             "Сессия истекла по таймауту. Выполняется автоматический выход."
                         )
                         logout()
-                        exitProcess(1)
+//                        exitProcess(1)
                     }
                 }
             }
@@ -236,7 +230,6 @@ class MainViewModel @Inject constructor(
         if ((currentTime - timestamp) > SESSION_DURATION_MS) {
             Log.d("MainViewModel", "Сессия истекла. Выполняется выход.")
             logout() // Автоматический выход
-//            _uiState.value = UiState.SessionExpired // Устанавливаем явное состояние
             return false
         } else {
             currentToken = token

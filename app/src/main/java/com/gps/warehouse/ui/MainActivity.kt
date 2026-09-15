@@ -3,6 +3,7 @@ package com.gps.warehouse.ui
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -161,6 +162,20 @@ class MainActivity : ComponentActivity() {
                                         launchSingleTop = true
                                     }
                                 }
+                            }
+                        }
+                    }
+                    LaunchedEffect(Unit) {
+                        assetViewModel.uiState.collect { state ->
+                            if (state is AssetViewModel.AssetUiState.SessionExpired) {
+                                mainViewModel._uiState.value = MainViewModel.UiState.SessionExpired
+//                                val currentRoute = navController.currentBackStackEntry?.destination?.route
+//                                if (currentRoute != "login") {
+                                    navController.navigate("login") {
+                                        popUpTo(0) { inclusive = true }
+                                        launchSingleTop = true
+                                    }
+//                                }
                             }
                         }
                     }
