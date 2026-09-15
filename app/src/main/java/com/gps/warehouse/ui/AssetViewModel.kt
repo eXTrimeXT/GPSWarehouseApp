@@ -147,8 +147,15 @@ class AssetViewModel @Inject constructor(
     }
 
     // Получить текущий токен
+//    suspend fun getToken(): String {
+//        return localStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации. Выполните вход заново.")
+//    }
     suspend fun getToken(): String {
-        return localStorage.getToken() ?: throw Exception("Отсутствует GPS токен авторизации. Выполните вход заново.")
+        if (localStorage.getToken().isNullOrEmpty()){
+//            logout()
+            throw Exception("Пользователь не авторизован. Автовыход.")
+        }
+        return localStorage.getToken() ?: throw Exception("Пользователь не авторизован")
     }
 
     // Метод получения ПК текущего пользователя

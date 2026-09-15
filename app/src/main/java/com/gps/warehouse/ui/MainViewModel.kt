@@ -2,9 +2,13 @@ package com.gps.warehouse.ui
 
 import android.util.Base64
 import android.util.Log
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.currentRecomposeScope
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.NavController
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.rememberNavController
 import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.GPSApiService
 import com.gps.warehouse.data.remote.NotificationSseManager
@@ -232,7 +236,7 @@ class MainViewModel @Inject constructor(
         if ((currentTime - timestamp) > SESSION_DURATION_MS) {
             Log.d("MainViewModel", "Сессия истекла. Выполняется выход.")
             logout() // Автоматический выход
-            _uiState.value = UiState.SessionExpired // Устанавливаем явное состояние
+//            _uiState.value = UiState.SessionExpired // Устанавливаем явное состояние
             return false
         } else {
             currentToken = token
@@ -312,7 +316,8 @@ class MainViewModel @Inject constructor(
             _uiState.value = UiState.SessionExpired
         }
         stopGlobalNotifications()
-        Log.e("", "Токен отсутствует. Автовыход.")
+
+        Log.e("MainViewModel", "logout: Токен отсутствует. Автовыход.")
 //        throw Exception("Пользователь не авторизован")
     }
 
@@ -349,7 +354,7 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             try {
-                // 1. Загружаем профиль из GPS API
+                // Загружаем профиль из GPS API
                 val gpsProfile = apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow()))
                 val storages = gpsProfile.warehousePermissions
                 val isAssetsAdmin = gpsProfile.assetsIsAdmin ?: false
@@ -1256,8 +1261,8 @@ class MainViewModel @Inject constructor(
 
 
     // --- Helpers ---
-    private suspend fun getTokenOrThrow(): String {
-        if (currentToken.isNullOrEmpty() || localStorage.getToken().isNullOrEmpty()){
+    suspend fun getTokenOrThrow(): String {
+        if (currentToken.isNullOrEmpty() && localStorage.getToken().isNullOrEmpty()){
             logout()
             throw Exception("Пользователь не авторизован. Автовыход.")
         }
