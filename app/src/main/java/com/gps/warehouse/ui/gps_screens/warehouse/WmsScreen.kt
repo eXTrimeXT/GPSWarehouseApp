@@ -210,7 +210,6 @@ fun WmsScreen(
             topologies = topologies,
             isLoadingTopologies = isLoadingTopologies,
             initialPosition = editPosition,
-            initialPositionId = editPositionId,
             initialMax = editMax,
             initialMin = editMin,
             initialMaterial = editMaterial,
@@ -706,7 +705,6 @@ fun EditWmsItemDialog(
     topologies: List<TopologyDto>,
     isLoadingTopologies: Boolean,
     initialPosition: String,
-    initialPositionId: String,
     initialMax: String,
     initialMin: String,
     initialMaterial: String,
@@ -726,7 +724,6 @@ fun EditWmsItemDialog(
     // Локальные состояния
     var materialField by remember { mutableStateOf(initialMaterial) }
     var positionField by remember { mutableStateOf(initialPosition) }
-    var positionIdField by remember { mutableStateOf(initialPositionId) }
     var qtyField by remember { mutableStateOf(initialQty) }
     var maxField by remember { mutableStateOf(initialMax) }
     var minField by remember { mutableStateOf(initialMin) }
@@ -743,7 +740,6 @@ fun EditWmsItemDialog(
     // Синхронизация с внешними изменениями
     LaunchedEffect(initialMaterial) { materialField = initialMaterial }
     LaunchedEffect(initialPosition) { positionField = initialPosition }
-    LaunchedEffect(initialPositionId) { positionIdField = initialPositionId }
     LaunchedEffect(initialQty) { qtyField = initialQty }
     LaunchedEffect(initialMax) { maxField = initialMax }
     LaunchedEffect(initialMin) { minField = initialMin }
@@ -896,16 +892,16 @@ fun EditWmsItemDialog(
                                     DropdownMenuItem(text = { Text("Нет позиций") }, onClick = {})
                                 } else {
                                     topologies.forEach { topology ->
+                                        Log.d("TOPOLOGY", "positionField=${positionField} | position=${topology.position} id=${topology.id}")
                                         DropdownMenuItem(
                                             text = { Text(topology.position) },
                                             onClick = {
-                                                onPositionSelected(topology.position, topology.id.toString())
+                                                onPositionSelected(topology.position, topology.id)
                                                 positionField = topology.position
-                                                positionIdField = topology.id.toString()
                                                 expanded = false
                                             },
                                             leadingIcon = {
-                                                if (topology.id.toString() == positionIdField) {
+                                                if (topology.position == positionField) {
                                                     Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
                                                 }
                                             }
@@ -1410,12 +1406,11 @@ fun EditDialogPreview() {
         ),
         currentStorageId = "1",
         topologies = listOf(
-            TopologyDto(id = 1, position = "BUFF"),
-            TopologyDto(id = 2, position = "A-01")
+            TopologyDto(id = "1", position = "BUFF"),
+            TopologyDto(id = "2", position = "A-01")
         ),
         isLoadingTopologies = false,
         initialPosition = "BUFF",
-        initialPositionId = "1",
         initialMax = "100",
         initialMin = "0",
         initialMaterial = "LA0602600443",

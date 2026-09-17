@@ -3,8 +3,9 @@ package com.gps.warehouse.data.remote.gps_dto
 import com.google.gson.annotations.SerializedName
 
 data class TopologyDto(
-    @SerializedName("id") val id: Int,
-    @SerializedName("position") val position: String  // Название позиции (BUFF, 2-3-3 и т.д.)
+    @SerializedName("id") val id: String,
+    @SerializedName("position") val position: String,  // Название позиции (BUFF, 2-3-3 и т.д.)
+    @SerializedName("position_scan") val positionScan: String
 )
 
 // Запрос на получение топологий

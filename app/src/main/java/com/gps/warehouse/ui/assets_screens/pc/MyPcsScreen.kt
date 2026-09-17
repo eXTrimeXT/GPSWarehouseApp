@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui.assets_screens
+package com.gps.warehouse.ui.assets_screens.pc
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.ComponentsInfoDto
 import com.gps.warehouse.data.remote.assets_dto.CpuInfoDto

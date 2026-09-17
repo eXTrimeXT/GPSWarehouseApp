@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui.assets_screens
+package com.gps.warehouse.ui.assets_screens.assets
 
 import android.util.Log
 import android.widget.Toast

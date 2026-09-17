@@ -40,7 +40,7 @@ fun SearchAndFilterBar(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+//        color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 2.dp
     ) {
         Column(modifier = Modifier.padding(8.dp)) {

@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui.assets_screens
+package com.gps.warehouse.ui.assets_screens.assets
 
 import android.util.Log
 import android.widget.Toast
@@ -403,7 +403,7 @@ fun AssetsByTypeScreenContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                placeholder = { Text("Поиск по названию") },
+                placeholder = { Text("Поиск...") },
                 leadingIcon = {
                     Icon(
                         Icons.Default.Search,
@@ -711,7 +711,7 @@ fun AssetCardModern(asset: AssetResponseDto, onClick: () -> Unit) {
                 verticalAlignment = Alignment.Top
             ) {
                 Text(
-                    text = asset.name ?: "Без названия",
+                    text = asset.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,

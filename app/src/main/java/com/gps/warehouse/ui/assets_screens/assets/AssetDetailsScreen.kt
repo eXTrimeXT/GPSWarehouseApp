@@ -1,5 +1,6 @@
-package com.gps.warehouse.ui.assets_screens
+package com.gps.warehouse.ui.assets_screens.assets
 
+import android.util.Log
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
@@ -26,10 +27,14 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.*
 import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.assets_screens.mobile.InfoRow
 import com.gps.warehouse.ui.components.EmployeeSearchDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.formatIsoToReadable
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 // ==================== SCREEN: Логика + Навигация ====================
 @OptIn(ExperimentalMaterial3Api::class)
@@ -159,7 +164,7 @@ fun AssetDetailsScreen(
         val datePickerState = rememberDatePickerState(
             // Опционально: можно установить начальную дату из editState, если она есть
             initialSelectedDateMillis = editState?.nextService?.let {
-                java.time.LocalDate.parse(it).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
             }
         )
 
@@ -169,8 +174,8 @@ fun AssetDetailsScreen(
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
                         // Преобразуем миллисекунды в формат yyyy-MM-dd для API
-                        val isoDate = java.time.Instant.ofEpochMilli(millis)
-                            .atZone(java.time.ZoneId.systemDefault())
+                        val isoDate = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneId.systemDefault())
                             .toLocalDate()
                             .toString()
 
@@ -215,7 +220,7 @@ fun AssetDetailsScreen(
                     } else {
                         // Теоретически недостижимый блок, если сервер работает корректно,
                         // но он нужен компилятору Kotlin для гарантии безопасности типов.
-                        android.util.Log.e("AssetDetailsScreen", "Невозможно обновить: assetId отсутствует")
+                        Log.e("AssetDetailsScreen", "Невозможно обновить: assetId отсутствует")
                     }
                 }
             }
@@ -711,9 +716,17 @@ fun ServiceCard(
 ) {
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
-            InfoRow(label = "Еженедельная проверка", value = if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет")
+            InfoRow(
+                label = "Еженедельная проверка",
+                value = if ((editState?.everyWeekCheck
+                        ?: asset.everyWeekCheck) == true
+                ) "Да" else "Нет"
+            )
             InfoRow(label = "След. обслуживание", value = asset.nextService?.formatIsoToReadable())
-            InfoRow(label = "Период (дни)", value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString())
+            InfoRow(
+                label = "Период (дни)",
+                value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString()
+            )
         } else {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Еженедельная проверка", style = MaterialTheme.typography.labelMedium)

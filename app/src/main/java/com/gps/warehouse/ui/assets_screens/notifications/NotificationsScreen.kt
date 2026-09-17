@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui.assets_screens
+package com.gps.warehouse.ui.assets_screens.notifications
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState

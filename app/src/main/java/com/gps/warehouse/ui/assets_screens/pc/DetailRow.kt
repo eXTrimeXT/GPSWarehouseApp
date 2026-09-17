@@ -1,4 +1,4 @@
-package com.gps.warehouse.ui.assets_screens
+package com.gps.warehouse.ui.assets_screens.pc
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
