@@ -23,7 +23,7 @@ data class UpdateWmsRequest(
     @SerializedName("material") val material: String,
     @SerializedName("max") val max: Int,
     @SerializedName("min") val min: Int,
-    @SerializedName("position_id") val positionId: String,
+    @SerializedName("position_id") val positionId: Int?,
     @SerializedName("position") val position: String,
     @SerializedName("price") val price: String,
     @SerializedName("qty") val qty: Int,

@@ -448,7 +448,7 @@ class MainViewModel @Inject constructor(
     fun updateWmsItem(
         item: WmsItemDto,
         newPosition: String,
-        newPositionId: String,
+        newPositionId: Int?,
         newMin: Int,
         newMax: Int,
         newMaterial: String? = null,    // Опционально: новый артикул (только для non-SAP)

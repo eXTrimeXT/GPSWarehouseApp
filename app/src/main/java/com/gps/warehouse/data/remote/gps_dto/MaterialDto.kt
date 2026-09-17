@@ -87,11 +87,11 @@ data class WmsItemDto(
     val material: String,                                       // Артикул
     val max: Int,                                               // Максимальный остаток
     val min: Int,                                               // Минимальный остаток
-    val positionId: Int,                                        // ID Топологии: 0 по умолчанию
-    val position: String,                                       // Топология (например, BUFF)
     val price: Double,                                          // Цена
     val qty: Double,                                            // Количество
     val storage: String,                                        // Склад
+    val position: String,                                       // Топология (например, BUFF)
+    @SerializedName("position_id")val positionId: Int?,  // ID Топологии: 0 по умолчанию
     @SerializedName("sap_a") val sapA: Int,             // 0 - Виртуальный, 1 - из SAP
     @SerializedName("storage_id") val storageId: Int?   // id склада
 ) : Serializable
