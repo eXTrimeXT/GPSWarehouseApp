@@ -86,6 +86,13 @@ class AssetViewModel @Inject constructor(
         data class Error(val message: String) : InventorizationUiState()
     }
 
+    sealed class AssetTypesUiState{
+        object Idle : AssetTypesUiState()
+        object Loading : AssetTypesUiState()
+        data class Loaded(val assetTypes: List<AssetTypeDto>) : AssetTypesUiState()
+        data class Error(val message: String) : AssetTypesUiState()
+    }
+
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
@@ -93,41 +100,47 @@ class AssetViewModel @Inject constructor(
 
     // StateFlow для хранения списка активов (для поиска по ID)
     private val _myAssetsList = MutableStateFlow<List<AssetResponseDto>>(emptyList())
-    val myAssetsList: StateFlow<List<AssetResponseDto>> = _myAssetsList.asStateFlow()
+    val myAssetsList = _myAssetsList.asStateFlow()
 
     private val _assetStatuses = MutableStateFlow<List<AssetStatusDto>>(emptyList())
-    val assetStatuses: StateFlow<List<AssetStatusDto>> = _assetStatuses.asStateFlow()
+    val assetStatuses = _assetStatuses.asStateFlow()
 
     private val _myPcsList = MutableStateFlow<List<MyPcDto>>(emptyList())
-    val myPcsList: StateFlow<List<MyPcDto>> = _myPcsList.asStateFlow()
+    val myPcsList = _myPcsList.asStateFlow()
+
+    private val _assetTypesUiState = MutableStateFlow<AssetTypesUiState>(AssetTypesUiState.Idle)
+    val assetTypesUiState = _assetTypesUiState.asStateFlow()
 
     private val _assetTypes = MutableStateFlow<List<AssetTypeDto>>(emptyList())
-    val assetTypes: StateFlow<List<AssetTypeDto>> = _assetTypes.asStateFlow()
+    val assetTypes = _assetTypes.asStateFlow()
+
+    private val _assetDetailsUiState = MutableStateFlow<List<AssetResponseDto>>(emptyList())
+    val assetDetailUiState = _assetDetailsUiState.asStateFlow()
 
     // Добавляем отдельный StateFlow для UI-состояния инвентаризации
     private val _inventorizationUiState = MutableStateFlow<InventorizationUiState>(InventorizationUiState.Idle)
-    val inventorizationUiState: StateFlow<InventorizationUiState> = _inventorizationUiState.asStateFlow()
+    val inventorizationUiState = _inventorizationUiState.asStateFlow()
 
     private val _inventorizationSessions = MutableStateFlow<List<InventorizationSessionDto>?>(null)
-    val inventorizationSessions: StateFlow<List<InventorizationSessionDto>?> = _inventorizationSessions.asStateFlow()
+    val inventorizationSessions = _inventorizationSessions.asStateFlow()
 
     private val _inventorizationItems = MutableStateFlow<List<InventorizationItemDto>>(emptyList())
-    val inventorizationItems: StateFlow<List<InventorizationItemDto>> = _inventorizationItems.asStateFlow()
+    val inventorizationItems = _inventorizationItems.asStateFlow()
 
     private val _notificationItems = MutableStateFlow<List<NotificationDto>>(emptyList())
-    val notificationItems: StateFlow<List<NotificationDto>> = _notificationItems.asStateFlow()
+    val notificationItems = _notificationItems.asStateFlow()
 
     private var currentFilterAssetId: Int? = null
     private var currentFilterSessionId: Int? = null
 
     private val _notificationUncheckedCount = MutableStateFlow(0)
-    val notificationUncheckedCount: StateFlow<Int> = _notificationUncheckedCount.asStateFlow()
+    val notificationUncheckedCount = _notificationUncheckedCount.asStateFlow()
 
     private val _assetHistory = MutableStateFlow<List<AssetHistoryDto>>(emptyList())
-    val assetHistory: StateFlow<List<AssetHistoryDto>> = _assetHistory.asStateFlow()
+    val assetHistory = _assetHistory.asStateFlow()
 
     private val _employees = MutableStateFlow<PaginatedResponse<EmployeeShortResponse>?>(null)
-    val employees: StateFlow<PaginatedResponse<EmployeeShortResponse>?> = _employees.asStateFlow()
+    val employees = _employees.asStateFlow()
 
     private var eventSource: EventSource? = null
 
@@ -178,13 +191,14 @@ class AssetViewModel @Inject constructor(
     // Типы активов
     fun loadAssetTypes() {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+            _assetTypesUiState.value = AssetTypesUiState.Loading
             try {
                 val types = assetApiService.getAssetTypes("Bearer ${getToken()}")
                 _assetTypes.value = types
-                _uiState.value = AssetUiState.AssetTypesLoaded(types)
+                _assetTypesUiState.value = AssetTypesUiState.Loaded(types)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                _assetTypesUiState.value = AssetTypesUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
             }
         }
     }
@@ -269,6 +283,10 @@ class AssetViewModel @Inject constructor(
         locationId: Int? = null
     ) {
         viewModelScope.launch {
+//            if (page == 1) {
+//                _uiState.value = AssetUiState.Loading
+//            }
+
             try {
                 // Если это не первая страница, сохраняем текущие активы из состояния
                 val currentState = _uiState.value
@@ -278,7 +296,7 @@ class AssetViewModel @Inject constructor(
                     emptyList() // Если страница 1, начинаем с пустого списка
                 }
 
-                // Делаем запрос к API (замените на ваш реальный вызов репозитория)
+                // Делаем запрос
                 val response = assetApiService.getAssets(
                     token = "Bearer ${getToken()}",
                     page = page,
@@ -298,7 +316,7 @@ class AssetViewModel @Inject constructor(
 
                 // Обновляем состояние объединенным списком
                 _uiState.value = AssetUiState.AssetsLoadedPaginated(
-                    assets = updatedAssets, // <-- ВОТ ЭТО ГАРАНТИРУЕТ, что ползунок не прыгнет
+                    assets = updatedAssets,
                     total = response.total,
                     page = page,
                     pageSize = pageSize,
@@ -313,6 +331,63 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Ищет актив по отсканированному значению.
+     * Так как мы не знаем, серийник это или инвентарник,
+     * пробуем оба варианта последовательно.
+     *
+     * @return найденный актив или null
+     */
+    suspend fun findAssetByScanValue(scannedValue: String): AssetResponseDto? {
+        return try {
+            // Сначала пробуем как СЕРИЙНЫЙ номер
+            Log.d("AssetViewModel", "Поиск по serialNumber: $scannedValue")
+            val bySerial = assetApiService.getAssets(
+                token = "Bearer ${getToken()}",
+                serialNumber = scannedValue,
+                page = 1,
+                pageSize = 1
+            )
+            bySerial.items.firstOrNull()?.let {
+                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
+                return it
+            }
+
+            // Если не найдено — пробуем как ИНВЕНТАРНЫЙ номер
+            Log.d("AssetViewModel", "Поиск по inventoryId: $scannedValue")
+            val byInventory = assetApiService.getAssets(
+                token = "Bearer ${getToken()}",
+                inventoryId = scannedValue,
+                page = 1,
+                pageSize = 1,
+            )
+            val found = byInventory.items.firstOrNull()
+            if (found != null) {
+                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${found.assetId}")
+            } else {
+                Log.d("AssetViewModel", "Актив не найден ни по одному параметру")
+            }
+            found
+        } catch (e: Exception) {
+            Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
+            null
+        }
+    }
+
+//    suspend fun findAssetByScanValue(scannedValue: String): AssetResponseDto? = coroutineScope {
+//        val serialDeferred = async {
+//            assetsRepository.getAssets(serialNumber = scannedValue, page = 1, pageSize = 1)
+//                .assets.firstOrNull()
+//        }
+//        val inventoryDeferred = async {
+//            assetsRepository.getAssets(inventoryId = scannedValue, page = 1, pageSize = 1)
+//                .assets.firstOrNull()
+//        }
+//
+//        // Ждём оба, возвращаем первый непустой
+//        serialDeferred.await() ?: inventoryDeferred.await()
+//    }
 
     // Метод для загрузки деталей актива
     fun loadAssetDetails(assetId: Int? = null, materialId: String? = null) {

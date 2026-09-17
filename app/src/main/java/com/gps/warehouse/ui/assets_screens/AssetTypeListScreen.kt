@@ -1,5 +1,7 @@
 package com.gps.warehouse.ui.assets_screens
 
+import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,15 +13,19 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.utils.InventoryQrParser
+import com.gps.warehouse.utils.ScannerManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,11 +34,24 @@ fun AssetTypeListScreen(
     assetViewModel: AssetViewModel,
     mainViewModel: MainViewModel // Добавляем для получения прав доступа
 ) {
-    // Собираем состояния из ViewModel
-    val uiState by assetViewModel.uiState.collectAsState()
-    val assetTypes by assetViewModel.assetTypes.collectAsState()
+    val TAG = "AssetTypeListScreen"
+    val context = LocalContext.current
+    val scannerManager = remember { ScannerManager(context) }
 
+    // Для поиска по серийному или инвентарному номеру
+    val scope = rememberCoroutineScope()
+
+    var serialNumber by remember { mutableStateOf("") }
+    var inventoryId by remember { mutableStateOf("") }
+
+    // Собираем состояния из assetTypesUiState
+    val assetTypesUiState by assetViewModel.assetTypesUiState.collectAsState()
+    val assetTypes by assetViewModel.assetTypes.collectAsState()
     val gpsPermissions by mainViewModel.gpsPermissions.collectAsState()
+
+    // Сканирование с помощью камеры
+    val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
+    var showCameraDialog by remember { mutableStateOf(false) }
 
     // Загружаем данные при открытии экрана
     LaunchedEffect(Unit) {
@@ -40,9 +59,79 @@ fun AssetTypeListScreen(
         assetViewModel.loadAssetTypes()
     }
 
+    fun processScannedData(scannedData: String) {
+        if (scannedData.isEmpty()) return
+        Log.d(TAG, "processScannedData: $scannedData")
+
+        val scannedValue = InventoryQrParser.parseAny(scannedData)
+        if (scannedValue == null) {
+            Toast.makeText(context, "Не удалось распознать код", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Запускаем серверный поиск в корутине
+        scope.launch {
+//            isSearching = true
+            try {
+                val foundAsset = assetViewModel.findAssetByScanValue(scannedValue)
+
+                if (foundAsset != null) {
+                    Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
+//                    navController.navigate("asset_details/${foundAsset.assetId}")
+//                    navController.navigate("asset_details?assetId=${foundAsset.assetId}&materialId=${foundAsset.materialId}")
+
+                    serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
+                        foundAsset.serialNumber
+                    } else { "" }
+
+                    inventoryId = if (foundAsset.inventoryId?.isNotEmpty() == true) {
+                        foundAsset.inventoryId
+                    } else { "" }
+
+//                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}")
+                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}/${serialNumber}/${inventoryId}")
+
+
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Актив '$scannedValue' не найден (проверено как серийник и инвентарник)",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Ошибка поиска: ${e.message}")
+                Toast.makeText(context, "Ошибка поиска: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+//                isSearching = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        scannerManager.barcodeFlow.collect { scannedData -> processScannedData(scannedData) }
+    }
+
+    DisposableEffect(Unit) {
+        scannerManager.init()
+        onDispose { scannerManager.release() }
+    }
+
+    if (showCameraDialog) {
+        CameraScannerDialog(
+            onDismiss = { showCameraDialog = false },
+            onBarcodeDetected = { scannedCode ->
+                processScannedData(scannedCode)
+                showCameraDialog = false
+            }
+        )
+    }
+
     // Делегируем отрисовку чистому UI-компоненту
     AssetTypeListScreenContent(
-        uiState = uiState,
+        uiState = assetTypesUiState,
+        cameraScanEnabled = cameraScanEnabled,
+        onCameraScanClick = { showCameraDialog = true },
         assetTypes = assetTypes,
         gpsPermissions = gpsPermissions,
         onNavigate = { route -> navController.navigate(route) },
@@ -56,7 +145,9 @@ fun AssetTypeListScreen(
 // ============================================================================
 @Composable
 fun AssetTypeListScreenContent(
-    uiState: AssetViewModel.AssetUiState,
+    uiState: AssetViewModel.AssetTypesUiState,
+    cameraScanEnabled: Boolean,
+    onCameraScanClick: () -> Unit,
     assetTypes: List<AssetTypeDto>,
     gpsPermissions: List<GpsPermissionDto>?,
     onNavigate: (String) -> Unit,
@@ -67,17 +158,28 @@ fun AssetTypeListScreenContent(
         topBar = {
             MyCustomActionBar(
                 text = "Типы активов",
-                onBackClick = onBackClick
+                onBackClick = onBackClick,
+                actionButton = {
+                    if (cameraScanEnabled) {
+                        IconButton(onClick = onCameraScanClick) {
+                            Icon(
+                                imageVector = Icons.Default.QrCodeScanner,
+                                contentDescription = "Сканировать камерой",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
             )
         }
     ) { paddingValues ->
         when (uiState) {
-            is AssetViewModel.AssetUiState.Loading -> {
+            is AssetViewModel.AssetTypesUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             }
-            is AssetViewModel.AssetUiState.Error -> {
+            is AssetViewModel.AssetTypesUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Default.ErrorOutline, null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.error)
@@ -88,8 +190,8 @@ fun AssetTypeListScreenContent(
                     }
                 }
             }
-            is AssetViewModel.AssetUiState.AssetTypesLoaded,
-            is AssetViewModel.AssetUiState.Idle -> {
+            is AssetViewModel.AssetTypesUiState.Loaded,
+            is AssetViewModel.AssetTypesUiState.Idle-> {
                 val availableTypes = assetTypes.filter { type ->
                     gpsPermissions?.any { permission ->
                         permission.nameGroup.equals(type.enName, ignoreCase = true) && permission.read
@@ -128,7 +230,6 @@ fun AssetTypeListScreenContent(
                     }
                 }
             }
-            else -> {}
         }
     }
 }
@@ -265,15 +366,19 @@ fun getIconForType(enName: String): ImageVector {
 @Preview(showBackground = true, name = "Экран: Список типов (Заполненный)")
 @Composable
 fun AssetTypeListScreenPreview_Loaded() {
+    val mockAssetTypes = listOf(
+        AssetTypeDto(assetTypeId = 1, name = "Компьютер", enName = "computer", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null),
+        AssetTypeDto(assetTypeId = 5, name = "Оборудование сбора данных", enName = "data_collection_equipment", createdBy = null, createdAt = "2026-07-06T07:20:23.134850", updatedAt = null),
+        AssetTypeDto(assetTypeId = 7, name = "Сетевое оборудование", enName = "network_equipment", createdBy = null, createdAt = "2026-07-06T07:21:39.334371", updatedAt = null)
+    )
+
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             AssetTypeListScreenContent(
-                uiState = AssetViewModel.AssetUiState.Idle,
-                assetTypes = listOf(
-                    AssetTypeDto(assetTypeId = 1, name = "Компьютер", enName = "computer", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null),
-                    AssetTypeDto(assetTypeId = 5, name = "Оборудование сбора данных", enName = "data_collection_equipment", createdBy = null, createdAt = "2026-07-06T07:20:23.134850", updatedAt = null),
-                    AssetTypeDto(assetTypeId = 7, name = "Сетевое оборудование", enName = "network_equipment", createdBy = null, createdAt = "2026-07-06T07:21:39.334371", updatedAt = null)
-                ),
+                uiState = AssetViewModel.AssetTypesUiState.Loaded(mockAssetTypes),
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
+                assetTypes = mockAssetTypes,
                 gpsPermissions = listOf(
                     GpsPermissionDto(nameGroup = "computer", read = true, write = true),
                     GpsPermissionDto(nameGroup = "data_collection_equipment", read = true, write = false),
@@ -290,13 +395,17 @@ fun AssetTypeListScreenPreview_Loaded() {
 @Preview(showBackground = true, name = "Экран: Нет прав доступа")
 @Composable
 fun AssetTypeListScreenPreview_Empty() {
+    val mockAssetTypes = listOf(
+        AssetTypeDto(assetTypeId = 1, name = "Компьютер", enName = "computer", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null)
+    )
+
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             AssetTypeListScreenContent(
-                uiState = AssetViewModel.AssetUiState.Idle,
-                assetTypes = listOf(
-                    AssetTypeDto(assetTypeId = 1, name = "Компьютер", enName = "computer", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null)
-                ),
+                uiState = AssetViewModel.AssetTypesUiState.Loaded(mockAssetTypes),
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
+                assetTypes = mockAssetTypes,
                 gpsPermissions = listOf(
                     GpsPermissionDto(nameGroup = "computer", read = false, write = false)
                 ),

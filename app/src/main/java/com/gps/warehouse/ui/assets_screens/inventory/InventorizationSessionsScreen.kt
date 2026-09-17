@@ -31,7 +31,7 @@ fun InventorizationSessionsScreen(
     // Отдельные StateFlow для данных и UI-статуса
     val inventorizationSessions by assetViewModel.inventorizationSessions.collectAsState()
     val assetTypes by assetViewModel.assetTypes.collectAsState()
-    val uiState by assetViewModel.inventorizationUiState.collectAsState() // Только статус
+    val inventorizationUiState by assetViewModel.inventorizationUiState.collectAsState() // Только статус
 
     LaunchedEffect(Unit) {
         assetViewModel.loadAssetTypes()
@@ -44,7 +44,7 @@ fun InventorizationSessionsScreen(
     InventorizationSessionsContent(
         sessions = inventorizationSessions,
         assetTypes = assetTypes,
-        uiState = uiState,
+        uiState = inventorizationUiState,
         showCreateDialog = showCreateDialog,
         selectedAssetTypeId = selectedAssetTypeId,
         onSessionClick = { sessionId, isCompleted ->

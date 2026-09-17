@@ -301,16 +301,33 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
+                        // Обычный переход к типу актива
                         composable("assets_list/{assetTypeId}/{assetTypeName}") {backStackEntry ->
                             val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() // Передаем null, чтобы показать активы без типа
                             val assetTypeName = backStackEntry.arguments?.getString("assetTypeName").toString()
-//                            val assetViewModel: AssetViewModel = hiltViewModel()
                             AssetsByTypeScreen(
                                 assetTypeId = assetTypeId,
                                 assetTypeName = assetTypeName,
                                 navController = navController,
                                 assetViewModel = assetViewModel,
-                                mainViewModel = mainViewModel
+                                mainViewModel = mainViewModel,
+                            )
+                        }
+
+                        // Переход к типу активу с параметрами
+                        composable("assets_list/{assetTypeId}/{assetTypeName}/{serialNumber}/{inventoryId}") {backStackEntry ->
+                            val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() // Передаем null, чтобы показать активы без типа
+                            val assetTypeName = backStackEntry.arguments?.getString("assetTypeName").toString()
+                            val serialNumber = backStackEntry.arguments?.getString("serialNumber").toString()
+                            val inventoryId = backStackEntry.arguments?.getString("inventoryId").toString()
+                            AssetsByTypeScreen(
+                                assetTypeId = assetTypeId,
+                                assetTypeName = assetTypeName,
+                                navController = navController,
+                                assetViewModel = assetViewModel,
+                                mainViewModel = mainViewModel,
+                                serialNumber = serialNumber,
+                                inventoryId = inventoryId
                             )
                         }
 

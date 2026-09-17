@@ -46,6 +46,7 @@ import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SapBadge
 import com.gps.warehouse.ui.components.SearchAndFilterBar
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannedData
@@ -623,29 +624,7 @@ fun WmsItemCard(item: WmsItemDto, onClick: () -> Unit) {
 
                     // SAP-индикатор
                     if (item.sapA == 1) {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFF667eea)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.Assignment,
-                                    contentDescription = "SAP",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = "SAP",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color.White
-                                )
-                            }
-                        }
+                        SapBadge()
                     }
                 }
             }

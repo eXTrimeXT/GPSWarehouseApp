@@ -34,8 +34,10 @@ import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SapBadge
 import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
+import kotlinx.coroutines.launch
 
 private const val TAG = "ASSETS_SCREEN"
 
@@ -46,7 +48,9 @@ fun AssetsByTypeScreen(
     assetTypeName: String,
     navController: NavHostController,
     assetViewModel: AssetViewModel,
-    mainViewModel: MainViewModel
+    mainViewModel: MainViewModel,
+    serialNumber: String = "",
+    inventoryId: String = ""
 ) {
     val uiState by assetViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -54,9 +58,14 @@ fun AssetsByTypeScreen(
     val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
     var showCameraDialog by remember { mutableStateOf(false) }
 
+    // Для поиска по серийному или инвентарному номеру
+    val scope = rememberCoroutineScope()
+    // Индикатор поиска
+    var isSearching by remember { mutableStateOf(false) }
+
     var searchQuery by remember { mutableStateOf("") }
-    var inventoryId by remember { mutableStateOf("") }
-    var serialNumber by remember { mutableStateOf("") }
+    var serialNumber by remember { mutableStateOf(serialNumber) }
+    var inventoryId by remember { mutableStateOf(inventoryId) }
     var assetStatus by remember { mutableStateOf<String?>(null) }
     var modelId by remember { mutableStateOf("") }
     var parentId by remember { mutableStateOf("") }
@@ -72,63 +81,50 @@ fun AssetsByTypeScreen(
         assetViewModel.loadAssetStatuses()
     }
 
-//    fun processScannedData(scannedData: String) {
-//        if (scannedData.isEmpty()) return
-//        Log.d(TAG, "processScannedData: $scannedData")
-//        val parseSerialNumber = InventoryQrParser.parseSerialNumber(scannedData)
-//        if (parseSerialNumber != null) {
-//            val currentState = uiState
-//            if (currentState is AssetViewModel.AssetUiState.AssetsLoadedPaginated) {
-//                val foundAsset = currentState.assets.find {
-//                    it.assetId.toString() == parseSerialNumber ||
-//                            it.serialNumber.equals(parseSerialNumber, ignoreCase = true) ||
-//                            it.inventoryId.equals(parseSerialNumber, ignoreCase = true)
-//                }
-//                if (foundAsset != null) {
-//                    Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
-//                    navController.navigate("asset_details/${foundAsset.assetId}")
-//                } else {
-//                    Toast.makeText(context, "Серийный номер '$parseSerialNumber' не найден в списке", Toast.LENGTH_SHORT).show()
-//                }
-//            } else {
-//                Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
-//            }
-//        } else {
-//            Toast.makeText(context, "Неверный формат QR-кода", Toast.LENGTH_SHORT).show()
-//        }
-//    }
-
     fun processScannedData(scannedData: String) {
         if (scannedData.isEmpty()) return
         Log.d(TAG, "processScannedData: $scannedData")
 
         val scannedValue = InventoryQrParser.parseAny(scannedData)
+        if (scannedValue == null) {
+            Toast.makeText(context, "Не удалось распознать код", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        if (scannedValue != null) {
-            val currentState = uiState
-            if (currentState is AssetViewModel.AssetUiState.AssetsLoadedPaginated) {
-                // Ищем актив по серийному номеру ИЛИ инвентарному номеру
-                val foundAsset = currentState.assets.find {
-                    it.assetId.toString() == scannedValue ||
-                            it.serialNumber.equals(scannedValue, ignoreCase = true) ||
-                            it.inventoryId.equals(scannedValue, ignoreCase = true)
-                }
+        // Запускаем серверный поиск в корутине
+        scope.launch {
+            isSearching = true
+            try {
+                val foundAsset = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
                     Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
-                    navController.navigate("asset_details/${foundAsset.assetId}")
+//                    navController.navigate("asset_details/${foundAsset.assetId}")
+//                    navController.navigate("asset_details?assetId=${foundAsset.assetId}&materialId=${foundAsset.materialId}")
+
+                    serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
+                        foundAsset.serialNumber
+                    } else { "" }
+
+                    inventoryId = if (foundAsset.inventoryId?.isNotEmpty() == true) {
+                        foundAsset.inventoryId
+                    } else { "" }
+
+                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}/${serialNumber}/${inventoryId}")
+
                 } else {
                     Toast.makeText(
                         context,
-                        "Актив с номером '$scannedValue' не найден в списке",
-                        Toast.LENGTH_SHORT
+                        "Актив '$scannedValue' не найден (проверено как серийник и инвентарник)",
+                        Toast.LENGTH_LONG
                     ).show()
                 }
-            } else {
-                Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.e(TAG, "Ошибка поиска: ${e.message}")
+                Toast.makeText(context, "Ошибка поиска: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                isSearching = false
             }
-        } else {
-            Toast.makeText(context, "Не удалось распознать QR-код", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -164,7 +160,7 @@ fun AssetsByTypeScreen(
     ) {
         Log.d(
             TAG,
-            "🚀 LaunchedEffect TRIGGERED -> page=$currentPage, " +
+            "LaunchedEffect TRIGGERED -> page=$currentPage, " +
                     "search='$searchQuery', inv='$inventoryId', sn='$serialNumber', " +
                     "status=$assetStatus, modelId='$modelId', parentId='$parentId', " +
                     "locationId='$locationId', assetTypeId=$assetTypeId"
@@ -210,6 +206,7 @@ fun AssetsByTypeScreen(
         onCameraScanClick = { showCameraDialog = true },
         assetStatuses = assetViewModel.assetStatuses.collectAsState().value,
         searchQuery = searchQuery,
+        isSearching = isSearching,
         onSearchQueryChange = {
             Log.d(TAG, "searchQuery changed: '$it'")
             searchQuery = it
@@ -276,7 +273,10 @@ fun AssetsByTypeScreen(
             Log.d(TAG, "Asset clicked: assetId=$assetId, materialId=$materialId")
             navController.navigate("asset_details?assetId=$assetId&materialId=$materialId")
         },
-        onBackClick = { navController.popBackStack() }
+//        onBackClick = { navController.popBackStack() }
+        onBackClick = {
+            navController.navigate("asset_types")
+        }
     )
 }
 
@@ -289,6 +289,7 @@ fun AssetsByTypeScreenContent(
     onCameraScanClick: () -> Unit,
     assetStatuses: List<AssetStatusDto>,
     searchQuery: String,
+    isSearching: Boolean,
     onSearchQueryChange: (String) -> Unit,
     isFiltersExpanded: Boolean,
     onToggleFilters: () -> Unit,
@@ -430,6 +431,7 @@ fun AssetsByTypeScreenContent(
                 shape = RoundedCornerShape(12.dp)
             )
 
+            // Основные фильтры: серийный, инвентарный номер, статус
             AnimatedVisibility(
                 visible = isFiltersExpanded,
                 enter = fadeIn() + expandVertically(),
@@ -447,14 +449,6 @@ fun AssetsByTypeScreenContent(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         OutlinedTextField(
-                            value = inventoryId,
-                            onValueChange = onInventoryIdChange,
-                            label = { Text("Инвентарный номер") },
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        OutlinedTextField(
                             value = serialNumber,
                             onValueChange = onSerialNumberChange,
                             label = { Text("Серийный номер") },
@@ -463,7 +457,17 @@ fun AssetsByTypeScreenContent(
                             shape = RoundedCornerShape(8.dp)
                         )
 
+                        OutlinedTextField(
+                            value = inventoryId,
+                            onValueChange = onInventoryIdChange,
+                            label = { Text("Инвентарный номер") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
                         var statusExpanded by remember { mutableStateOf(false) }
+
                         ExposedDropdownMenuBox(
                             expanded = statusExpanded,
                             onExpandedChange = { statusExpanded = it }) {
@@ -510,17 +514,42 @@ fun AssetsByTypeScreenContent(
                                 }
                             }
                         }
+                    }
+                }
+            }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = onResetFilters,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) { Text("Сбросить") }
-                        }
+            // Кнопка "Сбросить" — видна, если есть активные фильтры
+            val hasActiveFilters = inventoryId.isNotBlank() ||
+                    serialNumber.isNotBlank() ||
+                    assetStatus != null
+
+            AnimatedVisibility(
+                visible = hasActiveFilters,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    OutlinedButton(
+                        onClick = onResetFilters,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "Сбросить фильтры",
+                            style = MaterialTheme.typography.labelMedium
+                        )
                     }
                 }
             }
@@ -619,6 +648,31 @@ fun AssetsByTypeScreenContent(
                 else -> {}
             }
         }
+        // Оверлей с индикатором во время поиска
+        if (isSearching) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator()
+                        Spacer(Modifier.height(12.dp))
+                        Text("Поиск актива...", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -676,12 +730,10 @@ fun AssetCardModern(asset: AssetResponseDto, onClick: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .clip(RoundedCornerShape(50))
-                                .background(statusColor)
-                        )
+                        Box(modifier = Modifier
+                            .size(8.dp)
+                            .clip(RoundedCornerShape(50))
+                            .background(statusColor))
                         Text(
                             text = asset.assetStatus ?: "Неизвестно",
                             style = MaterialTheme.typography.labelMedium,
@@ -689,6 +741,9 @@ fun AssetCardModern(asset: AssetResponseDto, onClick: () -> Unit) {
                             color = statusColor
                         )
                     }
+                }
+                if (asset.assetId == null){
+                    SapBadge()
                 }
             }
 
@@ -700,34 +755,34 @@ fun AssetCardModern(asset: AssetResponseDto, onClick: () -> Unit) {
             Spacer(modifier = Modifier.height(12.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Outlined.QrCode,
-                        "Инв. номер",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = asset.inventoryId ?: "Не указан",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = if (asset.inventoryId.isBlank())
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        else MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
                 if (!asset.serialNumber.isNullOrBlank()) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Default.Code,
+                            Icons.Outlined.QrCode,
                             "Серийный номер",
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = asset.serialNumber,
+                            text = "SN: ${asset.serialNumber}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                if (!asset.inventoryId.isNullOrBlank()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Numbers,
+                            "Инвентарный номер",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "INV: ${asset.inventoryId}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -793,16 +848,29 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                 uiState = AssetViewModel.AssetUiState.AssetsLoadedPaginated(
                     assets = listOf(
                         getSampleAsset(),
-                        getSampleScrappedAssetResponseDto(),
+                        getSampleAsset().copy(
+                            assetId = null,
+                            materialId = "MAT-002",
+                            name = "Старый монитор Dell",
+                            inventoryId = "INV-2020-9999",
+                            serialNumber = "DL-999888",
+                            assetStatus = "Списан",
+                            assetTypeName = "Периферия",
+                            parentName = null
+                        ),
                         getSampleAsset().copy(
                             name = "Ноутбук Lenovo ThinkPad",
-                            inventoryId = "INV-2023-1122",
+                            inventoryId = "INV-1",
+                            assetId = 1,
+                            materialId = "1",
                             assetStatus = "В эксплуатации",
                             parentName = "Склад №2"
                         ),
                         getSampleAsset().copy(
                             name = "Принтер HP LaserJet",
-                            inventoryId = "INV-2022-3344",
+                            inventoryId = "INV-2",
+                            assetId = 2,
+                            materialId = "2",
                             assetStatus = "В ремонте",
                             assetTypeName = "Периферия"
                         )
@@ -823,6 +891,7 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                     AssetStatusDto(7, "Списан")
                 ),
                 searchQuery = "",
+                isSearching = false,
                 onSearchQueryChange = {},
                 isFiltersExpanded = false,
                 onToggleFilters = {},
@@ -866,6 +935,7 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                     AssetStatusDto(7, "Списан")
                 ),
                 searchQuery = "",
+                isSearching = false,
                 onSearchQueryChange = {},
                 isFiltersExpanded = true,
                 onToggleFilters = {},
@@ -883,17 +953,4 @@ fun AssetsByTypeScreenContentPreview_Empty() {
             )
         }
     }
-}
-
-private fun getSampleScrappedAssetResponseDto(): AssetResponseDto {
-    return getSampleAsset().copy(
-        assetId = 102,
-        materialId = "MAT-002",
-        name = "Старый монитор Dell",
-        inventoryId = "INV-2020-9999",
-        serialNumber = "DL-999888",
-        assetStatus = "Списан",
-        assetTypeName = "Периферия",
-        parentName = null
-    )
 }

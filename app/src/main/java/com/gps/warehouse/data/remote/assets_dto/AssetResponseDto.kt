@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName
 // Базовые поля актива (используются в AssetResponseDto и AssetUpdate)
 interface AssetBase {
     val name: String
-    val inventoryId: String
+    val inventoryId: String?
     val serialNumber: String?
     val assetStatus: String?
     val assetStatusId: Int?
@@ -34,7 +34,7 @@ data class AssetResponseDto(
     @SerializedName("asset_id") val assetId: Int?,
     @SerializedName("material_id") val materialId: String?,
     override val name: String,
-    @SerializedName("inventory_id") override val inventoryId: String,
+    @SerializedName("inventory_id") override val inventoryId: String?,
     @SerializedName("serial_number") override val serialNumber: String?,
     @SerializedName("asset_status") override val assetStatus: String?,
     @SerializedName("asset_status_id") override val assetStatusId: Int?,

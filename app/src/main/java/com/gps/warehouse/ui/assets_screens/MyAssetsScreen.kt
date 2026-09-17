@@ -29,8 +29,8 @@ fun MyAssetsScreen(
     assetViewModel: AssetViewModel,
 ) {
     val uiState by assetViewModel.uiState.collectAsState()
-//    val assetStatuses by assetViewModel.assetStatuses.collectAsState()
-//    val assetTypes by assetViewModel.assetTypes.collectAsState()
+    val assetStatuses by assetViewModel.assetStatuses.collectAsState()
+    val assetTypes by assetViewModel.assetTypes.collectAsState()
 
     LaunchedEffect(Unit) {
         assetViewModel.loadMyAssets()

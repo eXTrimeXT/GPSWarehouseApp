@@ -57,7 +57,8 @@ fun AssetDetailsScreen(
     var editState by remember { mutableStateOf<AssetEditState?>(null) }
 
     // Загружаем данные при открытии
-    LaunchedEffect(assetId) {
+    LaunchedEffect(assetId, materialId) {
+//        assetViewModel.loadAssetHistory(assetId = assetId)
         firstLoadData(viewModel = assetViewModel, assetId = assetId, materialId = materialId)
     }
 
@@ -114,7 +115,7 @@ fun AssetDetailsScreen(
 
     userPendingRemoval?.let { (userType, user) ->
         val roleText = when (userType) {
-            UserType.USER -> "Пользователи"
+            UserType.USER -> "Владелец"
             UserType.RESPONSIBLE -> "Ответственные"
             UserType.SERVING -> "Обслуживающий персонал"
         }
@@ -248,7 +249,7 @@ fun AssetDetailsScreen(
 fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?) {
     viewModel.loadAssetDetails(assetId = assetId, materialId = materialId)
     viewModel.loadAssetStatuses()
-    viewModel.loadAssetTypes()
+//    viewModel.loadAssetTypes()
 }
 
 // ==================== CONTENT: UI + Preview ====================
@@ -280,7 +281,13 @@ fun AssetDetailsContent(
                     CircularProgressIndicator()
                 }
             }
-
+            is AssetViewModel.AssetUiState.Error -> {
+                ErrorStateView(
+                    message = uiState.message,
+                    onRetry = onRetryClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             is AssetViewModel.AssetUiState.AssetDetailsLoaded -> {
                 val asset = uiState.asset
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -292,10 +299,18 @@ fun AssetDetailsContent(
                             Row {
                                 if (isEditing) {
                                     IconButton(onClick = onSave) {
-                                        Icon(Icons.Default.Save, "Сохранить", tint = MaterialTheme.colorScheme.primary)
+                                        Icon(
+                                            Icons.Default.Save,
+                                            "Сохранить",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
                                     }
                                     IconButton(onClick = onCancelEdit) {
-                                        Icon(Icons.Default.Close, "Отмена", tint = MaterialTheme.colorScheme.error)
+                                        Icon(
+                                            Icons.Default.Close,
+                                            "Отмена",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
                                     }
                                 } else {
                                     if (asset.assetId != null) {
@@ -306,17 +321,24 @@ fun AssetDetailsContent(
                                                 tint = MaterialTheme.colorScheme.primary
                                             )
                                         }
-                                    }
-                                    IconButton(onClick = onShowHistory) {
-                                        Icon(Icons.Default.History, "История", tint = MaterialTheme.colorScheme.primary)
+                                        IconButton(onClick = onShowHistory) {
+                                            Icon(
+                                                Icons.Default.History,
+                                                "История",
+                                                tint = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
                                     }
                                     IconButton(onClick = onToggleEdit) {
-                                        Icon(Icons.Default.Edit, "Редактировать", tint = MaterialTheme.colorScheme.primary)
+                                        Icon(
+                                            Icons.Default.Edit,
+                                            "Редактировать",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
                                     }
                                 }
                             }
-                        }
-                    )
+                        })
 
                     // Контент
                     LazyColumn(
@@ -370,7 +392,7 @@ fun AssetDetailsContent(
                         // Пользователи
                         item {
                             UsersSection(
-                                title = "Пользователи",
+                                title = "Владелец",
                                 users = editState?.currentUsers ?: asset.users,
                                 icon = Icons.Default.Person,
                                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -381,17 +403,17 @@ fun AssetDetailsContent(
                         }
 
                         // Ответственные
-                        item {
-                            UsersSection(
-                                title = "Ответственные",
-                                users = editState?.currentResponsibleUsers ?: asset.responsibleUsers,
-                                icon = Icons.Default.VerifiedUser,
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                isEditing = isEditing,
-                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.RESPONSIBLE) } } else null,
-                                onRemoveUser = onRemoveUser
-                            )
-                        }
+//                        item {
+//                            UsersSection(
+//                                title = "Ответственные",
+//                                users = editState?.currentResponsibleUsers ?: asset.responsibleUsers,
+//                                icon = Icons.Default.VerifiedUser,
+//                                color = MaterialTheme.colorScheme.primaryContainer,
+//                                isEditing = isEditing,
+//                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.RESPONSIBLE) } } else null,
+//                                onRemoveUser = onRemoveUser
+//                            )
+//                        }
 
                         // Обслуживающий персонал
                         item {
@@ -411,15 +433,6 @@ fun AssetDetailsContent(
                     }
                 }
             }
-
-            is AssetViewModel.AssetUiState.Error -> {
-                ErrorStateView(
-                    message = uiState.message,
-                    onRetry = onRetryClick,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
             else -> {}
         }
     }
@@ -785,7 +798,7 @@ fun UsersSection(
     if (users.isNullOrEmpty() && !isEditing) return
 
     val userType = when (title) {
-        "Пользователи" -> UserType.USER
+        "Владелец" -> UserType.USER
         "Ответственные" -> UserType.RESPONSIBLE
         "Обслуживающий персонал" -> UserType.SERVING
         else -> UserType.USER
@@ -885,14 +898,14 @@ private fun ExpandableUserCard(
                 )
             }
 
-            if (expanded) {
+            if (!expanded) {
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     InfoRowSmall(label = "Таб. номер", value = user.employeeId)
-                    user.phone?.let { phone -> InfoRowSmall(label = "Телефон", value = phone) }
-                    user.email?.let { email -> InfoRowSmall(label = "Email", value = email) }
+//                    user.phone?.let { phone -> InfoRowSmall(label = "Телефон", value = phone) }
+//                    user.email?.let { email -> InfoRowSmall(label = "Email", value = email) }
                     user.department?.shortName?.let { dept -> InfoRowSmall(label = "Департамент", value = dept) }
                     user.division?.shortName?.let { division -> InfoRowSmall(label = "Отдел", value = division) }
                     user.group?.shortName?.let { group -> InfoRowSmall(label = "Группа", value = group) }
