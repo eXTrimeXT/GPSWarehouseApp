@@ -53,6 +53,7 @@ import com.gps.warehouse.ui.gps_screens.profile.ProfileScreen
 import com.gps.warehouse.ui.gps_screens.orders.ReceiveMaterialsScreen
 import com.gps.warehouse.ui.settings.SettingsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WarehouseMaterialsScreen
+import com.gps.warehouse.ui.gps_screens.warehouse.WmsItemDetailsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsReceiveScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsRequestsScreen
 import com.gps.warehouse.ui.gps_screens.warehouse.WmsScreen
@@ -250,9 +251,26 @@ class MainActivity : ComponentActivity() {
                         composable("wms") {
                             WmsScreen(
                                 navController = navController,
-                                viewModel = mainViewModel
+                                mainViewModel = mainViewModel
                             )
                         }
+                        composable(
+                            route = "wms_item_details/{material}/{storageId}",
+                            arguments = listOf(
+                                navArgument("material") { type = NavType.StringType },
+                                navArgument("storageId") { type = NavType.StringType }
+                            )
+                        ) { backStackEntry ->
+                            val material = backStackEntry.arguments?.getString("material").orEmpty()
+                            val storageId = backStackEntry.arguments?.getString("storageId").orEmpty()
+                            WmsItemDetailsScreen(
+                                material = material,
+                                storageId = storageId,
+                                navController = navController,
+                                mainViewModel = mainViewModel
+                            )
+                        }
+
                         composable("wms_requests") {
                             WmsRequestsScreen(
                                 navController = navController,

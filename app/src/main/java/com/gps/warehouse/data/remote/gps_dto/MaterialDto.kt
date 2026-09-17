@@ -83,17 +83,17 @@ data class GetWmsRequest(
 // Ответ от API getwms (один элемент списка)
 data class WmsItemDto(
     val id: Int,
-    val material: String,       // Артикул
-    val max: Int,               // Максимальный остаток
-    val min: Int,               // Минимальный остаток
-    val positionId: Int,        // ID Топологии: 0 по умолчанию
-    val position: String,       // Топология (например, BUFF)
-    val price: Double,          // Цена
-    val qty: Double,            // Количество
-    @SerializedName("sap_a") val sapA: Int,
-    val storage: String,        // Склад
-    @SerializedName("storage_id") val storageId: Int?, // id склада
-    val name: String            // Наименование
+    val name: String,                                           // Наименование
+    val material: String,                                       // Артикул
+    val max: Int,                                               // Максимальный остаток
+    val min: Int,                                               // Минимальный остаток
+    val positionId: Int,                                        // ID Топологии: 0 по умолчанию
+    val position: String,                                       // Топология (например, BUFF)
+    val price: Double,                                          // Цена
+    val qty: Double,                                            // Количество
+    val storage: String,                                        // Склад
+    @SerializedName("sap_a") val sapA: Int,             // 0 - Виртуальный, 1 - из SAP
+    @SerializedName("storage_id") val storageId: Int?   // id склада
 ) : Serializable
 
 // Запрос на перемещение материала
