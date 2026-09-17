@@ -1406,8 +1406,8 @@ fun EditDialogPreview() {
         ),
         currentStorageId = "1",
         topologies = listOf(
-            TopologyDto(id = "1", position = "BUFF"),
-            TopologyDto(id = "2", position = "A-01")
+            TopologyDto(id = "1", position = "BUFF", positionScan = "BUFF"),
+            TopologyDto(id = "2", position = "A-01", positionScan = "A1")
         ),
         isLoadingTopologies = false,
         initialPosition = "BUFF",
