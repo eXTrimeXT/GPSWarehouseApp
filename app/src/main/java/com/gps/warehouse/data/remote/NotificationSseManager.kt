@@ -43,7 +43,7 @@ class NotificationSseManager @Inject constructor(
 
         val baseUrl = com.gps.warehouse.utils.Constants.ASSET_URL
         val safeBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
-        val fullUrl = "${safeBaseUrl}notifications/stream?direction=all"
+        val fullUrl = "${safeBaseUrl}notifications/stream"
 
         val request = Request.Builder()
             .url(fullUrl)
@@ -51,7 +51,7 @@ class NotificationSseManager @Inject constructor(
             .addHeader("Accept", "text/event-stream")
             .build()
 
-        Log.d("SSE_MANAGER", "🔌 Глобальное подключение к SSE: ${request.url}")
+        Log.d("SSE_MANAGER", "Глобальное подключение к SSE: ${request.url}")
 
         eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {

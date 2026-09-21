@@ -47,7 +47,6 @@ enum class StatusFilter(val title: String, val apiValue: String?) {
     ALL("Все", null),
     UNREAD("Не прочитанные", "unread"),
     READ("Прочитанные", "read"),
-    DECLINED("Отклоненные", "declined")
 }
 
 data class NotificationFilterState(
@@ -518,7 +517,7 @@ private fun NotificationsContentEmptyPreview() {
                     uiState = AssetViewModel.AssetUiState.NotificationsLoaded(emptyList()),
                     listState = LazyListState(),
                     filterState = NotificationFilterState(),
-                    isFiltersExpanded = false,
+                    isFiltersExpanded = true,
                     onToggleFilters = {},
                     onFilterStateChange = {},
                     onRetry = {},
