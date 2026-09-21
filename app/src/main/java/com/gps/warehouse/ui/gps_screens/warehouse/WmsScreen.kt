@@ -25,7 +25,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.WarehousePermissionDto
 import com.gps.warehouse.data.remote.gps_dto.WmsItemDto
@@ -60,18 +59,19 @@ fun WmsScreen(
     var isFiltersExpanded by remember { mutableStateOf(false) }
 
     // === Сканер ===
-    val honeywellHelper = remember { ScannerManager(context) }
+    val scannerManager = remember { ScannerManager(context) }
     var lastScannedCode by remember { mutableStateOf<String?>(null) }
 
     // Инициализация
     LaunchedEffect(Unit) {
         mainViewModel.loadAvailableWarehouses()
-        honeywellHelper.init()
+        scannerManager.init()
     }
 
     // Сканирование: материал → поиск
     LaunchedEffect(Unit) {
-        honeywellHelper.barcodeFlow.collect { scannedData ->
+        scannerManager.barcodeFlow.collect { scannedData ->
+            Log.d(TAG, "LE materialCode")
             if (scannedData.isEmpty()) return@collect
             val parsedData: ScannedData? = BarcodeParser.parse(scannedData)
             val materialCode = parsedData?.material ?: scannedData.trim()
@@ -81,7 +81,7 @@ fun WmsScreen(
     }
 
     DisposableEffect(Unit) {
-        onDispose { honeywellHelper.release() }
+        onDispose { scannerManager.release() }
     }
 
     // После сканирования — навигируем, если нашли
@@ -102,7 +102,7 @@ fun WmsScreen(
         lastScannedCode = null
     }
 
-    // Фильтры → перезагрузка (сработает и при первом компоузе)
+    // Фильтры → перезагрузка (сработает и при первом Compose)
     LaunchedEffect(searchQuery, selectedStorageFilterId, showOnlyNonZeroQty) {
         mainViewModel.updateWmsFilters(
             storageId = selectedStorageFilterId,

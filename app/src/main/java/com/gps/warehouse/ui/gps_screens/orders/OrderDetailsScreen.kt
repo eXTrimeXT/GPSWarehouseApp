@@ -80,7 +80,7 @@ fun ReceiveMaterialsScreen(
     }
 
     // Инициализация сканера Honeywell
-    val honeywellHelper = remember { ScannerManager(context) }
+    val scannerManager = remember { ScannerManager(context) }
 
     LaunchedEffect(orderNumber) {
         viewModel.loadMaterials(orderNumber)
@@ -88,7 +88,7 @@ fun ReceiveMaterialsScreen(
 
     // Слушаем сканер
     LaunchedEffect(Unit) {
-        honeywellHelper.barcodeFlow.collect { scannedData ->
+        scannerManager.barcodeFlow.collect { scannedData ->
             if (scannedData.isNotEmpty()) {
                 handleScanForReceive(
                     scannedData = scannedData,
@@ -114,9 +114,9 @@ fun ReceiveMaterialsScreen(
     }
 
     DisposableEffect(Unit) {
-        honeywellHelper.init()
+        scannerManager.init()
         onDispose {
-            honeywellHelper.release()
+            scannerManager.release()
         }
     }
 

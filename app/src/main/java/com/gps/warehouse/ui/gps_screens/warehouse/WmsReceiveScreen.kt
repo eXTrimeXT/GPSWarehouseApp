@@ -88,107 +88,7 @@ fun WmsReceiveScreen(
     // Запоминаем номер заказа, с которого началось сканирование, чтобы блокировать добавление из других заказов
     var activeOrderNumber by remember { mutableStateOf(orderNumber) }
 
-    val honeywellHelper = remember { ScannerManager(context) }
-
-//    fun processScannedData(scannedData: String) {
-//        if (scannedData.isNotEmpty()) {
-//            val trimmedData = scannedData.trim()
-//            if (isBase64EncodedJson(trimmedData)) {
-//                val scanResult = decodeWmsReceiveScreen(trimmedData)
-//                Log.d(TAG, "scanResult = $scanResult")
-//
-//                if (scanResult != null) {
-//                    if (showDialog) {
-//                        // Если диалог открыт — заполняем ТОЛЬКО артикул
-//                        dialogMaterial = scanResult.matNumScan
-//                    } else {
-//                        // Сначала создаём элемент ВРЕМЕННО без имени
-//                        val orderNumberToUse =
-//                            if (scanResult.matNumOrder == orderNumber || orderNumber.isEmpty()) {
-//                                scanResult.matNumOrder
-//                            } else {
-//                                orderNumber
-//                            }
-//                        val tempItem = WmsReceiveItem(
-//                            matNumScan = scanResult.matNumScan,
-//                            matNumOrder = orderNumberToUse,
-//                            matQtyOrder = scanResult.matQtyScan,
-//                            checkQuality = true,
-//                            Expi = "",
-//                            matPositionSap = scanResult.matPosition,
-//                            isPositionFromScan = true,
-//                            matName = "", // Временно пусто,
-//                            qtyOrder = scanResult.matQtyScan
-//                        )
-//
-//                        // Сразу добавляем элемент в список (чтобы он отобразился)
-//                        receiveItems = receiveItems + tempItem
-//
-//
-//                        // Асинхронно запрашиваем имя и обновляем элемент в списке
-//                        scope.launch {
-//                            val nameMaterial = viewModel.getNameMaterial(scanResult.matNumScan)
-//                            Log.d(TAG, "MATERIAL NAME: $nameMaterial")
-//                            val index = receiveItems.indexOfFirst {
-//                                it.matNumScan == scanResult.matNumScan && it.matName.isEmpty()
-//                            }
-//                            if (index != -1) {
-//                                receiveItems = receiveItems.toMutableList().apply {
-//                                    set(index, get(index).copy(matName = nameMaterial))
-//                                }
-//                            }
-//                        }
-//                    }
-//                } else {
-//                    Toast.makeText(
-//                        context,
-//                        "Ошибка распознавания данных скана!",
-//                        Toast.LENGTH_SHORT
-//                    ).show()
-//                }
-//            } else {
-//                // Не base64 JSON — просто артикул (типичный случай для камеры)
-//                if (showDialog) {
-//                    // Если открыт диалог редактирования — подставляем артикул в поле
-//                    dialogMaterial = trimmedData
-//                    // Автозапрос имени для превью в диалоге
-//                    scope.launch {
-//                        isUpdatingName = true
-//                        dialogMatName = viewModel.getNameMaterial(trimmedData)
-//                        isUpdatingName = false
-//                    }
-//                } else {
-//                    // Диалог ЗАКРЫТ — добавляем материал в список как новый элемент
-//                    val tempItem = WmsReceiveItem(
-//                        matNumScan = trimmedData,
-//                        matNumOrder = orderNumber.ifEmpty { "" },
-//                        matQtyOrder = 1,
-//                        checkQuality = true,
-//                        Expi = "",
-//                        matPositionSap = "",
-//                        isPositionFromScan = false,
-//                        matName = "",
-//                        qtyOrder = 1
-//                    )
-//                    receiveItems = receiveItems + tempItem
-//
-//                    // Асинхронно запрашиваем имя и обновляем элемент в списке
-//                    scope.launch {
-//                        val nameMaterial = viewModel.getNameMaterial(trimmedData)
-//                        Log.d(TAG, "CAMERA MATERIAL NAME: $nameMaterial")
-//                        val index = receiveItems.indexOfFirst {
-//                            it.matNumScan == trimmedData && it.matName.isEmpty()
-//                        }
-//                        if (index != -1) {
-//                            receiveItems = receiveItems.toMutableList().apply {
-//                                set(index, get(index).copy(matName = nameMaterial))
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//    }
+    val scannerManager = remember { ScannerManager(context) }
 
     fun processScannedData(scannedData: String) {
         if (scannedData.isNotEmpty()) {
@@ -317,16 +217,16 @@ fun WmsReceiveScreen(
 
     // Слушаем сканер Honeywell
     LaunchedEffect(Unit) {
-        honeywellHelper.barcodeFlow.collect { scannedData ->
+        scannerManager.barcodeFlow.collect { scannedData ->
             processScannedData(scannedData)
         }
     }
 
     // Инициализация сканера
     DisposableEffect(Unit) {
-        honeywellHelper.init()
+        scannerManager.init()
         onDispose {
-            honeywellHelper.release()
+            scannerManager.release()
             viewModel.resetReceiveState()
         }
     }

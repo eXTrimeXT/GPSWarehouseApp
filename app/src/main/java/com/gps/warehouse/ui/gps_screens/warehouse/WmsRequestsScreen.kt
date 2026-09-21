@@ -1,6 +1,5 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -10,7 +9,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowRightAlt
-import androidx.compose.material.icons.filled.AddBox
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.NorthEast
@@ -46,7 +44,7 @@ fun WmsRequestsScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     // Сканер
-    val honeywellHelper = remember { ScannerManager(context) }
+    val scannerManager = remember { ScannerManager(context) }
 
     // Состояния фильтров
     var searchQuery by remember { mutableStateOf("") }
@@ -114,8 +112,8 @@ fun WmsRequestsScreen(
 
     // Сканер
     LaunchedEffect(Unit) {
-        honeywellHelper.init()
-        honeywellHelper.barcodeFlow.collect { scannedData ->
+        scannerManager.init()
+        scannerManager.barcodeFlow.collect { scannedData ->
             if (scannedData.isNotEmpty()) {
                 val materialCode = BarcodeParser.parse(scannedData)?.material ?: scannedData
                 searchQuery = materialCode
@@ -125,7 +123,7 @@ fun WmsRequestsScreen(
     }
     DisposableEffect(Unit) {
         onDispose {
-            honeywellHelper.release()
+            scannerManager.release()
         }
     }
 

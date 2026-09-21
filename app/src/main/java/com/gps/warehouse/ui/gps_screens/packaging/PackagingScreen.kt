@@ -61,7 +61,7 @@ fun PackagingScreen(
     var dialogQty by remember { mutableStateOf("1") }
 
     // Инициализируем хелпер Honeywell AIDC
-    val honeywellHelper = remember { ScannerManager(context) }
+    val scannerManager = remember { ScannerManager(context) }
 
     fun processScannedData(scannedData: String){
         if (scannedData.isNotEmpty()) {
@@ -88,17 +88,17 @@ fun PackagingScreen(
 
     // Слушаем поток сканера
     LaunchedEffect(Unit) {
-        honeywellHelper.barcodeFlow.collect { scannedData ->
+        scannerManager.barcodeFlow.collect { scannedData ->
             processScannedData(scannedData)
         }
     }
 
     // Инициализация и управление сканером
     DisposableEffect(Unit) {
-        honeywellHelper.init()
+        scannerManager.init()
 
         onDispose {
-            honeywellHelper.release()
+            scannerManager.release()
             viewModel.resetStateToIdle()
         }
     }

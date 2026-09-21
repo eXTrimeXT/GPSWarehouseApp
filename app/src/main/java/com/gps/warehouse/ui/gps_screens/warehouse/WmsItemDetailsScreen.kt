@@ -1,5 +1,7 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
+import android.util.Log
+import android.widget.Space
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,11 +17,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -27,10 +34,13 @@ import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.TopologyDto
 import com.gps.warehouse.data.remote.gps_dto.WmsItemDto
 import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.CameraScannerDialog
+import com.gps.warehouse.ui.components.ChangeTopologyDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SapBadge
 import com.gps.warehouse.utils.ScannerManager
+import kotlinx.coroutines.delay
 
 private const val TAG = "WmsItemDetails"
 
@@ -79,13 +89,99 @@ fun WmsItemDetailsScreen(
     var showMoveSuccess by remember { mutableStateOf(false) }
     var moveError by remember { mutableStateOf<String?>(null) }
 
+    // === Диалог изменения топологии ===
+    var showChangeTopologyDialog by remember { mutableStateOf(false) }
+    var showCameraForTopology by remember { mutableStateOf(false) }
+
     // === Сканер ===
-    val honeywellHelper = remember { ScannerManager(context) }
+    val scannerManager = remember { ScannerManager(context) }
 
     // Ищем элемент в ТЕКУЩЕМ состоянии
     val currentItem: WmsItemDto? = remember(uiState, material, storageId) {
         (uiState as? MainViewModel.UiState.WmsLoaded)?.items?.find {
             it.material == material && it.storageId.toString() == storageId
+        }
+    }
+
+    // Сканирование топологии: работает когда открыт ChangeTopologyDialog
+//    LaunchedEffect(Unit) {
+//        scannerManager.barcodeFlow.collect { scannedData ->
+//            Log.d("TAG", "CHECK LE scanner")
+//            if (scannedData.isEmpty()) return@collect
+//            if (!showChangeTopologyDialog) return@collect
+//            val current = currentItem ?: return@collect
+//
+//            val scannedCode = scannedData.trim()
+//            val matched = topologies.find {
+//                it.positionScan.equals(scannedCode, ignoreCase = true)
+//            }
+//            Log.d(TAG, "saveTopologyChange = $scannedCode")
+//
+//            if (matched != null) {
+//                // Автосохранение
+//                saveTopologyChange(
+//                    item = current,
+//                    topology = matched,
+//                    context = context,
+//                    mainViewModel = mainViewModel,
+//                    onSuccess = {
+//                        showChangeTopologyDialog = false
+//                        Toast.makeText(context, "Топология изменена на ${matched.position}", Toast.LENGTH_SHORT).show()
+//                    }
+//                )
+//            } else {
+//                Toast.makeText(
+//                    context,
+//                    "Позиция '$scannedCode' не найдена на этом складе",
+//                    Toast.LENGTH_LONG
+//                ).show()
+//            }
+//        }
+//    }
+    // Единый коллектор сканера: обрабатывает 2 режима:
+    // Сканирование топологии и склада
+    LaunchedEffect(Unit) {
+        scannerManager.barcodeFlow.collect { scannedData ->
+            if (scannedData.isEmpty()) return@collect
+            val scannedCode = scannedData.trim()
+
+            when {
+                // === Режим 1: открыт диалог перемещения → сканируем ЦЕЛЕВОЙ СКЛАД ===
+                showMoveDialog -> {
+                    Log.d(TAG, "Move scan: $scannedCode")
+                    targetStorage = scannedCode
+                    moveError = null
+                    Toast.makeText(context, "Склад: $scannedCode", Toast.LENGTH_SHORT).show()
+                }
+
+                // === Режим 2: открыт диалог смены топологии → сканируем ТОПОЛОГИЮ ===
+                showChangeTopologyDialog -> {
+                    val current = currentItem ?: return@collect
+                    val matched = topologies.find {
+                        it.positionScan.equals(scannedCode, ignoreCase = true)
+                    }
+                    Log.d(TAG, "Topology scan: $scannedCode, matched=${matched?.position}")
+
+                    if (matched != null) {
+                        saveTopologyChange(
+                            item = current,
+                            topology = matched,
+                            context = context,
+                            mainViewModel = mainViewModel,
+                            onSuccess = {
+                                showChangeTopologyDialog = false
+                                Toast.makeText(context, "Топология изменена на ${matched.position}", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Позиция '$scannedCode' не найдена на этом складе",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
         }
     }
 
@@ -100,29 +196,66 @@ fun WmsItemDetailsScreen(
 
     // Загрузка топологий при открытии экрана
     LaunchedEffect(storageId) {
+        scannerManager.init()
         if (storageId.isNotBlank()) {
             mainViewModel.loadTopologies(storageId)
         }
     }
 
     // Инициализация editState когда item и topologies загружены
+//    LaunchedEffect(item, topologies) {
+//        if (item != null && topologies.isNotEmpty()) {
+//            if (editState == null) {
+//                editState = WmsEditState.fromItem(item)
+//            }
+//            // Выходим из режима редактирования после успешной перезагрузки
+//            if (isEditing && uiState is MainViewModel.UiState.WmsLoaded) {
+//                // Данные обновились — сбрасываем editState
+//                editState = WmsEditState.fromItem(item)
+//                // isEditing оставим true — пользователь сам решит
+//            }
+//        }
+//    }
     LaunchedEffect(item, topologies) {
-        if (item != null && topologies.isNotEmpty()) {
-            if (editState == null) {
-                editState = WmsEditState.fromItem(item)
-            }
-            // Выходим из режима редактирования после успешной перезагрузки
-            if (isEditing && uiState is MainViewModel.UiState.WmsLoaded) {
-                // Данные обновились — сбрасываем editState
-                editState = WmsEditState.fromItem(item)
-                // isEditing оставим true — пользователь сам решит
-            }
+        if (item != null && isEditing) {
+            editState = WmsEditState.fromItem(item)
         }
     }
 
     DisposableEffect(Unit) {
-        honeywellHelper.init()
-        onDispose { honeywellHelper.release() }
+        scannerManager.init()
+        onDispose { scannerManager.release() }
+    }
+
+    // Камера для топологии
+    if (showCameraForTopology) {
+        CameraScannerDialog(
+            onDismiss = { showCameraForTopology = false },
+            onBarcodeDetected = { scannedCode ->
+                showCameraForTopology = false
+                val matched = topologies.find {
+                    it.positionScan.equals(scannedCode, ignoreCase = true)
+                }
+                if (matched != null) {
+                    saveTopologyChange(
+                        item = item!!,
+                        topology = matched,
+                        context = context,
+                        mainViewModel = mainViewModel,
+                        onSuccess = {
+                            showChangeTopologyDialog = false
+                            Toast.makeText(context, "Топология изменена на ${matched.position}", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                } else {
+                    Toast.makeText(
+                        context,
+                        "Позиция '$scannedCode' не найдена на этом складе",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        )
     }
 
     // Реакция на результат перемещения
@@ -160,7 +293,15 @@ fun WmsItemDetailsScreen(
         isEditing = isEditing,
         editState = editState,
         onEditStateChange = { editState = it },
-        onToggleEdit = { isEditing = !isEditing },
+//        onToggleEdit = { isEditing = !isEditing },
+        onToggleEdit = {
+            editState = if (!isEditing) {
+                WmsEditState.fromItem(item)
+            } else {
+                null
+            }
+            isEditing = !isEditing
+        },
         onBackClick = { navController.popBackStack() },
         onMoveClick = {
             moveQty = if (item.qty > 0) item.qty.toInt().toString() else ""
@@ -199,7 +340,8 @@ fun WmsItemDetailsScreen(
                 newQty = if (item.sapA == 0) qtyInt else null,
                 onSuccess = {
                     isEditing = false
-                    editState = WmsEditState.fromItem(item)
+//                    editState = WmsEditState.fromItem(item)
+                    editState = null
                     mainViewModel.loadWmsData()
                     Toast.makeText(context, "Сохранено", Toast.LENGTH_SHORT).show()
                 },
@@ -210,7 +352,11 @@ fun WmsItemDetailsScreen(
         },
         onCancelEdit = {
             isEditing = false
-            editState = WmsEditState.fromItem(item)
+//            editState = WmsEditState.fromItem(item)
+            editState = null
+        },
+        onChangeTopologyClick = {
+            showChangeTopologyDialog = true
         }
     )
 
@@ -248,6 +394,59 @@ fun WmsItemDetailsScreen(
             }
         )
     }
+
+    // === ДИАЛОГ ИЗМЕНЕНИЯ ТОПОЛОГИИ ===
+    if (showChangeTopologyDialog) {
+        ChangeTopologyDialog(
+            currentPosition = item.position,
+            topologies = topologies,
+            currentMaterial = item.material,
+            onDismiss = { showChangeTopologyDialog = false },
+            onTopologySelected = { topology ->
+                // Автосохранение при выборе из dropdown
+                saveTopologyChange(
+                    item = item,
+                    topology = topology,
+                    context = context,
+                    mainViewModel = mainViewModel,
+                    onSuccess = {
+                        showChangeTopologyDialog = false
+                        Toast.makeText(context, "Топология изменена на ${topology.position}", Toast.LENGTH_SHORT).show()
+                    }
+                )
+            },
+            onCameraScanClick = { showCameraForTopology = true }
+        )
+    }
+}
+
+/**
+ * Автосохранение топологии без подтверждения.
+ * Сохраняет только позицию (position + positionId), остальные поля берёт из текущего item.
+ */
+private fun saveTopologyChange(
+    item: WmsItemDto,
+    topology: TopologyDto,
+    context: android.content.Context,
+    mainViewModel: MainViewModel,
+    onSuccess: () -> Unit
+) {
+    mainViewModel.updateWmsItem(
+        item = item,
+        newPosition = topology.position,
+        newPositionId = topology.id.toIntOrNull(),
+        newMin = item.min,
+        newMax = item.max,
+        newMaterial = null,
+        newQty = null,
+        onSuccess = {
+            mainViewModel.loadWmsData()
+            onSuccess()
+        },
+        onError = { error ->
+            Toast.makeText(context, "Ошибка сохранения: $error", Toast.LENGTH_SHORT).show()
+        }
+    )
 }
 
 // ====================== CONTENT ======================
@@ -263,7 +462,8 @@ fun WmsItemDetailsContent(
     onBackClick: () -> Unit,
     onMoveClick: () -> Unit,
     onSave: () -> Unit,
-    onCancelEdit: () -> Unit
+    onCancelEdit: () -> Unit,
+    onChangeTopologyClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         // === ActionBar ===
@@ -341,10 +541,10 @@ fun WmsItemDetailsContent(
             }
 
             // Компактная карточка с деталями
-            item { WmsDetailsCard(item) }
+//            item { WmsDetailsCard(item) }
         }
 
-        // === Кнопка "Переместить" внизу (только если НЕ в режиме редактирования) ===
+        // === Кнопки действий внизу (только если НЕ в режиме редактирования) ===
         if (!isEditing) {
             Surface(
                 tonalElevation = 3.dp,
@@ -353,19 +553,27 @@ fun WmsItemDetailsContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 10.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    OutlinedButton(
+                        onClick = onChangeTopologyClick,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Изменить топологию")
+                    }
+
                     Button(
                         onClick = onMoveClick,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
+                        modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(Icons.Default.SwapHoriz, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Переместить")
+                        Text("Переместить материал")
                     }
                 }
             }
@@ -400,7 +608,9 @@ private fun WmsHeaderCard(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(end = 8.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
                 )
                 if (item.sapA == 1) SapBadge()
             }
@@ -487,7 +697,7 @@ private fun WmsLocationCard(
     modifier: Modifier = Modifier
 ) {
     OutlinedCard(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.outlinedCardColors(
             containerColor = MaterialTheme.colorScheme.surface
@@ -595,14 +805,17 @@ private fun WmsLocationCard(
                         Icon(
                             Icons.Outlined.Place,
                             "Топология",
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(14.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             "Топология",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Clip
                         )
                     }
                     Surface(
@@ -730,7 +943,7 @@ private fun WmsLimitsCard(
     }
 }
 
-// ====================== КАРТОЧКА ДЕТАЛЕЙ (только для чтения) ======================
+// ====================== КАРТОЧКА ДЕТАЛЕЙ ======================
 @Composable
 private fun WmsDetailsCard(item: WmsItemDto) {
     OutlinedCard(
@@ -779,44 +992,6 @@ private fun WmsDetailsCard(item: WmsItemDto) {
                     value = item.positionId.toString()
                 )
             }
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Assignment,
-                        "SAP",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        "Интеграция SAP",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = if (item.sapA == 1)
-                        MaterialTheme.colorScheme.primaryContainer
-                    else
-                        MaterialTheme.colorScheme.surfaceContainerHigh
-                ) {
-                    Text(
-                        text = if (item.sapA == 1) "Да" else "Нет",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
             Spacer(Modifier.height(8.dp))
 
             Text(
@@ -895,7 +1070,7 @@ private fun LimitValueRow(label: String, value: String, color: Color) {
     }
 }
 
-// ====================== ДИАЛОГ ПЕРЕМЕЩЕНИЯ (без изменений) ======================
+// ====================== ДИАЛОГ ПЕРЕМЕЩЕНИЯ ======================
 @Composable
 fun MoveMaterialDialog(
     itemToMove: WmsItemDto,
@@ -911,20 +1086,43 @@ fun MoveMaterialDialog(
     onConfirmMove: (String) -> Unit,
     onSuccessAcknowledge: () -> Unit
 ) {
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Локальное TextFieldValue для управления курсором
+    var storageField by remember { mutableStateOf(TextFieldValue(targetStorage)) }
+
+    LaunchedEffect(targetStorage) {
+        if (storageField.text != targetStorage) {
+            storageField = TextFieldValue(
+                text = targetStorage,
+                selection = TextRange(targetStorage.length)
+            )
+        }
+    }
+
+    // Автофокус на поле «Целевой склад» при открытии диалога
+    LaunchedEffect(Unit) {
+        // Небольшая задержка, чтобы диалог успел отрисоваться
+        delay(200)
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
     AlertDialog(
         onDismissRequest = if (isLoading || isSuccess) { {} } else { onDismissRequest },
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-        icon = {
-            Icon(
-                imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.SwapHoriz,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(if (isSuccess) 48.dp else 32.dp)
-            )
-        },
+//        icon = {
+//            Icon(
+//                imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.SwapHoriz,
+//                contentDescription = null,
+//                tint = MaterialTheme.colorScheme.primary,
+//                modifier = Modifier.size(if (isSuccess) 48.dp else 32.dp)
+//            )
+//        },
         title = {
             Text(
-                if (isSuccess) "Успешно!" else "Перемещение материала",
+                if (isSuccess) "Успешно!" else "Перемещение",
                 style = MaterialTheme.typography.headlineSmall
             )
         },
@@ -958,14 +1156,21 @@ fun MoveMaterialDialog(
                 ) {
                     ItemInfoCard(itemToMove)
 
+                    // Поле целевого склада
                     OutlinedTextField(
-                        value = targetStorage,
-                        onValueChange = onTargetStorageChange,
-                        label = { Text("Целевой склад / позиция") },
-                        modifier = Modifier.fillMaxWidth(),
+                        value = storageField,
+                        onValueChange = { newValue ->
+                            storageField = newValue
+                            onTargetStorageChange(newValue.text)
+                        },
+                        label = { Text("Целевой склад") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester),
                         singleLine = true,
                         enabled = !isLoading,
-                        isError = targetStorage.isEmpty() && !isLoading
+                        isError = targetStorage.isEmpty() && !isLoading,
+                        textStyle = MaterialTheme.typography.bodyMedium
                     )
 
                     OutlinedTextField(
@@ -1062,43 +1267,18 @@ private fun ItemInfoCard(item: WmsItemDto) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.secondaryContainer
-                ) {
-                    Text(
-                        text = item.position,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-                if (item.sapA == 1) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF667eea),
-                        modifier = Modifier.padding(start = 4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.Assignment,
-                                contentDescription = "SAP",
-                                tint = Color.White,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text(
-                                text = "SAP",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color.White
-                            )
-                        }
-                    }
-                }
+//                Surface(
+//                    shape = MaterialTheme.shapes.small,
+//                    color = MaterialTheme.colorScheme.secondaryContainer
+//                ) {
+//                    Text(
+//                        text = item.position,
+//                        style = MaterialTheme.typography.labelMedium,
+//                        fontWeight = FontWeight.Medium,
+//                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+//                    )
+//                }
+                if (item.sapA == 1) { SapBadge() }
             }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
@@ -1122,6 +1302,18 @@ private fun ItemInfoCard(item: WmsItemDto) {
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary
                 )
+                Spacer(modifier = Modifier.weight(1f))
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Text(
+                        text = "Топология: ${item.position}",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
     }
@@ -1163,7 +1355,7 @@ private fun ErrorCard(message: String, onClear: () -> Unit) {
 }
 
 // ====================== PREVIEWS ======================
-@Preview(showBackground = true, showSystemUi = true, name = "Режим просмотра")
+@Preview(showBackground = true, showSystemUi = true, name = "Режим просмотра", device = "spec:width=350dp,height=870dp")
 @Composable
 fun WmsItemDetailsContentPreview() {
     MaterialTheme {
@@ -1176,7 +1368,7 @@ fun WmsItemDetailsContentPreview() {
                     max = 111,
                     min = 10,
                     positionId = 1,
-                    position = "BUFF",
+                    position = "2-10-3",
                     price = 150.5,
                     qty = 42.0,
                     sapA = 1,
@@ -1200,7 +1392,8 @@ fun WmsItemDetailsContentPreview() {
                 onBackClick = {},
                 onMoveClick = {},
                 onSave = {},
-                onCancelEdit = {}
+                onCancelEdit = {},
+                onChangeTopologyClick = {}
             )
         }
     }
@@ -1245,7 +1438,8 @@ fun WmsItemDetailsContentPreview_Editing() {
                 onBackClick = {},
                 onMoveClick = {},
                 onSave = {},
-                onCancelEdit = {}
+                onCancelEdit = {},
+                onChangeTopologyClick= {}
             )
         }
     }

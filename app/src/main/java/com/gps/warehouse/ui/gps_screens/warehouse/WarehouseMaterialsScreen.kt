@@ -51,7 +51,7 @@ fun WarehouseMaterialsScreen(
     var isFiltersExpanded by remember { mutableStateOf(false) }
 
     // Инициализация сканера
-    val honeywellHelper = remember { ScannerManager(context) }
+    val scannerManager = remember { ScannerManager(context) }
 
     LaunchedEffect(startDate, endDate) {
         val startApi = "$startDate'T'00:00:00.000'Z'"
@@ -59,12 +59,12 @@ fun WarehouseMaterialsScreen(
         viewModel.loadWarehouseMaterials(startDate = startApi, endDate = endApi)
 
         // Инициализация сканера при открытии экрана
-        honeywellHelper.init()
+        scannerManager.init()
     }
 
     // Обработка сканирования на экране Склада Деталей
     LaunchedEffect(Unit) {
-        honeywellHelper.barcodeFlow.collect { scannedData ->
+        scannerManager.barcodeFlow.collect { scannedData ->
             if (scannedData.isNotEmpty()) {
                 // Парсим данные со сканера
                 val materialCode = BarcodeParser.parse(scannedData)?.material ?: scannedData
@@ -80,7 +80,7 @@ fun WarehouseMaterialsScreen(
 
     // Освобождение ресурсов сканера при уходе с экрана
     DisposableEffect(Unit) {
-        onDispose { honeywellHelper.release() }
+        onDispose { scannerManager.release() }
     }
 
     WarehouseMaterialsContent(

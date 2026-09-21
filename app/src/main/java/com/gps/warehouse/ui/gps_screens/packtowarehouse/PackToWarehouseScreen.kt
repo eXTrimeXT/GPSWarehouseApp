@@ -47,7 +47,7 @@ fun PackToWarehouseScreen(
     var quantity by remember { mutableStateOf("") }
     var uniqueCode by remember { mutableStateOf("") }
 
-    val honeywellHelper = remember { ScannerManager(context) }
+    val scannerManager = remember { ScannerManager(context) }
 
     // При входе на экран сбрасываем состояние
     LaunchedEffect(Unit) {
@@ -56,9 +56,9 @@ fun PackToWarehouseScreen(
 
     // Инициализация сканера
     DisposableEffect(Unit) {
-        honeywellHelper.init()
+        scannerManager.init()
         onDispose {
-            honeywellHelper.release()
+            scannerManager.release()
         }
     }
 
@@ -85,7 +85,7 @@ fun PackToWarehouseScreen(
 
     // Обработка сканирования
     LaunchedEffect(Unit) {
-        honeywellHelper.barcodeFlow.collect { scannedData ->
+        scannerManager.barcodeFlow.collect { scannedData ->
             processScannedData(scannedData)
         }
     }

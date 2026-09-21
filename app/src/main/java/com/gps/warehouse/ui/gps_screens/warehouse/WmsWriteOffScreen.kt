@@ -7,11 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LabelOff
-import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.filled.*
 import  androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -20,14 +17,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboard
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -43,7 +37,6 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.decodeWmsWriteOffScreen
 import com.gps.warehouse.utils.isBase64EncodedJson
-import kotlin.time.Duration.Companion.seconds
 
 // Enum для отслеживания фокуса в диалоге
 enum class EditField {
@@ -94,7 +87,7 @@ fun WmsWriteOffScreen(
     }
 
     // Хелпер для сканера Honeywell
-    val honeywellHelper = remember { ScannerManager(context) }
+    val scannerManager = remember { ScannerManager(context) }
 
     fun processScannedData(scannedData: String){
         if (scannedData.isNotEmpty()) {
@@ -153,16 +146,16 @@ fun WmsWriteOffScreen(
 
     // Слушаем поток сканера
     LaunchedEffect(Unit) {
-        honeywellHelper.barcodeFlow.collect { scannedData ->
+        scannerManager.barcodeFlow.collect { scannedData ->
             processScannedData(scannedData)
         }
     }
 
     // Инициализация сканера
     DisposableEffect(Unit) {
-        honeywellHelper.init()
+        scannerManager.init()
         onDispose {
-            honeywellHelper.release()
+            scannerManager.release()
             viewModel.resetWriteOffState()
         }
     }
