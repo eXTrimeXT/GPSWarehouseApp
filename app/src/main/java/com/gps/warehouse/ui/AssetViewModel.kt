@@ -12,6 +12,8 @@ import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferRequestDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
 import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
@@ -668,4 +670,46 @@ class AssetViewModel @Inject constructor(
         }
     }
     // ================== Пользователи ==================
+
+    // ================== Передача актива ==================
+    fun requestAssetTransfer(
+        assetId: Int? = null,
+        materialId: String? = null,
+        targetEmployeeId: String,
+        assignmentType: String = "user",
+        comment: String? = null,
+        onSuccess: (AssetTransferResponseDto) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val request = AssetTransferRequestDto(
+                    assetId = assetId,
+                    materialId = materialId,
+                    targetEmployeeId = targetEmployeeId,
+                    assignmentType = assignmentType,
+                    comment = comment
+                )
+
+                val response = assetApiService.requestAssetTransfer(
+                    token = "Bearer ${getToken()}",
+                    request = request
+                )
+
+                Log.d(TAG, "Передача актива успешна: ${response.message}")
+                onSuccess(response)
+
+                // Перезагружаем детали актива после успешной передачи
+                loadAssetDetails(assetId = assetId)
+
+            } catch (e: Exception) {
+                val errorMessage = getErrorMessage(e) ?: "Ошибка передачи актива"
+                Log.e(TAG, "Ошибка передачи актива: $errorMessage")
+                onError(errorMessage)
+                _uiState.value = AssetUiState.Error(errorMessage)
+            }
+        }
+    }
+// ================== Передача актива ==================
 }

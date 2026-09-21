@@ -65,7 +65,8 @@ fun HomeScreen(
 
     // Флаг прав, есть ли хотя бы 1 элемент доступа
 //    val isPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
-//    Log.d("isPermissions", isPermissions.toString())
+    val isPermissions = gpsPermissions.any { it.read }
+    Log.d("isPermissions", isPermissions.toString())
 
     Scaffold(
         bottomBar = {
@@ -211,8 +212,9 @@ fun HomeScreenContent(
             }
             // Вкладка "Активы"
             2 -> {
-                val isAllPermissionsFalse = permissions.any { !it.read }
-                if (isAllPermissionsFalse || isUserAssetsAdmin)
+                val isPermissions = permissions.any { it.read }
+                Log.d("asset_types", isPermissions.toString())
+                if (isPermissions || isUserAssetsAdmin)
                     MenuButton(
                         title = "Типы активов",
                         subtitle = "Доступные типы активов",

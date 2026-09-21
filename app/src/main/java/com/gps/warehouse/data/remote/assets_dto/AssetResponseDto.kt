@@ -31,8 +31,8 @@ interface AssetBase {
 }
 
 data class AssetResponseDto(
-    @SerializedName("asset_id") val assetId: Int?,
-    @SerializedName("material_id") val materialId: String?,
+    @SerializedName("asset_id") val assetId: Int? = null,
+    @SerializedName("material_id") val materialId: String? = null,
     override val name: String,
     @SerializedName("inventory_id") override val inventoryId: String?,
     @SerializedName("serial_number") override val serialNumber: String?,

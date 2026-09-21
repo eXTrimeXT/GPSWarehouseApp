@@ -1,6 +1,7 @@
 package com.gps.warehouse.ui.assets_screens.assets
 
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
@@ -19,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,6 +48,7 @@ fun AssetDetailsScreen(
     assetViewModel: AssetViewModel
 ) {
     val uiState by assetViewModel.uiState.collectAsState()
+    val context = LocalContext.current
     val assetStatuses by assetViewModel.assetStatuses.collectAsState()
     val assetTypes by assetViewModel.assetTypes.collectAsState()
 
@@ -61,9 +64,14 @@ fun AssetDetailsScreen(
     // Единое состояние для редактирования
     var editState by remember { mutableStateOf<AssetEditState?>(null) }
 
+    // === Передача актива ===
+    var showTransferDialog by remember { mutableStateOf(false) }
+    var showEmployeeSearchForTransfer by remember { mutableStateOf(false) }
+    var selectedEmployeeForTransfer by remember { mutableStateOf<EmployeeShortResponse?>(null) }
+    var isTransferring by remember { mutableStateOf(false) }
+
     // Загружаем данные при открытии
     LaunchedEffect(assetId, materialId) {
-//        assetViewModel.loadAssetHistory(assetId = assetId)
         firstLoadData(viewModel = assetViewModel, assetId = assetId, materialId = materialId)
     }
 
@@ -199,6 +207,73 @@ fun AssetDetailsScreen(
         }
     }
 
+// Обработка выбора сотрудника для передачи
+    if (showEmployeeSearchForTransfer) {
+        EmployeeSearchDialog(
+            userType = UserType.USER,
+            onDismiss = { showEmployeeSearchForTransfer = false },
+            onEmployeeSelected = { _, employee ->
+                selectedEmployeeForTransfer = employee
+                showEmployeeSearchForTransfer = false
+                showTransferDialog = true
+            },
+            onSearch = { employeeId, searchDepartment, page ->
+                assetViewModel.loadEmployees(
+                    page = page,
+                    pageSize = 20,
+                    employeeId = employeeId,
+                    searchDepartment = searchDepartment
+                )
+            },
+            paginatedEmployees = employees,
+            isLoading = employees == null,
+            currentPage = employees?.page ?: 1
+        )
+    }
+
+// Диалог подтверждения передачи
+    if (showTransferDialog && selectedEmployeeForTransfer != null) {
+        val currentAsset = (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset
+        if (currentAsset != null) {
+            AssetTransferDialog(
+                asset = currentAsset,
+                targetEmployee = selectedEmployeeForTransfer!!,
+                isLoading = isTransferring,
+                onDismiss = {
+                    if (!isTransferring) {
+                        showTransferDialog = false
+                        selectedEmployeeForTransfer = null
+                    }
+                },
+                onConfirm = { assignmentType, comment ->
+                    isTransferring = true
+                    assetViewModel.requestAssetTransfer(
+                        assetId = currentAsset.assetId,
+                        materialId = currentAsset.materialId,
+                        targetEmployeeId = selectedEmployeeForTransfer!!.employeeId,
+                        assignmentType = assignmentType,
+                        comment = comment,
+                        onSuccess = { response ->
+                            isTransferring = false
+                            showTransferDialog = false
+                            selectedEmployeeForTransfer = null
+                            // Показываем уведомление об успехе
+                            Toast.makeText(
+                                context,
+                                response.message,
+                                Toast.LENGTH_LONG
+                            ).show()
+                        },
+                        onError = { error ->
+                            isTransferring = false
+                            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            )
+        }
+    }
+
     AssetDetailsContent(
         uiState = uiState,
         assetStatuses = assetStatuses,
@@ -247,7 +322,11 @@ fun AssetDetailsScreen(
         onRemoveUser = { userType, user ->
             userPendingRemoval = Pair(userType, user) // Запоминаем пользователя вместо мгновенного удаления
         },
-        onNextServiceClick = { showNextServiceDatePicker = true }
+        onNextServiceClick = { showNextServiceDatePicker = true },
+        onTransferClick = {
+            showEmployeeSearchForTransfer = true
+            assetViewModel.loadEmployees(page = 1, pageSize = 20)
+        },
     )
 }
 
@@ -277,7 +356,8 @@ fun AssetDetailsContent(
     onRetryClick: () -> Unit,
     onAddUser: ((UserType) -> Unit)? = null,
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)? = null,
-    onNextServiceClick: (() -> Unit)? = null
+    onNextServiceClick: (() -> Unit)? = null,
+    onTransferClick: () -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         when (uiState) {
@@ -434,7 +514,36 @@ fun AssetDetailsContent(
                         }
 
                         // Мета-информация
-                        item { MetaInfoCard(asset = asset) }
+//                        item { MetaInfoCard(asset = asset) }
+
+                        // Кнопка передачи актива
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = onTransferClick,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(56.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Send,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Передать актив",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
                     }
                 }
             }
@@ -911,7 +1020,7 @@ private fun ExpandableUserCard(
                 )
             }
 
-            if (!expanded) {
+            if (expanded) {
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider()
                 Spacer(modifier = Modifier.height(8.dp))
@@ -957,16 +1066,16 @@ private fun InfoRowSmall(label: String, value: String) {
 }
 
 // ==================== МЕТА-ИНФОРМАЦИЯ ====================
-@Composable
-fun MetaInfoCard(asset: AssetResponseDto) {
-    InfoSectionCard(icon = Icons.Default.Info, title = "Мета-информация") {
-        InfoRow(label = "Создан", value = asset.createdAt.formatIsoToReadable())
-        InfoRow(label = "Обновлён", value = asset.updatedAt?.formatIsoToReadable())
-        InfoRow(label = "Создал", value = asset.createdBy)
-        InfoRow(label = "Обновил", value = asset.updatedBy)
-        InfoRow(label = "Текущий пользователь", value = asset.currentUserFullName)
-    }
-}
+//@Composable
+//fun MetaInfoCard(asset: AssetResponseDto) {
+//    InfoSectionCard(icon = Icons.Default.Info, title = "Мета-информация") {
+//        InfoRow(label = "Создан", value = asset.createdAt.formatIsoToReadable())
+//        InfoRow(label = "Обновлён", value = asset.updatedAt?.formatIsoToReadable())
+//        InfoRow(label = "Создал", value = asset.createdBy)
+//        InfoRow(label = "Обновил", value = asset.updatedBy)
+//        InfoRow(label = "Текущий пользователь", value = asset.currentUserFullName)
+//    }
+//}
 
 // ==================== ДИАЛОГ ИСТОРИИ ====================
 @Composable
@@ -1005,6 +1114,169 @@ fun AssetHistoryDialog(history: List<AssetHistoryDto>, onDismiss: () -> Unit) {
     )
 }
 
+@Composable
+fun AssetTransferDialog(
+    asset: AssetResponseDto,
+    targetEmployee: EmployeeShortResponse,
+    isLoading: Boolean = false,
+    onDismiss: () -> Unit,
+    onConfirm: (assignmentType: String, comment: String?) -> Unit
+) {
+    var comment by remember { mutableStateOf("") }
+    var assignmentType by remember { mutableStateOf("user") }
+
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        icon = {
+            Icon(
+                Icons.Default.Send,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text(
+                "Передать актив",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Информация об активе
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "Актив",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            asset.name,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "Инв. №: ${asset.inventoryId}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        asset.serialNumber?.let { serial ->
+                            Text(
+                                "Серийный №: $serial",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // Информация о получателе
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "Получатель",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            targetEmployee.fullNameRu ?: targetEmployee.employeeId,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        targetEmployee.position?.name?.let { position ->
+                            Text(
+                                position,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+
+                // Тип привязки
+                Text(
+                    "Тип привязки",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = assignmentType == "user",
+                        onClick = { assignmentType = "user" },
+                        label = { Text("Пользователь") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        selected = assignmentType == "serving",
+                        onClick = { assignmentType = "serving" },
+                        label = { Text("Обслуживающий") },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Комментарий
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Комментарий (необязательно)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4,
+                    enabled = !isLoading
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(
+                        assignmentType,
+                        comment.takeIf { it.isNotBlank() }
+                    )
+                },
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text("Передать")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading
+            ) {
+                Text("Отмена")
+            }
+        }
+    )
+}
+
 // ==================== PREVIEWS ====================
 @Preview(showBackground = true, showSystemUi = true, name = "Детали актива", device = "spec:width=380dp,height=2250dp")
 @Composable
@@ -1027,7 +1299,8 @@ private fun AssetDetailsPreview_ViewMode() {
                 onNavigateToParent = {},
                 onRetryClick = {},
                 onAddUser = {},
-                onRemoveUser = { _, _ -> }
+                onRemoveUser = { _, _ -> },
+                onTransferClick = {}
             )
         }
     }
@@ -1054,7 +1327,8 @@ private fun AssetDetailsPreview_EditMode() {
                 onNavigateToParent = {},
                 onRetryClick = {},
                 onAddUser = {},
-                onRemoveUser = { _, _ -> }
+                onRemoveUser = { _, _ -> },
+                onTransferClick = {}
             )
         }
     }
@@ -1224,4 +1498,41 @@ fun getSampleAsset(): AssetResponseDto {
         currentUserFullName = "Евсиков Константин Александрович",
         parent = null
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AssetTransferDialogPreview() {
+    val mockPosition = PositionResponse(name = "Инженер-программист", nameEn = "Software Engineer")
+    val mockDepartment = WorkplaceResponse(
+        guid = "dept-1",
+        name = "Департамент информационных технологий",
+        nameEn = "IT Department",
+        shortName = "ДИТ",
+        creationDate = null,
+        closureDate = null,
+        parentGuid = null
+    )
+
+    MaterialTheme {
+        AssetTransferDialog(
+            asset = getSampleAsset(),
+            targetEmployee = EmployeeShortResponse(
+                guid = "emp-1",
+                employeeId = "0000012345",
+                fullNameRu = "Иванов Иван Иванович",
+                fullNameEn = "Ivanov Ivan Ivanovich",
+                email = "i.ivanov@hmmr.ru",
+                phone = "+79001234567",
+                comment = null,
+                society = null,
+                department = mockDepartment,
+                division = null,
+                group = null,
+                position = mockPosition
+            ),
+            onDismiss = {},
+            onConfirm = { _, _ -> }
+        )
+    }
 }

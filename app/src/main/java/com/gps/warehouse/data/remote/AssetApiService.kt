@@ -3,6 +3,8 @@ package com.gps.warehouse.data.remote
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferRequestDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
@@ -196,4 +198,11 @@ interface AssetApiService {
         @Query("search_department") searchDepartment: String? = null,
         @Query("search_position") searchPosition: String? = null
     ): PaginatedResponse<EmployeeShortResponse>
+
+    // ==================== Передача актива ====================
+    @POST("assets/transfers/request")
+    suspend fun requestAssetTransfer(
+        @Header("Authorization") token: String,
+        @Body request: AssetTransferRequestDto
+    ): AssetTransferResponseDto
 }
