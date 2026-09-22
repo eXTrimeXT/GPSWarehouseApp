@@ -282,7 +282,8 @@ class AssetViewModel @Inject constructor(
         modelId: Int? = null,
         assetTypeId: Int? = null,
         parentId: Int? = null,
-        locationId: Int? = null
+        locationId: Int? = null,
+        onlyMy: Boolean = false
     ) {
         viewModelScope.launch {
 //            if (page == 1) {
@@ -310,7 +311,8 @@ class AssetViewModel @Inject constructor(
                     modelId = modelId,
                     assetTypeId = assetTypeId,
                     parentId = parentId,
-                    locationId = locationId
+                    locationId = locationId,
+                    onlyMy = onlyMy
                 )
 
                 // ОБЪЕДИНЯЕМ старые и новые данные
@@ -376,20 +378,6 @@ class AssetViewModel @Inject constructor(
             null
         }
     }
-
-//    suspend fun findAssetByScanValue(scannedValue: String): AssetResponseDto? = coroutineScope {
-//        val serialDeferred = async {
-//            assetsRepository.getAssets(serialNumber = scannedValue, page = 1, pageSize = 1)
-//                .assets.firstOrNull()
-//        }
-//        val inventoryDeferred = async {
-//            assetsRepository.getAssets(inventoryId = scannedValue, page = 1, pageSize = 1)
-//                .assets.firstOrNull()
-//        }
-//
-//        // Ждём оба, возвращаем первый непустой
-//        serialDeferred.await() ?: inventoryDeferred.await()
-//    }
 
     // Метод для загрузки деталей актива
     fun loadAssetDetails(assetId: Int? = null, materialId: String? = null) {
@@ -684,13 +672,26 @@ class AssetViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
-                val request = AssetTransferRequestDto(
-                    assetId = assetId,
-                    materialId = materialId,
-                    targetEmployeeId = targetEmployeeId,
-                    assignmentType = assignmentType,
-                    comment = comment
-                )
+                // TODO: Сделать проверку только лишь на одни id:
+                //  * asset_id и material_id
+                var request: AssetTransferRequestDto
+
+                if (assetId != null){
+                    request = AssetTransferRequestDto(
+                        assetId = assetId,
+                        targetEmployeeId = targetEmployeeId,
+                        assignmentType = assignmentType,
+                        comment = comment
+                    )
+                }
+                else {
+                    request = AssetTransferRequestDto(
+                        materialId = materialId,
+                        targetEmployeeId = targetEmployeeId,
+                        assignmentType = assignmentType,
+                        comment = comment
+                    )
+                }
 
                 val response = assetApiService.requestAssetTransfer(
                     token = "Bearer ${getToken()}",

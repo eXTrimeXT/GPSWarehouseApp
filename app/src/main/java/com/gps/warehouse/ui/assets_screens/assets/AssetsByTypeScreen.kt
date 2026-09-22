@@ -44,13 +44,14 @@ private const val TAG = "ASSETS_SCREEN"
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetsByTypeScreen(
-    assetTypeId: Int?,
-    assetTypeName: String,
+    assetTypeId: Int? = null,
+    assetTypeName: String? = null,
     navController: NavHostController,
     assetViewModel: AssetViewModel,
     mainViewModel: MainViewModel,
     serialNumber: String = "",
-    inventoryId: String = ""
+    inventoryId: String = "",
+    onlyMy: Boolean = false
 ) {
     val uiState by assetViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -177,7 +178,8 @@ fun AssetsByTypeScreen(
                 modelId = modelId.toIntOrNull(),
                 assetTypeId = assetTypeId,
                 parentId = parentId.toIntOrNull(),
-                locationId = locationId.toIntOrNull()
+                locationId = locationId.toIntOrNull(),
+                onlyMy = onlyMy
             )
         } finally {
             isRequestInFlight = false
@@ -200,7 +202,7 @@ fun AssetsByTypeScreen(
     }
 
     AssetsByTypeScreenContent(
-        assetTypeName = assetTypeName,
+        assetTypeName = assetTypeName ?: "Без типа",
         uiState = uiState,
         cameraScanEnabled = cameraScanEnabled,
         onCameraScanClick = { showCameraDialog = true },
@@ -273,10 +275,7 @@ fun AssetsByTypeScreen(
             Log.d(TAG, "Asset clicked: assetId=$assetId, materialId=$materialId")
             navController.navigate("asset_details?assetId=$assetId&materialId=$materialId")
         },
-//        onBackClick = { navController.popBackStack() }
-        onBackClick = {
-            navController.navigate("asset_types")
-        }
+        onBackClick = { navController.popBackStack() }
     )
 }
 

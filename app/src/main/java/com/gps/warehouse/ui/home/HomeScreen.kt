@@ -233,6 +233,7 @@ fun HomeScreenContent(
                         isVisible = TAB_VISIBLE
                     )
 
+//                val employeeId =
                 MenuButton(
                     title = "Мои активы",
                     subtitle = "Список вашего оборудования",

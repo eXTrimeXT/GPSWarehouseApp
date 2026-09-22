@@ -32,7 +32,6 @@ import com.gps.warehouse.ui.assets_screens.assets.AssetTypeListScreen
 import com.gps.warehouse.ui.assets_screens.assets.AssetsByTypeScreen
 import com.gps.warehouse.ui.assets_screens.mobile.MobileDeviceDetailScreen
 import com.gps.warehouse.ui.assets_screens.mobile.MobileDevicesScreen
-import com.gps.warehouse.ui.assets_screens.MyAssetsScreen
 import com.gps.warehouse.ui.assets_screens.pc.MyPcDetailsScreen
 import com.gps.warehouse.ui.assets_screens.pc.MyPcsScreen
 import com.gps.warehouse.ui.assets_screens.notifications.NotificationsScreen
@@ -286,7 +285,7 @@ class MainActivity : ComponentActivity() {
                         composable("wms_receive") {
                             WmsReceiveScreen(
                                 navController = navController,
-                                viewModel = mainViewModel
+                                mainViewModel = mainViewModel
                             )
                         }
                         composable("wms_write_off") {
@@ -345,7 +344,18 @@ class MainActivity : ComponentActivity() {
                                 assetViewModel = assetViewModel,
                                 mainViewModel = mainViewModel,
                                 serialNumber = serialNumber,
-                                inventoryId = inventoryId
+                                inventoryId = inventoryId,
+                            )
+                        }
+
+                        // Переход на экран списка активов текущего пользователя
+                        composable("my_assets_list") {backStackEntry ->
+                            AssetsByTypeScreen(
+                                assetTypeName = "Мои активы",
+                                navController = navController,
+                                assetViewModel = assetViewModel,
+                                mainViewModel = mainViewModel,
+                                onlyMy = true
                             )
                         }
 
@@ -371,23 +381,23 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        composable("my_assets_list") {
-//                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            MyAssetsScreen(
-                                navController = navController,
-                                assetViewModel = assetViewModel,
-                            )
-                        }
+//                        composable("my_assets_list") {
+////                            val assetViewModel: AssetViewModel = hiltViewModel()
+//                            MyAssetsScreen(
+//                                navController = navController,
+//                                assetViewModel = assetViewModel,
+//                            )
+//                        }
 
-                        composable("my_asset_details/{assetId}") { backStackEntry ->
-                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
-//                            val assetViewModel: AssetViewModel = hiltViewModel()
-                            AssetDetailsScreen(
-                                assetId = assetId,
-                                navController = navController,
-                                assetViewModel = assetViewModel
-                            )
-                        }
+//                        composable("my_asset_details/{assetId}") { backStackEntry ->
+//                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: 0
+////                            val assetViewModel: AssetViewModel = hiltViewModel()
+//                            AssetDetailsScreen(
+//                                assetId = assetId,
+//                                navController = navController,
+//                                assetViewModel = assetViewModel
+//                            )
+//                        }
 
 
                         // Перейти на экран актива по assetId (необходимо для уведомлений)

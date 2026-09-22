@@ -27,6 +27,8 @@ import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
 import kotlinx.coroutines.launch
 
+private const val TAG = "AssetTypeListScreen"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetTypeListScreen(
@@ -34,7 +36,6 @@ fun AssetTypeListScreen(
     assetViewModel: AssetViewModel,
     mainViewModel: MainViewModel // Добавляем для получения прав доступа
 ) {
-    val TAG = "AssetTypeListScreen"
     val context = LocalContext.current
     val scannerManager = remember { ScannerManager(context) }
 
@@ -77,8 +78,6 @@ fun AssetTypeListScreen(
 
                 if (foundAsset != null) {
                     Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
-//                    navController.navigate("asset_details/${foundAsset.assetId}")
-//                    navController.navigate("asset_details?assetId=${foundAsset.assetId}&materialId=${foundAsset.materialId}")
 
                     serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
                         foundAsset.serialNumber
@@ -88,7 +87,6 @@ fun AssetTypeListScreen(
                         foundAsset.inventoryId
                     } else { "" }
 
-//                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}")
                     navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}/${serialNumber}/${inventoryId}")
 
 

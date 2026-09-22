@@ -74,7 +74,9 @@ interface AssetApiService {
         @Query("model_id") modelId: Int? = null,
         @Query("asset_type_id") assetTypeId: Int? = null,
         @Query("parent_id") parentId: Int? = null,
-        @Query("location_id") locationId: Int? = null
+        @Query("location_id") locationId: Int? = null,
+        @Query("only_my") onlyMy: Boolean = false,
+        @Query("search_mode") searchMode: String = "ALL"
     ): PaginatedResponse<AssetResponseDto>
 
     // ====================== Детали актива ======================

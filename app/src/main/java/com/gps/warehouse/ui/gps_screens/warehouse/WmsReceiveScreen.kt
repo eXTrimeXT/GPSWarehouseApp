@@ -45,17 +45,17 @@ import java.util.*
 @Composable
 fun WmsReceiveScreen(
     navController: NavHostController,
-    viewModel: MainViewModel,
+    mainViewModel: MainViewModel,
     orderNumber: String = ""
 ) {
     val TAG = "WmsReceiveScreen"
     val scope = rememberCoroutineScope()
     var receiveItems by remember { mutableStateOf<List<WmsReceiveItem>>(emptyList()) }
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by mainViewModel.uiState.collectAsState()
     val context = LocalContext.current
 
     // Подписываемся на настройку
-    val cameraScanEnabled by viewModel.cameraScanEnabled.collectAsState()
+    val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
     // Флаг показа диалога камеры
     var showCameraDialog by remember { mutableStateOf(false) }
 
@@ -151,7 +151,7 @@ fun WmsReceiveScreen(
 
                         // Асинхронное получение имени
                         scope.launch {
-                            val nameMaterial = viewModel.getNameMaterial(scanResult.matNumScan)
+                            val nameMaterial = mainViewModel.getNameMaterial(scanResult.matNumScan)
                             val index = receiveItems.indexOfFirst {
                                 it.matNumScan == scanResult.matNumScan && it.matName.isEmpty()
                             }
@@ -171,7 +171,7 @@ fun WmsReceiveScreen(
                     dialogMaterial = trimmedData
                     scope.launch {
                         isUpdatingName = true
-                        dialogMatName = viewModel.getNameMaterial(trimmedData)
+                        dialogMatName = mainViewModel.getNameMaterial(trimmedData)
                         isUpdatingName = false
                     }
                 } else {
@@ -200,7 +200,7 @@ fun WmsReceiveScreen(
                     receiveItems = receiveItems + tempItem
 
                     scope.launch {
-                        val nameMaterial = viewModel.getNameMaterial(trimmedData)
+                        val nameMaterial = mainViewModel.getNameMaterial(trimmedData)
                         val index = receiveItems.indexOfFirst {
                             it.matNumScan == trimmedData && it.matName.isEmpty()
                         }
@@ -227,7 +227,7 @@ fun WmsReceiveScreen(
         scannerManager.init()
         onDispose {
             scannerManager.release()
-            viewModel.resetReceiveState()
+            mainViewModel.resetReceiveState()
         }
     }
 
@@ -254,7 +254,7 @@ fun WmsReceiveScreen(
                 if (qtyInt >= 0 && mat.isNotBlank() && finalOrder.isNotBlank()) {
                     scope.launch {
                         val finalName = if (name.isBlank()) {
-                            viewModel.getNameMaterial(mat)
+                            mainViewModel.getNameMaterial(mat)
                         } else {
                             name
                         }
@@ -290,7 +290,7 @@ fun WmsReceiveScreen(
             onUpdateMaterialName = { materialCode ->
                 scope.launch {
                     isUpdatingName = true
-                    val name = viewModel.getNameMaterial(materialCode)
+                    val name = mainViewModel.getNameMaterial(materialCode)
                     dialogMatName = name
                     isUpdatingName = false
                 }
@@ -417,7 +417,7 @@ fun WmsReceiveScreen(
                 Button(
                     onClick = {
                         receiveItems = emptyList()
-                        viewModel.resetReceiveState()
+                        mainViewModel.resetReceiveState()
                         navController.popBackStack()
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -481,12 +481,12 @@ fun WmsReceiveScreen(
                         item
                     }
                 }
-                viewModel.receiveWmsMaterials(itemsWithDefaultDate)
+                mainViewModel.receiveWmsMaterials(itemsWithDefaultDate)
             } else {
                 Toast.makeText(context, "Добавьте хотя бы один материал", Toast.LENGTH_SHORT).show()
             }
         },
-        onRetryClick = { viewModel.loadWmsData() },
+        onRetryClick = { mainViewModel.loadWmsData() },
         onBackClick = { navController.popBackStack() }
     )
 }

@@ -29,6 +29,8 @@ import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.WarehousePermissionDto
 import com.gps.warehouse.data.remote.gps_dto.WmsItemDto
 import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.CameraScanButton
+import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
@@ -62,21 +64,30 @@ fun WmsScreen(
     val scannerManager = remember { ScannerManager(context) }
     var lastScannedCode by remember { mutableStateOf<String?>(null) }
 
+    // Подписываемся на настройку
+    val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
+    // Флаг показа диалога камеры
+    var showCameraDialog by remember { mutableStateOf(false) }
+
     // Инициализация
     LaunchedEffect(Unit) {
         mainViewModel.loadAvailableWarehouses()
         scannerManager.init()
     }
 
+    fun processScannedData(scannedData: String){
+        Log.d(TAG, "LE materialCode")
+//        if (scannedData.isEmpty()) return
+        val parsedData: ScannedData? = BarcodeParser.parse(scannedData)
+        val materialCode = parsedData?.material ?: scannedData.trim()
+        lastScannedCode = materialCode
+        mainViewModel.searchWmsByMaterial(materialCode)
+    }
+
     // Сканирование: материал → поиск
     LaunchedEffect(Unit) {
         scannerManager.barcodeFlow.collect { scannedData ->
-            Log.d(TAG, "LE materialCode")
-            if (scannedData.isEmpty()) return@collect
-            val parsedData: ScannedData? = BarcodeParser.parse(scannedData)
-            val materialCode = parsedData?.material ?: scannedData.trim()
-            lastScannedCode = materialCode
-            mainViewModel.searchWmsByMaterial(materialCode)
+            processScannedData(scannedData)
         }
     }
 
@@ -111,9 +122,23 @@ fun WmsScreen(
         )
     }
 
+    // Диалог сканирования камерой
+    if (showCameraDialog) {
+        CameraScannerDialog(
+            onDismiss = { showCameraDialog = false },
+            onBarcodeDetected = { scannedCode ->
+                processScannedData(scannedCode)
+                // Диалог закроется автоматически через onDismiss
+                showCameraDialog = false
+            }
+        )
+    }
+
     // === Контент ===
     WmsContent(
         uiState = uiState,
+        cameraScanEnabled = cameraScanEnabled,
+        onCameraScanClick = { showCameraDialog = true },
         searchQuery = searchQuery,
         onSearchQueryChange = { searchQuery = it },
         selectedStorageFilterId = selectedStorageFilterId,
@@ -146,6 +171,8 @@ fun WmsScreen(
 @Composable
 fun WmsContent(
     uiState: MainViewModel.UiState,
+    cameraScanEnabled: Boolean,
+    onCameraScanClick: () -> Unit,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     selectedStorageFilterId: String?,
@@ -278,53 +305,64 @@ fun WmsContent(
                     }
                 }
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Загружено: ${allItems.size} материалов",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .align(Alignment.Start)
-                            .padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Column(modifier = Modifier) {
+                        Text(
+                            text = "Загружено: ${allItems.size} материалов",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .align(Alignment.Start)
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
 
-                    LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        state = lazyListState
-                    ) {
-                        items(allItems) { item ->
-                            WmsItemCard(item = item, onClick = { onItemClick(item) })
-                        }
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            state = lazyListState
+                        ) {
+                            items(allItems) { item ->
+                                WmsItemCard(item = item, onClick = { onItemClick(item) })
+                            }
 
-                        if (isLoadingMore || localLoading) {
-                            item {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                            if (isLoadingMore || localLoading) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    }
+                                }
+                            }
+
+                            if (!hasMore && allItems.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text = "• Все материалы загружены •",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                            alpha = 0.6f
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 12.dp),
+                                        textAlign = TextAlign.Center
+                                    )
                                 }
                             }
                         }
-
-                        if (!hasMore && allItems.isNotEmpty()) {
-                            item {
-                                Text(
-                                    text = "• Все материалы загружены •",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 12.dp),
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
                     }
+
+                    // Плавающая кнопка сканирования (только если включено в настройках)
+                    CameraScanButton(
+                        onClick = onCameraScanClick,
+                        cameraScanEnabled = cameraScanEnabled,
+                        modifier = Modifier.align(Alignment.BottomEnd)
+                    )
                 }
             }
 
@@ -472,6 +510,8 @@ fun WmsPreviewLoaded() {
         Surface {
             WmsContent(
                 uiState = MainViewModel.UiState.WmsLoaded(fakeItems),
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
                 searchQuery = "",
                 onSearchQueryChange = {},
                 selectedStorageFilterId = null,

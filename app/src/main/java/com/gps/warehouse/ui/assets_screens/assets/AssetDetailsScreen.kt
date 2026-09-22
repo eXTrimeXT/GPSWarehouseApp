@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -188,7 +189,6 @@ fun AssetDetailsScreen(
                             .toString()
 
                         editState?.let { state ->
-//                            onEditStateChange(state.copy(nextService = isoDate))
                             editState = editState?.copy(nextService = isoDate)
                         }
                     }
@@ -285,11 +285,11 @@ fun AssetDetailsScreen(
         onSave = {
             editState?.let { state ->
                 (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
-                    // 1. Берем assetId из загруженного объекта (это самый актуальный источник истины).
-                    // 2. Если вдруг он null (что маловероятно при успешной загрузке), используем assetId из параметров экрана.
+                    // Берем assetId из загруженного объекта (это самый актуальный источник истины).
+                    // Если вдруг он null (что маловероятно при успешной загрузке), используем assetId из параметров экрана.
                     val idToUpdate = original.assetId ?: assetId
 
-                    // 3. Безопасно вызываем обновление только если ID точно известен
+                    // Безопасно вызываем обновление только если ID точно известен
                     if (idToUpdate != null) {
                         assetViewModel.updateAsset(idToUpdate, state.toUpdate(original))
                     } else {
@@ -378,7 +378,7 @@ fun AssetDetailsContent(
                 Column(modifier = Modifier.fillMaxSize()) {
                     // ActionBar
                     MyCustomActionBar(
-                        text = asset.name,
+                        text = asset.assetTypeName ?: asset.name,
                         onBackClick = onBackClick,
                         actionButton = {
                             Row {
@@ -487,19 +487,6 @@ fun AssetDetailsContent(
                             )
                         }
 
-                        // Ответственные
-//                        item {
-//                            UsersSection(
-//                                title = "Ответственные",
-//                                users = editState?.currentResponsibleUsers ?: asset.responsibleUsers,
-//                                icon = Icons.Default.VerifiedUser,
-//                                color = MaterialTheme.colorScheme.primaryContainer,
-//                                isEditing = isEditing,
-//                                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.RESPONSIBLE) } } else null,
-//                                onRemoveUser = onRemoveUser
-//                            )
-//                        }
-
                         // Обслуживающий персонал
                         item {
                             UsersSection(
@@ -530,7 +517,7 @@ fun AssetDetailsContent(
                                 )
                             ) {
                                 Icon(
-                                    Icons.Default.Send,
+                                    Icons.AutoMirrored.Filled.Send,
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -873,10 +860,6 @@ fun ServiceCard(
                     }
                 },
                 singleLine = true,
-//                colors = OutlinedTextFieldDefaults.colors(
-//                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-//                    unfocusedContainerColor = MaterialTheme.colorScheme.surface
-//                )
             )
 
 
@@ -933,7 +916,6 @@ fun UsersSection(
                 color = color,
                 icon = icon,
                 isEditing = isEditing,
-//                onRemove = if (isEditing) { { onRemoveUser?.invoke(userType, user.guid) } } else null
                 onRemoveUser = if (isEditing && onRemoveUser != null) { { onRemoveUser(userType, user) } } else null
 
             )
@@ -961,7 +943,6 @@ private fun ExpandableUserCard(
     color: Color,
     icon: ImageVector,
     isEditing: Boolean,
-//    onRemoveUser: (() -> Unit)? = null
     onRemoveUser: ((AssetUserFullResponse) -> Unit)? = null
 ) {
     var expanded by rememberSaveable(user.guid) { mutableStateOf(false) }
@@ -1154,11 +1135,6 @@ fun AssetTransferDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            "Актив",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                         Spacer(Modifier.height(4.dp))
                         Text(
                             asset.name,
@@ -1209,39 +1185,12 @@ fun AssetTransferDialog(
                     }
                 }
 
-                // Тип привязки
-                Text(
-                    "Тип привязки",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = assignmentType == "user",
-                        onClick = { assignmentType = "user" },
-                        label = { Text("Пользователь") },
-                        modifier = Modifier.weight(1f)
-                    )
-                    FilterChip(
-                        selected = assignmentType == "serving",
-                        onClick = { assignmentType = "serving" },
-                        label = { Text("Обслуживающий") },
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
                 // Комментарий
                 OutlinedTextField(
                     value = comment,
                     onValueChange = { comment = it },
-                    label = { Text("Комментарий (необязательно)") },
+                    label = { Text("Комментарий...") },
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 4,
                     enabled = !isLoading
                 )
             }
@@ -1278,7 +1227,7 @@ fun AssetTransferDialog(
 }
 
 // ==================== PREVIEWS ====================
-@Preview(showBackground = true, showSystemUi = true, name = "Детали актива", device = "spec:width=380dp,height=2250dp")
+@Preview(showBackground = true, showSystemUi = true, name = "Детали актива", device = "spec:width=380dp,height=1450dp")
 @Composable
 private fun AssetDetailsPreview_ViewMode() {
     MaterialTheme {
@@ -1306,7 +1255,9 @@ private fun AssetDetailsPreview_ViewMode() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Детали актива (Редактирование)", device = "spec:width=380dp,height=2250dp")
+@Preview(showBackground = true, showSystemUi = true, name = "Детали актива (Редактирование)",
+    device = "spec:width=380dp,height=1850dp"
+)
 @Composable
 private fun AssetDetailsPreview_EditMode() {
     MaterialTheme {
@@ -1390,7 +1341,7 @@ fun getSampleAsset(): AssetResponseDto {
         updatedBy = "0000015370",
         createdAt = "2026-07-14T19:23:04.784110",
         updatedAt = "2026-09-03T09:26:16.840853",
-        assetTypeName = "Оборудование MU",
+        assetTypeName = "Оборудование M&U",
         location = AssetLocationResponse(workshopId = 6, workshopName = "Логистика", place = "mesto213111111111111", level = 4, x = 237, y = 415),
         users = listOf(
             AssetUserFullResponse(
