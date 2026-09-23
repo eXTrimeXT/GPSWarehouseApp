@@ -29,11 +29,18 @@ import javax.inject.Singleton
 
 private const val TOKEN_PREFS_NAME = "gps_token_prefs"
 private const val TOKEN_KEY = "jwt_token"
+private const val CACHE_PREFS_NAME = "gps_profile_cache_prefs"
 
 private val Context.dataStore by preferencesDataStore(name = TOKEN_PREFS_NAME)
 
 @Singleton
 class LocalStorage @Inject constructor(private val context: Context) {
+    // Инициализируем SharedPreferences для кэша и Gson один раз
+    private val cachePrefs by lazy {
+        context.getSharedPreferences(CACHE_PREFS_NAME, Context.MODE_PRIVATE)
+    }
+    private val gson = Gson()
+
     object PreferencesKeys {
         // Работа с ТОКЕНОМ
         val TOKEN = stringPreferencesKey(TOKEN_KEY)
@@ -99,4 +106,41 @@ class LocalStorage @Inject constructor(private val context: Context) {
         context.dataStore.edit { prefs -> prefs[KEY_CAMERA_SCAN] = enabled }
     }
     // ======================== Камера ========================
+
+    // ======================== КЭШ ПРОФИЛЯ ========================
+    fun saveProfileCache(
+        bmList: List<BmListDto>,
+        permissions: List<GpsPermissionDto>,
+        isAssetsAdmin: Boolean
+    ) {
+        cachePrefs.edit()
+            .putString("cache_bm_list", gson.toJson(bmList))
+            .putString("cache_permissions", gson.toJson(permissions))
+            .putBoolean("cache_is_assets_admin", isAssetsAdmin)
+            .apply()
+    }
+
+    fun getCachedBmList(): List<BmListDto> {
+        val json = cachePrefs.getString("cache_bm_list", null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<BmListDto>>() {}.type
+            gson.fromJson(json, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun getCachedPermissions(): List<GpsPermissionDto> {
+        val json = cachePrefs.getString("cache_permissions", null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<GpsPermissionDto>>() {}.type
+            gson.fromJson(json, type)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun getCachedIsAssetsAdmin(): Boolean {
+        return cachePrefs.getBoolean("cache_is_assets_admin", false)
+    }
 }

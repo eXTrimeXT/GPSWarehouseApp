@@ -178,6 +178,10 @@ class MainViewModel @Inject constructor(
         }
         // Запускаем периодическую проверку сессии при инициализации
         startSessionMonitoring()
+
+        _bmList.value = localStorage.getCachedBmList()
+        _gpsPermissions.value = localStorage.getCachedPermissions()
+        _userIsAssetsAdmin.value = localStorage.getCachedIsAssetsAdmin()
     }
 
 
@@ -339,28 +343,58 @@ class MainViewModel @Inject constructor(
         }
     }
 
+//    fun loadUserProfile() {
+//        viewModelScope.launch {
+//            _uiState.value = UiState.Loading
+//            try {
+//                // Загружаем профиль из GPS API
+//                val gpsProfile = apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow()))
+//                val storages = gpsProfile.warehousePermissions
+//                val isAssetsAdmin = gpsProfile.assetsIsAdmin ?: false
+//                if (storages != null) {
+//                    _availableWarehouses.value = storages
+//                }
+//                _userIsAssetsAdmin.value = isAssetsAdmin
+//                val permissions = gpsProfile.permissions ?: emptyList()
+//                _gpsPermissions.value = permissions.map { it }
+//
+//                val bmList = gpsProfile.bmList ?: emptyList()
+//                _bmList.value = bmList.map { it }
+//                _uiState.value = UiState.ProfileLoaded(gpsProfile)
+//                Log.d("MainViewModel", "isAssetsAdmin = $isAssetsAdmin")
+//            } catch (e: Exception) {
+//                Log.e("MainViewModel", "Ошибка загрузки профиля", e)
+//                _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить профиль")
+//            }
+//        }
+//    }
+
     fun loadUserProfile() {
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
+            // Не ставим UiState.Loading, чтобы экран не "мигал", если у нас уже есть кэш
             try {
-                // Загружаем профиль из GPS API
                 val gpsProfile = apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow()))
+
                 val storages = gpsProfile.warehousePermissions
                 val isAssetsAdmin = gpsProfile.assetsIsAdmin ?: false
-                if (storages != null) {
-                    _availableWarehouses.value = storages
-                }
-                _userIsAssetsAdmin.value = isAssetsAdmin
                 val permissions = gpsProfile.permissions ?: emptyList()
-                _gpsPermissions.value = permissions.map { it }
-
                 val bmList = gpsProfile.bmList ?: emptyList()
-                _bmList.value = bmList.map { it }
+
+                // Обновляем потоки свежими данными
+                if (storages != null) _availableWarehouses.value = storages
+                _userIsAssetsAdmin.value = isAssetsAdmin
+                _gpsPermissions.value = permissions
+                _bmList.value = bmList
+
+                // === НОВОЕ: Сохраняем в кэш при успешном ответе ===
+                localStorage.saveProfileCache(bmList, permissions, isAssetsAdmin)
+
                 _uiState.value = UiState.ProfileLoaded(gpsProfile)
-                Log.d("MainViewModel", "isAssetsAdmin = $isAssetsAdmin")
             } catch (e: Exception) {
-                Log.e("MainViewModel", "Ошибка загрузки профиля", e)
-                _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить профиль")
+                Log.e("MainViewModel", "Ошибка загрузки профиля (используем кэшированные данные)", e)
+                // ВАЖНО: Мы НЕ меняем _uiState на Error глобально.
+                // Потоки _bmList и _gpsPermissions уже содержат кэш из init,
+                // поэтому HomeScreen отрисует вкладки корректно.
             }
         }
     }

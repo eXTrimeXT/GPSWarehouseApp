@@ -29,8 +29,10 @@ import com.gps.warehouse.data.remote.gps_dto.BmListDto
 import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.OfflineBanner
 import com.gps.warehouse.utils.AppPreferences
 import com.gps.warehouse.utils.Constants.TAB_VISIBLE
+import com.gps.warehouse.utils.NetworkMonitor
 
 // Перечисление вкладок нижней навигации
 enum class HomeTab(val title: String, val icon: ImageVector) {
@@ -43,29 +45,47 @@ enum class HomeTab(val title: String, val icon: ImageVector) {
 @Composable
 fun HomeScreen(
     navController: NavHostController,
-    viewModel: MainViewModel,
+    mainViewModel: MainViewModel,
     assetViewModel: AssetViewModel
 ) {
     val tabs = HomeTab.entries.toTypedArray()
-    val gpsPermissions by viewModel.gpsPermissions.collectAsState()
-    val isUserAssetsAdmin by viewModel.userIsAssetsAdmin.collectAsState()
-    val bmList by viewModel.bmList.collectAsState()
+    val gpsPermissions by mainViewModel.gpsPermissions.collectAsState()
+    val isUserAssetsAdmin by mainViewModel.userIsAssetsAdmin.collectAsState()
+    val bmList by mainViewModel.bmList.collectAsState()
     val uncheckedCount by assetViewModel.notificationUncheckedCount.collectAsState()
-
 
     val context = LocalContext.current
     var selectedTabIndex by rememberSaveable {
         mutableIntStateOf(AppPreferences.getDefaultTab(context))
     }
 
+    // Мониторинг сети
+    val networkMonitor = remember { NetworkMonitor(context) }
+    val isOnline by networkMonitor.isOnline.collectAsState(initial = networkMonitor.isCurrentlyConnected())
+
+
     LaunchedEffect(Unit) {
-        viewModel.loadUserProfile()
+        mainViewModel.loadUserProfile()
         assetViewModel.loadNotifications()
     }
 
+    // === Страховочная сетка для вкладок ===
+    // Если сохраненная вкладка вдруг стала недоступна (например, изменились права или пустой кэш),
+    // принудительно переключаем на первую доступную вкладку.
+//    LaunchedEffect(bmList, isUserAssetsAdmin) {
+//        val currentTab = HomeTab.entries.getOrNull(selectedTabIndex)
+//        if (currentTab != null && !isTabFilter(bmList, currentTab)) {
+//            val firstVisibleIndex = HomeTab.entries.indexOfFirst { isTabFilter(bmList, it) }
+//            if (firstVisibleIndex != -1) {
+//                selectedTabIndex = firstVisibleIndex
+//                AppPreferences.setDefaultTab(context, firstVisibleIndex)
+//            }
+//        }
+//    }
+
     // Флаг прав, есть ли хотя бы 1 элемент доступа
-//    val isPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
-    val isPermissions = gpsPermissions.any { it.read }
+    val isPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
+//    val isPermissions = gpsPermissions.any { it.read }
     Log.d("isPermissions", isPermissions.toString())
 
     Scaffold(
@@ -84,15 +104,22 @@ fun HomeScreen(
             }
         }
     ) { paddingValues ->
-        HomeScreenContent(
-            modifier = Modifier.padding(paddingValues),
-            selectedTabIndex = selectedTabIndex,
-            onNavigate = { route -> navController.navigate(route) },
-            permissions = gpsPermissions,
-            isUserAssetsAdmin = isUserAssetsAdmin,
-            bmList = bmList,
-            notificationCount = uncheckedCount
-        )
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Показываем баннер поверх контента
+            OfflineBanner(isOnline = isOnline)
+
+            HomeScreenContent(
+                modifier = Modifier
+                    .weight(1f) // Занимает всё оставшееся место под баннером
+                    .padding(paddingValues),
+                selectedTabIndex = selectedTabIndex,
+                onNavigate = { route -> navController.navigate(route) },
+                permissions = gpsPermissions,
+                isUserAssetsAdmin = isUserAssetsAdmin,
+                bmList = bmList,
+                notificationCount = uncheckedCount
+            )
+        }
     }
 }
 

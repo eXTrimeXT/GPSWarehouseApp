@@ -189,7 +189,7 @@ class MainActivity : ComponentActivity() {
                         composable("home") {
                             HomeScreen(
                                 navController = navController,
-                                viewModel = mainViewModel,
+                                mainViewModel = mainViewModel,
                                 assetViewModel = assetViewModel
                             )
                         }
