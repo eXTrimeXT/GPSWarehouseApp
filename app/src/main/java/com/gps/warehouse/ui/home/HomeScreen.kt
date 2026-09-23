@@ -68,6 +68,7 @@ fun HomeScreen(
     Log.d("isPermissions", isPermissions.toString())
 
     Scaffold(
+        modifier = Modifier,
         bottomBar = {
             NavigationBar {
                 tabs.forEachIndexed { index, tab ->
@@ -121,12 +122,10 @@ fun HomeScreenContent(
     bmList: List<BmListDto>,
     notificationCount: Int?
 ) {
-
-
     Column(
         modifier = modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 20.dp)
+            .padding(horizontal = 16.dp)
             .verticalScroll(rememberScrollState())
     ) {
         when (selectedTabIndex) {
@@ -317,6 +316,7 @@ fun MenuButton(
     badgeCount: Int? = null
 ) {
     if (bmList.any { it.nameRule == nameRule || it.name1 == nameRule } || isVisible) {
+        Spacer(modifier = Modifier.height(6.dp))
         Card(
             onClick = onClick,
             modifier = Modifier.fillMaxWidth(),
@@ -387,7 +387,7 @@ fun MenuButton(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(6.dp))
     }
 }
 

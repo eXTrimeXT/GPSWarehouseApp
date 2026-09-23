@@ -1,10 +1,12 @@
 package com.gps.warehouse.ui.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.gps.warehouse.data.local.LocalStorage
 import com.gps.warehouse.data.remote.AssetApiService
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
+import com.gps.warehouse.utils.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +22,8 @@ sealed class UiState {
 @HiltViewModel
 open class MobileDevicesViewModel @Inject constructor(
     private val localStorage: LocalStorage,
-    private val apiService: AssetApiService
+    private val apiService: AssetApiService,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val _mobileUiState = MutableStateFlow<UiState>(UiState.Loading)
@@ -38,7 +41,22 @@ open class MobileDevicesViewModel @Inject constructor(
 
     fun loadDevices(serialNumber: String? = null) {
         viewModelScope.launch {
-            _mobileUiState.value = UiState.Loading
+            val cachedDevices = localStorage.getCachedMobileDevices()
+
+            // Мгновенно показываем кэш (только для полного списка, не для поиска)
+            if (cachedDevices.isNotEmpty() && serialNumber == null) {
+                _mobileUiState.value = UiState.Success(cachedDevices)
+            }
+
+            // Проверка сети
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedDevices.isEmpty() || serialNumber != null) {
+                    _mobileUiState.value = UiState.Error("Нет подключения к сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            // Загрузка из сети
             try {
                 val response = apiService.getMobileDevices(
                     token = "Bearer ${getToken()}",
@@ -46,30 +64,61 @@ open class MobileDevicesViewModel @Inject constructor(
                     skip = 0,
                     limit = 100
                 )
+
+                // Сохраняем в кэш только полный список (без фильтра по serialNumber)
+                if (serialNumber == null) {
+                    localStorage.saveMobileDevicesCache(response)
+                }
+
                 _mobileUiState.value = UiState.Success(response)
             } catch (e: Exception) {
-                _mobileUiState.value = UiState.Error(e.message ?: "Неизвестная ошибка сети")
+                Log.e("MobileDevicesVM", "Ошибка загрузки устройств (используем кэш)", e)
+                if (cachedDevices.isEmpty() || serialNumber != null) {
+                    _mobileUiState.value = UiState.Error(e.message ?: "Неизвестная ошибка сети")
+                }
             }
         }
     }
 
     fun loadDeviceDetails(serialNumber: String) {
         viewModelScope.launch {
-            _detailUiState.value = UiState.Loading
+            val cachedDetail = localStorage.getCachedMobileDeviceDetail(serialNumber)
+
+            // Показываем кэш, если есть
+            if (cachedDetail != null) {
+                _detailUiState.value = UiState.Success(listOf(cachedDetail))
+            } else {
+                _detailUiState.value = UiState.Loading
+            }
+
+            // Проверка сети
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedDetail == null) {
+                    _detailUiState.value = UiState.Error("Нет сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            // Загрузка из сети
             try {
                 val response = apiService.getMobileDevices(
                     token = "Bearer ${getToken()}",
                     serialNumber = serialNumber,
                     skip = 0,
-                    limit = 1 // Оптимизация: запрашиваем только 1 устройство
+                    limit = 1
                 )
                 if (response.isNotEmpty()) {
-                    _detailUiState.value = UiState.Success(response)
+                    val device = response.first()
+                    localStorage.saveMobileDeviceDetailCache(serialNumber, device) // Обновляем кэш
+                    _detailUiState.value = UiState.Success(listOf(device))
                 } else {
-                    _detailUiState.value = UiState.Error("Устройство не найдено")
+                    if (cachedDetail == null) _detailUiState.value = UiState.Error("Устройство не найдено")
                 }
             } catch (e: Exception) {
-                _detailUiState.value = UiState.Error(e.message ?: "Ошибка сети")
+                Log.e("MobileDevicesVM", "Ошибка загрузки деталей (используем кэш)", e)
+                if (cachedDetail == null) {
+                    _detailUiState.value = UiState.Error(e.message ?: "Ошибка сети")
+                }
             }
         }
     }

@@ -23,6 +23,7 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
+import com.gps.warehouse.utils.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -42,13 +43,15 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.jvm.java
 
+private const val TAG = "AssetViewModel"
+
 @HiltViewModel
 class AssetViewModel @Inject constructor(
     private val localStorage: LocalStorage,
     private val assetApiService: AssetApiService,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
-    val TAG = "AssetViewModel"
     sealed class AssetUiState {
         object Idle : AssetUiState()
         object Loading : AssetUiState()
@@ -205,29 +208,65 @@ class AssetViewModel @Inject constructor(
     // Метод получения ПК текущего пользователя
     fun loadMyPcs() {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+            val cachedPcs = localStorage.getCachedMyPcs()
+
+            if (cachedPcs.isNotEmpty()) {
+                _myPcsList.value = cachedPcs
+                _uiState.value = AssetUiState.MyPcsLoaded(cachedPcs)
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedPcs.isEmpty()) {
+                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
             try {
-                val pcs = assetApiService.getMyPcs("Bearer ${getToken()}")
-                _myPcsList.value = pcs  // Сохраняем в отдельный поток
-                _uiState.value = AssetUiState.MyPcsLoaded(pcs)
+                val freshPcs = assetApiService.getMyPcs("Bearer ${getToken()}")
+                _myPcsList.value = freshPcs
+                localStorage.saveMyPcsCache(freshPcs)
+                _uiState.value = AssetUiState.MyPcsLoaded(freshPcs)
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                Log.e(TAG, "Ошибка загрузки ПК (используем кэш)", e)
+                if (cachedPcs.isEmpty()) {
+                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                }
             }
         }
     }
 
-    // ================== Загрузка активов ==================
     // Типы активов
     fun loadAssetTypes() {
         viewModelScope.launch {
-            _assetTypesUiState.value = AssetTypesUiState.Loading
+            val cachedTypes = localStorage.getCachedAssetTypes()
+
+            // Мгновенно показываем кэш
+            if (cachedTypes.isNotEmpty()) {
+                _assetTypes.value = cachedTypes
+                _assetTypesUiState.value = AssetTypesUiState.Loaded(cachedTypes)
+            }
+
+            // Если сети нет, выходим (мы уже показали кэш)
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedTypes.isEmpty()) {
+                    _assetTypesUiState.value = AssetTypesUiState.Error("Нет сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            // Если сеть есть, загружаем свежие данные
             try {
-                val types = assetApiService.getAssetTypes("Bearer ${getToken()}")
-                _assetTypes.value = types
-                _assetTypesUiState.value = AssetTypesUiState.Loaded(types)
+                val freshTypes = assetApiService.getAssetTypes("Bearer ${getToken()}")
+                _assetTypes.value = freshTypes
+                localStorage.saveAssetTypesCache(freshTypes) // Обновляем кэш
+                _assetTypesUiState.value = AssetTypesUiState.Loaded(freshTypes)
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
-                _assetTypesUiState.value = AssetTypesUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                Log.e(TAG, "Ошибка загрузки типов активов (используем кэш)", e)
+                // Не меняем состояние на Error, если у нас уже есть кэш
+                if (cachedTypes.isEmpty()) {
+                    _assetTypesUiState.value = AssetTypesUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                }
             }
         }
     }
@@ -285,7 +324,7 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    // Метод загрузки с фильтрами:
+    // Метод загрузки списка активов с фильтрами:
     fun loadAssetsByFilters(
         page: Int,
         pageSize: Int = 50,
@@ -300,52 +339,56 @@ class AssetViewModel @Inject constructor(
         onlyMy: Boolean = false
     ) {
         viewModelScope.launch {
-//            if (page == 1) {
-//                _uiState.value = AssetUiState.Loading
-//            }
+            val currentState = _uiState.value
+            val oldAssets = if (currentState is AssetUiState.AssetsLoadedPaginated && page > 1) {
+                currentState.assets
+            } else {
+                emptyList()
+            }
+
+            // ИСПРАВЛЕНИЕ: Передаем фильтры в функцию получения кэша!
+            if (page == 1 && oldAssets.isEmpty()) {
+                val cachedAssets = localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy)
+                if (cachedAssets.isNotEmpty()) {
+                    _uiState.value = AssetUiState.AssetsLoadedPaginated(
+                        assets = cachedAssets, total = cachedAssets.size, page = 1,
+                        pageSize = pageSize, totalPages = 1, hasNext = false, hasPrevious = false
+                    )
+                }
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (page == 1 && oldAssets.isEmpty() && localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy).isEmpty()) {
+                    _uiState.value = AssetUiState.Error("Нет подключения к сети")
+                }
+                return@launch
+            }
 
             try {
-                // Если это не первая страница, сохраняем текущие активы из состояния
-                val currentState = _uiState.value
-                val oldAssets = if (currentState is AssetUiState.AssetsLoadedPaginated && page > 1) {
-                    currentState.assets // Берем старые данные!
-                } else {
-                    emptyList() // Если страница 1, начинаем с пустого списка
-                }
-
-                // Делаем запрос
                 val response = assetApiService.getAssets(
-                    token = "Bearer ${getToken()}",
-                    page = page,
-                    pageSize = pageSize,
-                    name = name,
-                    inventoryId = inventoryId,
-                    serialNumber = serialNumber,
-                    assetStatus = assetStatus,
-                    modelId = modelId,
-                    assetTypeId = assetTypeId,
-                    parentId = parentId,
-                    locationId = locationId,
-                    onlyMy = onlyMy
+                    token = "Bearer ${getToken()}", page = page, pageSize = pageSize,
+                    name = name, inventoryId = inventoryId, serialNumber = serialNumber,
+                    assetStatus = assetStatus, modelId = modelId, assetTypeId = assetTypeId,
+                    parentId = parentId, locationId = locationId, onlyMy = onlyMy
                 )
 
-                // ОБЪЕДИНЯЕМ старые и новые данные
                 val updatedAssets = oldAssets + response.items
 
-                // Обновляем состояние объединенным списком
-                _uiState.value = AssetUiState.AssetsLoadedPaginated(
-                    assets = updatedAssets,
-                    total = response.total,
-                    page = page,
-                    pageSize = pageSize,
-                    totalPages = response.totalPages,
-                    hasNext = response.hasNext,
-                    hasPrevious = response.hasPrevious
-                )
+                // ИСПРАВЛЕНИЕ: Передаем фильтры при сохранении кэша!
+                if (page == 1) {
+                    localStorage.saveAssetsCache(updatedAssets, assetTypeId = assetTypeId, onlyMy = onlyMy)
+                }
 
+                _uiState.value = AssetUiState.AssetsLoadedPaginated(
+                    assets = updatedAssets, total = response.total, page = page,
+                    pageSize = pageSize, totalPages = response.totalPages,
+                    hasNext = response.hasNext, hasPrevious = response.hasPrevious
+                )
             } catch (e: Exception) {
-                // Если ошибка при пагинации, не стираем старые данные, просто показываем ошибку
-                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки")
+                Log.e(TAG, "Ошибка загрузки активов (используем кэш)", e)
+                if (page == 1 && oldAssets.isEmpty()) {
+                    _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки")
+                }
             }
         }
     }
@@ -396,65 +439,111 @@ class AssetViewModel @Inject constructor(
     // Метод для загрузки деталей актива
     fun loadAssetDetails(assetId: Int? = null, materialId: String? = null) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
-            try {
-                require(assetId != null || materialId != null) { "Должен быть указан assetId или materialId" }
+            require(assetId != null || materialId != null) { "Должен быть указан assetId или materialId" }
 
-                // Запрашиваем список с pageSize = 1 и нужными фильтрами
+            // ИСПРАВЛЕНИЕ: Ищем кэш именно для этого ID!
+            val cachedDetail = localStorage.getCachedAssetDetail(assetId, materialId)
+
+            if (cachedDetail != null) {
+                _uiState.value = AssetUiState.AssetDetailsLoaded(cachedDetail)
+                loadAssetHistory(cachedDetail.assetId ?: 0)
+            } else {
+                _uiState.value = AssetUiState.Loading
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedDetail == null) {
+                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            try {
                 val response = assetApiService.getAssets(
                     token = "Bearer ${getToken()}",
                     page = 1,
-                    pageSize = 1, // Нам нужен только 1 конкретный элемент
+                    pageSize = 1,
                     assetId = assetId,
                     materialId = materialId
                 )
 
                 if (response.items.isNotEmpty()) {
                     val asset = response.items.first()
-                    _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
 
-                    // Как только получили актив, извлекаем его assetId и загружаем историю
-                    asset.assetId?.let { id ->
-                        loadAssetHistory(id)
-                    }
+                    // ИСПРАВЛЕНИЕ: Сохраняем детали с уникальным ключом для этого ID
+                    localStorage.saveAssetDetailCache(assetId, materialId, asset)
+
+                    _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
+                    asset.assetId?.let { id -> loadAssetHistory(id) }
                 } else {
-                    _uiState.value = AssetUiState.Error("Актив не найден")
+                    if (cachedDetail == null) _uiState.value = AssetUiState.Error("Актив не найден")
                 }
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                Log.e(TAG, "Ошибка загрузки деталей актива (используем кэш)", e)
+                if (cachedDetail == null) {
+                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                }
             }
         }
     }
-    // ================== Загрузка активов ==================
 
     // ================== Инвентаризация ==================
     fun loadInventorizationSessions() {
         viewModelScope.launch {
-            _inventorizationUiState.value = InventorizationUiState.Loading
+            val cachedSessions = localStorage.getCachedInventorySessions()
+
+            if (cachedSessions.isNotEmpty()) {
+                _inventorizationSessions.value = cachedSessions
+                _inventorizationUiState.value = InventorizationUiState.SessionsLoaded(cachedSessions)
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedSessions.isEmpty()) {
+                    _inventorizationUiState.value = InventorizationUiState.Error("Нет сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
             try {
-                val sessions = assetApiService.getInventorizationSessions("Bearer ${getToken()}")
-                _inventorizationSessions.value = sessions  // Отдельный поток для данных
-                _inventorizationUiState.value = InventorizationUiState.SessionsLoaded(sessions) // Отдельный поток для UI
+                val freshSessions = assetApiService.getInventorizationSessions("Bearer ${getToken()}")
+                _inventorizationSessions.value = freshSessions
+                localStorage.saveInventorySessionsCache(freshSessions)
+                _inventorizationUiState.value = InventorizationUiState.SessionsLoaded(freshSessions)
             } catch (e: Exception) {
-                _inventorizationUiState.value = InventorizationUiState.Error(getErrorMessage(e) ?: "Ошибка")
+                Log.e(TAG, "Ошибка загрузки сессий (используем кэш)", e)
+                if (cachedSessions.isEmpty()) {
+                    _inventorizationUiState.value = InventorizationUiState.Error(getErrorMessage(e) ?: "Ошибка")
+                }
             }
         }
     }
 
     fun loadInventorizationItems(sessionId: Int) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+            val cachedItems = localStorage.getCachedInventoryItems(sessionId)
+
+            if (cachedItems.isNotEmpty()) {
+                _inventorizationItems.value = cachedItems
+                _uiState.value = AssetUiState.InventorizationItemsLoaded(cachedItems, sessionId)
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedItems.isEmpty()) {
+                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
             try {
-                // response теперь имеет тип PaginatedResponse<InventorizationItemDto>
                 val response = assetApiService.getInventorizationSessionItems("Bearer ${getToken()}", sessionId)
-
-                // Сохраняем полный ответ (если нужно) или только список
                 _inventorizationItems.value = response.items
-
-                // Передаем именно список items в состояние
+                localStorage.saveInventoryItemsCache(sessionId, response.items)
                 _uiState.value = AssetUiState.InventorizationItemsLoaded(response.items, sessionId)
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
+                Log.e(TAG, "Ошибка загрузки элементов инвентаризации (используем кэш)", e)
+                if (cachedItems.isEmpty()) {
+                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
+                }
             }
         }
     }
@@ -503,7 +592,6 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
-    // ================== Инвентаризация ==================
 
     // ================== Уведомления ==================
     fun loadNotifications(assetId: Int? = null, sessionId: Int? = null) {
@@ -511,28 +599,39 @@ class AssetViewModel @Inject constructor(
             currentFilterAssetId = assetId
             currentFilterSessionId = sessionId
 
-            _uiState.value = AssetUiState.Loading
-            try {
+            val cachedNotifications = localStorage.getCachedNotifications()
+            if (cachedNotifications.isNotEmpty()) {
+                _notificationItems.value = cachedNotifications
+                _uiState.value = AssetUiState.NotificationsLoaded(cachedNotifications)
+            } else {
+                _uiState.value = AssetUiState.Loading
+            }
 
-                // Делаем ОДИН обычный запрос через Retrofit для получения начального списка
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedNotifications.isEmpty()) {
+                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            try {
                 val response = assetApiService.getNotifications(
                     token = "Bearer ${getToken()}",
                     assetId = assetId,
                     sessionId = sessionId
                 )
 
-                // Сохраняем список в состояние
-                _uiState.value = AssetUiState.NotificationsLoaded(response.items)
-
                 _notificationItems.value = response.items
                 _notificationUncheckedCount.value = response.uncheckedCount
+                localStorage.saveNotificationsCache(response.items) // Сохраняем в кэш
+                _uiState.value = AssetUiState.NotificationsLoaded(response.items)
 
-                // Запускаем OkHttp SSE для прослушивания обновлений в реальном времени
                 startSseStream(getToken())
-
             } catch (e: Exception) {
-                Log.e(TAG, "loadNotifications: Ошибка загрузки начальных уведомлений", e)
-                _uiState.value = AssetUiState.Error(e.message ?: "Ошибка сети")
+                Log.e(TAG, "Ошибка загрузки уведомлений (используем кэш)", e)
+                if (cachedNotifications.isEmpty()) {
+                    _uiState.value = AssetUiState.Error(e.message ?: "Ошибка сети")
+                }
             }
         }
     }
@@ -726,5 +825,4 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
-    // ================== Передача актива ==================
 }

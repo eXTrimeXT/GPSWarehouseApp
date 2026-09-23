@@ -1812,6 +1812,10 @@ fun AssetDetailsContent(
                 }
             }
             is AssetViewModel.AssetUiState.Error -> {
+                MyCustomActionBar(
+                    text = "Загрузка актива...",
+                    onBackClick = onBackClick,
+                )
                 ErrorStateView(
                     message = uiState.message,
                     onRetry = onRetryClick,

@@ -27,8 +27,8 @@ fun OfflineBannerOverlay(isOnline: Boolean) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFFF8707)) // Желтый предупреждающий цвет
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .background(Color(0xFFFF8707)), // Желтый предупреждающий цвет
+//                .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {

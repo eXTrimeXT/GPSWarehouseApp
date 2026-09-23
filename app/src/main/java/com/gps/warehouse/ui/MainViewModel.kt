@@ -10,6 +10,7 @@ import com.gps.warehouse.data.remote.NotificationSseManager
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
+import com.gps.warehouse.utils.NetworkMonitor
 import com.gps.warehouse.utils.RsaUtils.encryptPassword
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -32,7 +33,8 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val localStorage: LocalStorage,
     private val apiService: GPSApiService,
-    private val notificationSseManager: NotificationSseManager
+    private val notificationSseManager: NotificationSseManager,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     sealed class UiState {
@@ -67,6 +69,7 @@ class MainViewModel @Inject constructor(
             val quantity: String = "",
             val uniqueCode: String = ""
         ) : UiState()
+
         data class Packed(val message: String) : UiState()
         data class OrderCreatedAndReadyForReceive(val orderNumber: String) : UiState()
         // ====================== Упаковка/Приемка материала ======================
@@ -93,6 +96,7 @@ class MainViewModel @Inject constructor(
 
         // ====================== Приемка WMS ======================
         data class WmsReceiveSuccess(val message: String) : UiState()
+
         // ====================== Списание материалов WMS ======================
         data class WmsWriteOffSuccess(val message: String) : UiState()
         // ========================================================================
@@ -107,7 +111,8 @@ class MainViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
 
     // Свойство для фонового мониторинга сессии
-    private val sessionMonitorScope = CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
+    private val sessionMonitorScope =
+        CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
 
     private var currentToken: String? = null
     private var currentLogin: String? = null // Сохраняем логин при успешном входе
@@ -137,7 +142,8 @@ class MainViewModel @Inject constructor(
     private var currentHideZeroQty: Boolean = false
 
     private val _availableWarehouses = MutableStateFlow<List<WarehousePermissionDto>>(emptyList())
-    val availableWarehouses: StateFlow<List<WarehousePermissionDto>> = _availableWarehouses.asStateFlow()
+    val availableWarehouses: StateFlow<List<WarehousePermissionDto>> =
+        _availableWarehouses.asStateFlow()
 
     private val _gpsPermissions = MutableStateFlow<List<GpsPermissionDto>>(emptyList())
     val gpsPermissions: StateFlow<List<GpsPermissionDto>> = _gpsPermissions.asStateFlow()
@@ -159,7 +165,8 @@ class MainViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _pendingHighlightNotificationId = MutableStateFlow<Int?>(null)
-    val pendingHighlightNotificationId: StateFlow<Int?> = _pendingHighlightNotificationId.asStateFlow()
+    val pendingHighlightNotificationId: StateFlow<Int?> =
+        _pendingHighlightNotificationId.asStateFlow()
 
     // ====================== Состояние для топологий =========================
     private val _topologies = MutableStateFlow<List<TopologyDto>>(emptyList())
@@ -179,6 +186,7 @@ class MainViewModel @Inject constructor(
         // Запускаем периодическую проверку сессии при инициализации
         startSessionMonitoring()
 
+        // Мгновенная инициализация из кэша
         _bmList.value = localStorage.getCachedBmList()
         _gpsPermissions.value = localStorage.getCachedPermissions()
         _userIsAssetsAdmin.value = localStorage.getCachedIsAssetsAdmin()
@@ -277,7 +285,7 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-    * Метод для сброса состояния (например, при уходе с экрана)
+     * Метод для сброса состояния (например, при уходе с экрана)
      */
     fun resetStateToIdle() {
         _uiState.value = UiState.Idle
@@ -371,7 +379,15 @@ class MainViewModel @Inject constructor(
 
     fun loadUserProfile() {
         viewModelScope.launch {
-            // Не ставим UiState.Loading, чтобы экран не "мигал", если у нас уже есть кэш
+            // Проверяем, есть ли уже данные, чтобы не показывать Loading и не стирать экран
+            val hasCache = _bmList.value.isNotEmpty() || _gpsPermissions.value.isNotEmpty()
+            if (!hasCache) {
+                _uiState.value = UiState.Loading
+            }
+            else {
+
+            }
+
             try {
                 val gpsProfile = apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow()))
 
@@ -380,21 +396,21 @@ class MainViewModel @Inject constructor(
                 val permissions = gpsProfile.permissions ?: emptyList()
                 val bmList = gpsProfile.bmList ?: emptyList()
 
-                // Обновляем потоки свежими данными
                 if (storages != null) _availableWarehouses.value = storages
                 _userIsAssetsAdmin.value = isAssetsAdmin
                 _gpsPermissions.value = permissions
                 _bmList.value = bmList
 
-                // === НОВОЕ: Сохраняем в кэш при успешном ответе ===
+                // === ИСПРАВЛЕНИЕ: Сохраняем свежие данные в кэш ===
                 localStorage.saveProfileCache(bmList, permissions, isAssetsAdmin)
 
                 _uiState.value = UiState.ProfileLoaded(gpsProfile)
             } catch (e: Exception) {
-                Log.e("MainViewModel", "Ошибка загрузки профиля (используем кэшированные данные)", e)
-                // ВАЖНО: Мы НЕ меняем _uiState на Error глобально.
-                // Потоки _bmList и _gpsPermissions уже содержат кэш из init,
-                // поэтому HomeScreen отрисует вкладки корректно.
+                Log.e("MainViewModel", "Ошибка загрузки профиля (используем кэш)", e)
+                // Показываем ошибку только если кэша вообще нет
+                if (!hasCache) {
+                    _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить профиль")
+                }
             }
         }
     }
@@ -511,7 +527,8 @@ class MainViewModel @Inject constructor(
                 val responseString = responseBody.toString().trim()
 
                 if (responseString.contains("success", ignoreCase = true) ||
-                    responseString.contains("ok", ignoreCase = true)) {
+                    responseString.contains("ok", ignoreCase = true)
+                ) {
                     onSuccess()
                 } else {
                     onError(responseString.ifEmpty { "Ошибка сервера" })
@@ -584,7 +601,8 @@ class MainViewModel @Inject constructor(
                 val response = apiService.cancelWmsRequest(request)
 
                 if (response.status == "success" || response.status == "ok") {
-                    _uiState.value = UiState.WmsRequestCancelled(response.message ?: "Запрос отменён")
+                    _uiState.value =
+                        UiState.WmsRequestCancelled(response.message ?: "Запрос отменён")
                     onComplete(true, response.message ?: "Запрос отменён")
                 } else {
                     _uiState.value = UiState.Error(response.message ?: "Ошибка отмены запроса")
@@ -633,22 +651,33 @@ class MainViewModel @Inject constructor(
      */
     fun resetWmsRequestActionState() {
         if (_uiState.value is UiState.WmsRequestCancelled ||
-            _uiState.value is UiState.WmsRequestAccepted) {
+            _uiState.value is UiState.WmsRequestAccepted
+        ) {
             _uiState.value = UiState.Idle
         }
     }
 
     fun loadWmsData(page: Int = 1, append: Boolean = false) {
         viewModelScope.launch {
-            Log.d(
-                "WMS_PAGINATION",
-                "loadWmsData -> page=$page, append=$append, " +
-                        "search='$currentWmsSearchQuery', storage='$currentStorageFilterId', " +
-                        "hideZero=$currentHideZeroQty"
-            )
+            val cachedWms = localStorage.getCachedWms()
 
+            // Если это первая загрузка и есть кэш, показываем его сразу
+            if (page == 1 && !append && cachedWms.isNotEmpty()) {
+                _uiState.value = UiState.WmsLoaded(items = cachedWms)
+            }
+
+            val isOnline = networkMonitor.isCurrentlyConnected()
+            if (!isOnline) {
+                if (page == 1 && cachedWms.isEmpty()) {
+                    _uiState.value =
+                        UiState.Error("Нет подключения к сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            // Если сеть есть, делаем запрос
             if (page == 1 && !append) {
-                _uiState.value = UiState.Loading
+                _uiState.value = UiState.Loading // Показываем загрузку только если кэша не было
             }
             if (append) {
                 _isLoadingMore.value = true
@@ -665,31 +694,13 @@ class MainViewModel @Inject constructor(
                     page = page,
                     limit = 50
                 )
-
                 val response: WmsResponseDto = apiService.getWmsData(request)
 
-                Log.d(
-                    "WMS_PAGINATION",
-                    "Response: page=${response.page}, totalPages=${response.totalPages}, " +
-                            "totalCount=${response.totalCount}, items=${response.data.size}"
-                )
-
-                // === Обновляем состояние пагинации из ответа ===
-                // ВАЖНО: page_qty в WmsResponseDto = ОБЩЕЕ ЧИСЛО СТРАНИЦ (см. комментарий в DTO)
                 wmsCurrentPage = response.page
                 wmsTotalPages = response.totalPages
                 totalMaterialsCount = response.totalCount
+                _hasMoreWms.value = response.page < response.totalPages
 
-                val hasNext = response.page < response.totalPages
-                _hasMoreWms.value = hasNext
-
-                Log.d(
-                    "WMS_PAGINATION",
-                    "Pagination state: currentPage=$wmsCurrentPage, " +
-                            "totalPages=$wmsTotalPages, total=$totalMaterialsCount, hasNext=$hasNext"
-                )
-
-                // === Объединяем списки ===
                 val currentState = _uiState.value
                 val oldItems = if (append && currentState is UiState.WmsLoaded) {
                     currentState.items
@@ -699,23 +710,19 @@ class MainViewModel @Inject constructor(
 
                 val updatedList = oldItems + response.data
 
+                // 3. Успех: сохраняем ВЕСЬ обновленный список в кэш
+                localStorage.saveWmsCache(updatedList)
                 _uiState.value = UiState.WmsLoaded(items = updatedList)
-                Log.d(
-                    "WMS_PAGINATION",
-                    "WmsLoaded updated: oldItems=${oldItems.size}, " +
-                            "newItems=${response.data.size}, total=${updatedList.size}"
-                )
 
             } catch (e: Exception) {
-                Log.e("WMS_PAGINATION", "Ошибка загрузки WMS", e)
-                // При ошибке пагинации НЕ стираем список, показываем ошибку только для первой страницы
-                if (page == 1 && !append) {
+                Log.e("MainViewModel", "Ошибка загрузки WMS (используем кэш)", e)
+                if (page == 1 && !append && cachedWms.isEmpty()) {
                     _uiState.value = UiState.Error(e.message ?: "Неизвестная ошибка")
                 }
+                // Если ошибка при append (подгрузке), просто игнорируем, старые данные остаются
             } finally {
                 if (append) {
                     _isLoadingMore.value = false
-                    Log.d("WMS_PAGINATION", "isLoadingMore=false")
                 }
             }
         }
@@ -763,24 +770,68 @@ class MainViewModel @Inject constructor(
     }
 
     fun loadOrders() {
-        loadOrdersGeneric(type = "status", isArchive = false)
+        loadOrdersGeneric(
+            type = "status",
+            isArchive = false,
+            cacheGetter = { localStorage.getCachedOrders() },
+            cacheSaver = { localStorage.saveOrdersCache(it) })
     }
 
     fun loadArchive() {
-        loadOrdersGeneric(type = "archive", isArchive = true)
+        // Для архива можно использовать тот же кэш заказов или создать отдельный,
+        // но для простоты пока используем общую логику.
+        loadOrdersGeneric(
+            type = "archive",
+            isArchive = true,
+            cacheGetter = { localStorage.getCachedOrders() },
+            cacheSaver = { localStorage.saveOrdersCache(it) })
     }
 
-    private fun loadOrdersGeneric(type: String, isArchive: Boolean) {
-        executeRequest(
-            request = {
-                apiService.getOrders(GetOrdersRequest(getTokenOrThrow(), type, null))
-            },
-            onSuccess = { orders ->
+    private fun loadOrdersGeneric(
+        type: String,
+        isArchive: Boolean,
+        cacheGetter: () -> List<OrderDto>,
+        cacheSaver: (List<OrderDto>) -> Unit
+    ) {
+        viewModelScope.launch {
+            val cachedData = cacheGetter()
+
+            // МГНОВЕННО показываем кэш, если он есть (экран не будет пустым!)
+            if (cachedData.isNotEmpty()) {
                 _uiState.value =
-                    if (isArchive) UiState.ArchiveLoaded(orders) else UiState.OrdersLoaded(orders)
-            },
-            errorMsg = "Не удалось загрузить заказы"
-        )
+                    if (isArchive) UiState.ArchiveLoaded(cachedData) else UiState.OrdersLoaded(
+                        cachedData
+                    )
+            }
+
+            // Проверяем сеть. Если сети нет, мы уже показали кэш на шаге 1, просто выходим.
+            val isOnline = networkMonitor.isCurrentlyConnected()
+            if (!isOnline) {
+                if (cachedData.isEmpty()) {
+                    _uiState.value =
+                        UiState.Error("Нет подключения к сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            // Если сеть есть, грузим свежие данные в фоне
+            // Мы НЕ ставим UiState.Loading здесь, чтобы не стирать кэш с экрана!
+            try {
+                val response = apiService.getOrders(GetOrdersRequest(getTokenOrThrow(), type, null))
+
+                // Успех: сохраняем в кэш и обновляем UI свежими данными
+                cacheSaver(response)
+                _uiState.value =
+                    if (isArchive) UiState.ArchiveLoaded(response) else UiState.OrdersLoaded(
+                        response
+                    )
+
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки заказов (используем кэш)", e)
+                // Мы ничего не делаем с _uiState, потому что там уже лежит кэш из шага 1!
+                // Пользователь даже не заметит ошибку, он просто увидит чуть устаревшие данные.
+            }
+        }
     }
 
     /**
@@ -799,24 +850,28 @@ class MainViewModel @Inject constructor(
 
                 Log.d("MainViewModel", "WMS WriteOff raw response: $responseString")
 
-                // === ОБРАБОТКА ОТВЕТА ===
-
-                // 1. Проверяем на простые текстовые успехи
+                // Проверяем на простые текстовые успехи
                 if (responseString.equals("ok", ignoreCase = true) ||
-                    responseString.equals("success", ignoreCase = true)) {
+                    responseString.equals("success", ignoreCase = true)
+                ) {
                     _uiState.value = UiState.WmsWriteOffSuccess("Списание успешно завершено")
                     return@launch
                 }
 
-                // 2. Пытаемся распарсить как JSON
+                // Пытаемся распарсить как JSON
                 if (responseString.startsWith("{")) {
                     try {
                         val json = JSONObject(responseString)
                         val status = json.optString("status", "")
                         val message = json.optString("message", json.optString("msg", ""))
 
-                        if (status.equals("success", ignoreCase = true) || status.equals("ok", ignoreCase = true)) {
-                            _uiState.value = UiState.WmsWriteOffSuccess(message.ifEmpty { "Списание успешно завершено" })
+                        if (status.equals("success", ignoreCase = true) || status.equals(
+                                "ok",
+                                ignoreCase = true
+                            )
+                        ) {
+                            _uiState.value =
+                                UiState.WmsWriteOffSuccess(message.ifEmpty { "Списание успешно завершено" })
                         } else {
                             _uiState.value = UiState.Error(message.ifEmpty { "Ошибка сервера" })
                         }
@@ -827,10 +882,12 @@ class MainViewModel @Inject constructor(
                     // Это plain text. Проверяем, не ошибка ли это
                     val errorMsg = if (responseString.contains("SQLSTATE", ignoreCase = true) ||
                         responseString.contains("error", ignoreCase = true) ||
-                        responseString.contains("exception", ignoreCase = true)) {
+                        responseString.contains("exception", ignoreCase = true)
+                    ) {
                         "Ошибка сервера: ${responseString.take(150)}"
                     } else {
-                        _uiState.value = UiState.WmsWriteOffSuccess(responseString.ifEmpty { "Списание успешно завершено" })
+                        _uiState.value =
+                            UiState.WmsWriteOffSuccess(responseString.ifEmpty { "Списание успешно завершено" })
                         return@launch
                     }
                     _uiState.value = UiState.Error(errorMsg)
@@ -1015,22 +1072,34 @@ class MainViewModel @Inject constructor(
 
 
     fun loadMaterials(orderNumber: String) {
-        executeRequest(
-            request = {
-                apiService.getOrderMaterials(
-                    GetOrderMaterialsRequest(
-                        getTokenOrThrow(),
-                        orderNumber,
-                        "receive"
-                    )
+        viewModelScope.launch {
+            val cachedMaterials = localStorage.getCachedOrderMaterials(orderNumber)
+            if (cachedMaterials.isNotEmpty()) {
+                _uiState.value = UiState.MaterialsLoaded(cachedMaterials)
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedMaterials.isEmpty()) {
+                    _uiState.value =
+                        UiState.Error("Нет подключения к сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            try {
+                val response = apiService.getOrderMaterials(
+                    GetOrderMaterialsRequest(getTokenOrThrow(), orderNumber, "receive")
                 )
-            },
-            onSuccess = { response ->
                 val materials = response.firstOrNull()?.materials ?: emptyList()
+                localStorage.saveOrderMaterialsCache(orderNumber, materials)
                 _uiState.value = UiState.MaterialsLoaded(materials)
-            },
-            errorMsg = "Ошибка загрузки материалов"
-        )
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки материалов (используем кэш)", e)
+                if (cachedMaterials.isEmpty()) {
+                    _uiState.value = UiState.Error(e.message ?: "Ошибка загрузки материалов")
+                }
+            }
+        }
     }
 
     /**
@@ -1078,22 +1147,35 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    // ====================== Материалы на складе ======================
     fun loadWarehouseMaterials(startDate: String, endDate: String, sapNum: String = "") {
-        executeRequest(
-            request = {
-                apiService.getWarehouseMaterials(
-                    GetWarehouseMaterialsRequest(
-                        getTokenOrThrow(),
-                        sapNum,
-                        "",
-                        startDate,
-                        endDate
-                    )
+        viewModelScope.launch {
+            val cachedMaterials = localStorage.getCachedWarehouseMaterials()
+            if (cachedMaterials.isNotEmpty()) {
+                _uiState.value = UiState.WarehouseMaterialsLoaded(cachedMaterials)
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedMaterials.isEmpty()) {
+                    _uiState.value =
+                        UiState.Error("Нет подключения к сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            try {
+                val response = apiService.getWarehouseMaterials(
+                    GetWarehouseMaterialsRequest(getTokenOrThrow(), sapNum, "", startDate, endDate)
                 )
-            },
-            onSuccess = { _uiState.value = UiState.WarehouseMaterialsLoaded(it) },
-            errorMsg = "Ошибка загрузки склада"
-        )
+                localStorage.saveWarehouseMaterialsCache(response)
+                _uiState.value = UiState.WarehouseMaterialsLoaded(response)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки склада (используем кэш)", e)
+                if (cachedMaterials.isEmpty()) {
+                    _uiState.value = UiState.Error(e.message ?: "Ошибка загрузки склада")
+                }
+            }
+        }
     }
 
     /**
@@ -1116,7 +1198,8 @@ class MainViewModel @Inject constructor(
 
                 // Проверяем на простые текстовые успехи (сервер может возвращать "ok", "success")
                 if (responseString.equals("ok", ignoreCase = true) ||
-                    responseString.equals("success", ignoreCase = true)) {
+                    responseString.equals("success", ignoreCase = true)
+                ) {
                     _uiState.value = UiState.WmsReceiveSuccess("Приемка успешно завершена")
                     return@launch
                 }
@@ -1128,8 +1211,13 @@ class MainViewModel @Inject constructor(
                         val status = json.optString("status", "")
                         val message = json.optString("message", json.optString("msg", ""))
 
-                        if (status.equals("success", ignoreCase = true) || status.equals("ok", ignoreCase = true)) {
-                            _uiState.value = UiState.WmsReceiveSuccess(message.ifEmpty { "Приемка успешно завершена" })
+                        if (status.equals("success", ignoreCase = true) || status.equals(
+                                "ok",
+                                ignoreCase = true
+                            )
+                        ) {
+                            _uiState.value =
+                                UiState.WmsReceiveSuccess(message.ifEmpty { "Приемка успешно завершена" })
                         } else {
                             _uiState.value = UiState.Error(message.ifEmpty { "Ошибка сервера" })
                         }
@@ -1140,12 +1228,14 @@ class MainViewModel @Inject constructor(
                     // Это plain text. Проверяем, не ошибка ли это
                     val errorMsg = if (responseString.contains("SQLSTATE", ignoreCase = true) ||
                         responseString.contains("error", ignoreCase = true) ||
-                        responseString.contains("exception", ignoreCase = true)) {
+                        responseString.contains("exception", ignoreCase = true)
+                    ) {
                         "Ошибка сервера: ${responseString.take(150)}"
                     } else {
                         // Неизвестный текстовый ответ — считаем успехом, если он короткий и не похож на ошибку
                         // Но лучше всё же показывать предупреждение для отладки
-                        _uiState.value = UiState.WmsReceiveSuccess(responseString.ifEmpty { "Приемка успешно завершена" })
+                        _uiState.value =
+                            UiState.WmsReceiveSuccess(responseString.ifEmpty { "Приемка успешно завершена" })
                         return@launch
                     }
                     _uiState.value = UiState.Error(errorMsg)
@@ -1160,25 +1250,39 @@ class MainViewModel @Inject constructor(
 
     // ====================== Инвентаризация ======================
     fun loadInventoryOrders() {
-        executeRequest(
-            request = {
-                apiService.getInventoryOrders(
-                    GetInventoryOrdersRequest(
-                        getTokenOrThrow(),
-                        "status"
-                    )
+        viewModelScope.launch {
+            val cachedOrders = localStorage.getCachedInventoryOrders()
+            if (cachedOrders.isNotEmpty()) {
+                _uiState.value = UiState.InventoryOrdersLoaded(cachedOrders)
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedOrders.isEmpty()) {
+                    _uiState.value = UiState.Error("Нет подключения к сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            try {
+                val response = apiService.getInventoryOrders(
+                    GetInventoryOrdersRequest(getTokenOrThrow(), "status")
                 )
-            },
-            onSuccess = { _uiState.value = UiState.InventoryOrdersLoaded(it) },
-            errorMsg = "Не удалось загрузить заказы инвентаризации"
-        )
+                localStorage.saveInventoryOrdersCache(response)
+                _uiState.value = UiState.InventoryOrdersLoaded(response)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки заказов инвентаризации (используем кэш)", e)
+                if (cachedOrders.isEmpty()) {
+                    _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить заказы инвентаризации")
+                }
+            }
+        }
     }
 
     fun checkInventoryMaterial(material: String, order: String, qty: Int) {
         viewModelScope.launch {
             try {
                 val token = getTokenOrThrow()
-                // 1. Отправляем запрос на сверку
+                // Отправляем запрос на сверку
                 val responseList = apiService.checkInventoryMaterial(
                     CheckInventoryMaterialRequest(
                         token,
@@ -1188,7 +1292,7 @@ class MainViewModel @Inject constructor(
                     )
                 )
 
-                // 2. Если ответ успешный, перезагружаем список материалов, чтобы получить актуальный count_fact с сервера
+                // Если ответ успешный, перезагружаем список материалов, чтобы получить актуальный count_fact с сервера
                 if (responseList.isNotEmpty()) {
                     // Опционально: можно показать кратковременное уведомление об успехе, но не блокировать экран
 
@@ -1242,7 +1346,7 @@ class MainViewModel @Inject constructor(
                     _uiState.value = UiState.InventoryFinished("Инвентаризация завершена")
                     isInventoryActive = false
                     // Опционально: можно перезагрузить список заказов или обновить статус текущего заказа
-//                    loadInventoryMaterials(orderNumber)
+                    loadInventoryMaterials(orderNumber)
                 } else {
                     _uiState.value = UiState.Error("Ошибка завершения инвентаризации")
                 }
@@ -1254,24 +1358,32 @@ class MainViewModel @Inject constructor(
     }
 
     fun loadInventoryMaterials(orderNumber: String) {
-        executeRequest(
-            request = {
-                apiService.getInventoryMaterials(
-                    GetInventoryMaterialsRequest(
-                        getTokenOrThrow(),
-                        orderNumber
-                    )
+        viewModelScope.launch {
+            val cachedMaterials = localStorage.getCachedInventoryMaterials(orderNumber)
+            if (cachedMaterials.isNotEmpty()) {
+                _uiState.value = UiState.InventoryMaterialsLoaded(cachedMaterials, orderNumber)
+            }
+
+            if (!networkMonitor.isCurrentlyConnected()) {
+                if (cachedMaterials.isEmpty()) {
+                    _uiState.value = UiState.Error("Нет подключения к сети и нет сохраненных данных")
+                }
+                return@launch
+            }
+
+            try {
+                val response = apiService.getInventoryMaterials(
+                    GetInventoryMaterialsRequest(getTokenOrThrow(), orderNumber)
                 )
-            },
-            onSuccess = { materials ->
-                // Здесь мы не знаем warehouse и isActive, так как API inv_order_view их не возвращает.
-                // Поэтому лучше передавать их из списка заказов.
-                // Для примера предположим, что мы установили их ранее или передали.
-                // Если нет, придется доработать навигацию.
-                _uiState.value = UiState.InventoryMaterialsLoaded(materials, orderNumber)
-            },
-            errorMsg = "Ошибка загрузки материалов инвентаризации"
-        )
+                localStorage.saveInventoryMaterialsCache(orderNumber, response)
+                _uiState.value = UiState.InventoryMaterialsLoaded(response, orderNumber)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки материалов инвентаризации (используем кэш)", e)
+                if (cachedMaterials.isEmpty()) {
+                    _uiState.value = UiState.Error(e.message ?: "Ошибка загрузки материалов инвентаризации")
+                }
+            }
+        }
     }
 
     // Метод для установки контекста инвентаризации
@@ -1285,11 +1397,12 @@ class MainViewModel @Inject constructor(
 
     // --- Helpers ---
     suspend fun getTokenOrThrow(): String {
-        if (currentToken.isNullOrEmpty() && localStorage.getToken().isNullOrEmpty()){
+        if (currentToken.isNullOrEmpty() && localStorage.getToken().isNullOrEmpty()) {
             logout()
             throw Exception("Пользователь не авторизован. Автовыход.")
         }
-        return currentToken ?: localStorage.getToken() ?: throw Exception("Пользователь не авторизован")
+        return currentToken ?: localStorage.getToken()
+        ?: throw Exception("Пользователь не авторизован")
     }
 
     private fun <T> executeRequest(
