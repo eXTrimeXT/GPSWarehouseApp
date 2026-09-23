@@ -551,6 +551,7 @@ fun ProfilePreviewLoaded() {
         id = "91",
         login = "ivanov_aa",
         section = "Складская логистика",
+        department = "SDG",
         lastTime = "14:33:23 27.04.2026",
         lastIp = "192.168.1.105",
         warehousePermissions = listOf(
