@@ -179,10 +179,10 @@ fun ProfileContent(
                     }
 
                     // Права на типы активов
-                    if (!profile.gpsPermissions.isNullOrEmpty())
+                    if (!profile.permissions.isNullOrEmpty())
                     CollapsiblePermissionCard(
                         assetsAdmin = profile.assetsIsAdmin,
-                        permissions = profile.gpsPermissions
+                        permissions = profile.permissions
                     )
 
 //                    Spacer(modifier = Modifier.weight(1f))
@@ -559,7 +559,7 @@ fun ProfilePreviewLoaded() {
             WarehousePermissionDto(id = "3", name = "Архив", isLeader = "0", isVirtual = "1")
         ),
         assetsIsAdmin = false,
-        gpsPermissions = listOf(
+        permissions = listOf(
             GpsPermissionDto(nameGroup = "android_data", read = true, write = false)
         ),
         bmList = null

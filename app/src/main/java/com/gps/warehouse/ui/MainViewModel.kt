@@ -354,7 +354,7 @@ class MainViewModel @Inject constructor(
                     _availableWarehouses.value = storages
                 }
                 _userIsAssetsAdmin.value = isAssetsAdmin
-                val permissions = gpsProfile.gpsPermissions ?: emptyList()
+                val permissions = gpsProfile.permissions ?: emptyList()
                 _gpsPermissions.value = permissions.map { it }
 
                 val bmList = gpsProfile.bmList ?: emptyList()
@@ -389,7 +389,7 @@ class MainViewModel @Inject constructor(
                 val token = getTokenOrThrow()
                 // Загружаем через GPS API из профиля
                 val profile = apiService.getUserProfile(GetUserProfileRequest(token))
-                val permissions = profile.gpsPermissions ?: emptyList()
+                val permissions = profile.permissions ?: emptyList()
                 _gpsPermissions.value = permissions.map { it }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Ошибка загрузки складов", e)

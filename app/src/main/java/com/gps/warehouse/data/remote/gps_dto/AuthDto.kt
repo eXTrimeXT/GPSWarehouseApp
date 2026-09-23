@@ -36,10 +36,11 @@ data class UserProfileResponse(
     val id: String,
     val login: String,
     val section: String?,                                           // Отдел/секция
+    val department: String?,
     @SerializedName("last_time") val lastTime: String?,     // Время последнего входа
     @SerializedName("last_ip") val lastIp: String?,         // Последний IP
     @SerializedName("warehouse_permissions") val warehousePermissions: List<WarehousePermissionDto>?,   // Права на склады
-    @SerializedName("permission") val gpsPermissions: List<GpsPermissionDto>?,
+    @SerializedName("permission") val permissions: List<GpsPermissionDto>?,
     @SerializedName("assets_is_admin") val assetsIsAdmin: Boolean? = false,
     @SerializedName("bm_list") val bmList: List<BmListDto>?
 )

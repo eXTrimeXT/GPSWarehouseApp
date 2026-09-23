@@ -68,22 +68,6 @@ class LocalStorage @Inject constructor(private val context: Context) {
 
 
     // ======================== Тема ========================
-    suspend fun saveThemeMode(mode: AppThemeMode) {
-        context.dataStore.edit {
-            it[THEME_MODE_KEY] = mode.value
-        }
-    }
-
-    suspend fun getThemeMode(): AppThemeMode {
-        return try {
-            val preferences = context.dataStore.data.first()
-            val value = preferences[THEME_MODE_KEY] ?: AppThemeMode.SYSTEM.value
-            AppThemeMode.entries.firstOrNull { it.value == value } ?: AppThemeMode.SYSTEM
-        } catch (e: Exception) {
-            AppThemeMode.SYSTEM
-        }
-    }
-
     val themeModeFlow: Flow<AppThemeMode> = context.dataStore.data
         .catch { e ->
             if (e is IOException) {
