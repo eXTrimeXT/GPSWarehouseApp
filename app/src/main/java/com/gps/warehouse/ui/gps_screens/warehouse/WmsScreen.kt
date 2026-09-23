@@ -536,3 +536,38 @@ fun WmsPreviewLoaded() {
         }
     }
 }
+
+
+@Preview(showBackground = true, name = "WMS Screen - Loaded")
+@Composable
+fun WmsPreviewError() {
+    MaterialTheme {
+        Surface {
+            WmsContent(
+                uiState = MainViewModel.UiState.Error("Error"),
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
+                searchQuery = "",
+                onSearchQueryChange = {},
+                selectedStorageFilterId = null,
+                onStorageFilterSelected = {},
+                isFiltersExpanded = false,
+                onToggleFilters = {},
+                onBackClick = {},
+                onNavigateToRequests = {},
+                onRetryClick = {},
+                onItemClick = {},
+                showOnlyNonZeroQty = false,
+                onShowOnlyNonZeroQtyChange = {},
+                onResetFilters = {},
+                availableWarehouses = listOf(
+                    WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
+                    WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0")
+                ),
+                isLoadingMore = false,
+                hasMore = false,
+                onLoadMore = {}
+            )
+        }
+    }
+}

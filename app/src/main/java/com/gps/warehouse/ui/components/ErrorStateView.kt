@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.components
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -25,7 +26,7 @@ fun ErrorStateView(
     message: String,
     onRetry: (() -> Unit)? = null,
     autoRetry: Boolean = true, // флаг автоматического вызова onRetry
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     // Количество секунд для повтора
     val secondsDelay = 10

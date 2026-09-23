@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -153,781 +154,404 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-//            MaterialTheme(
-//                colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme(),
-//                typography = Typography()
-//            ) {
-//                Surface(modifier = Modifier.fillMaxSize()) {
-//                    val navController = rememberNavController()
-//
-//                    LaunchedEffect(pendingHighlightId) {
-//                        if (pendingHighlightId != null) {
-//                            val currentRoute = navController.currentDestination?.route
-//                            if (currentRoute != "asset_notifications") {
-//                                navController.navigate("asset_notifications") {
-//                                    launchSingleTop = true // Не создаем дубликат экрана
-//                                }
-//                            }
-//                        }
-//                    }
-//
-//                    // Отслеживаем состояние MainViewModel на наличие токена
-//                    // Если токена нет - выходим из профиля, переходим на экран LoginScreen
-//                    LaunchedEffect(Unit) {
-//                        mainViewModel.uiState.collect { state ->
-//                            if (state is MainViewModel.UiState.SessionExpired) {
-//                                val currentRoute = navController.currentBackStackEntry?.destination?.route
-//                                if (currentRoute != "login") {
-//                                    navController.navigate("login") {
-//                                        popUpTo(0) { inclusive = true }
-//                                        launchSingleTop = true // Не создаем дубликат экрана
-//                                    }
-//                                }
-//                            }
-//                        }
-//                    }
-//
-//                    NavHost(navController = navController, startDestination = "login") {
-//                        composable("login") {
-//                            LoginScreen(
-//                                onLoginSuccess = {
-//                                    navController.navigate("home") {
-//                                        popUpTo("login") { inclusive = true }
-//                                    }
-//                                    // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПОСЛЕ ВХОДА
-//                                    checkForAppUpdate()
-//                                },
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("home") {
-//                            HomeScreen(
-//                                navController = navController,
-//                                mainViewModel = mainViewModel,
-//                                assetViewModel = assetViewModel
-//                            )
-//                        }
-//                        composable("orders") {
-//                            OrdersScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("archive") {
-//                            ArchiveScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("order_details/{orderNumber}") { backStackEntry ->
-//                            val orderNumber = backStackEntry.arguments?.getString("orderNumber") ?: ""
-//                            OrderDetailsScreen(
-//                                orderNumber = orderNumber,
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("receive/{orderNumber}") { backStackEntry ->
-//                            val orderNumber = backStackEntry.arguments?.getString("orderNumber") ?: ""
-//                            ReceiveMaterialsScreen(
-//                                orderNumber = orderNumber,
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("packaging") {
-//                            PackagingScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("pack_to_warehouse") {
-//                            PackToWarehouseScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("inventory") {
-//                            InventoryListScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("inventory_check/{orderNumber}") { backStackEntry ->
-//                            val orderNumber = backStackEntry.arguments?.getString("orderNumber") ?: ""
-//                            InventoryCheckScreen(
-//                                orderNumber = orderNumber,
-//                                navController = navController,
-//                                mainViewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("wms") {
-//                            WmsScreen(
-//                                navController = navController,
-//                                mainViewModel = mainViewModel
-//                            )
-//                        }
-//                        composable(
-//                            route = "wms_item_details/{material}/{storageId}",
-//                            arguments = listOf(
-//                                navArgument("material") { type = NavType.StringType },
-//                                navArgument("storageId") { type = NavType.StringType }
-//                            )
-//                        ) { backStackEntry ->
-//                            val material = backStackEntry.arguments?.getString("material").orEmpty()
-//                            val storageId = backStackEntry.arguments?.getString("storageId").orEmpty()
-//                            WmsItemDetailsScreen(
-//                                material = material,
-//                                storageId = storageId,
-//                                navController = navController,
-//                                mainViewModel = mainViewModel
-//                            )
-//                        }
-//
-//                        composable("wms_requests") {
-//                            WmsRequestsScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("warehouse") {
-//                            WarehouseMaterialsScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("wms_receive") {
-//                            WmsReceiveScreen(
-//                                navController = navController,
-//                                mainViewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("wms_write_off") {
-//                            WmsWriteOffScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("profile") {
-//                            ProfileScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//                        composable("settings") {
-//                            SettingsScreen(
-//                                navController = navController,
-//                                viewModel = mainViewModel
-//                            )
-//                        }
-//
-//
-//                        // АКТИВЫ
-//                        composable("asset_types") {
-//                            AssetTypeListScreen(
-//                                navController = navController,
-//                                assetViewModel = assetViewModel,
-//                                mainViewModel = mainViewModel
-//                            )
-//                        }
-//
-//                        // Обычный переход к типу актива
-//                        composable("assets_list/{assetTypeId}/{assetTypeName}") {backStackEntry ->
-//                            val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() // Передаем null, чтобы показать активы без типа
-//                            val assetTypeName = backStackEntry.arguments?.getString("assetTypeName").toString()
-//                            AssetsByTypeScreen(
-//                                assetTypeId = assetTypeId,
-//                                assetTypeName = assetTypeName,
-//                                navController = navController,
-//                                assetViewModel = assetViewModel,
-//                                mainViewModel = mainViewModel,
-//                            )
-//                        }
-//
-//                        // Переход к типу активу с параметрами
-//                        composable("assets_list/{assetTypeId}/{assetTypeName}/{serialNumber}/{inventoryId}") {backStackEntry ->
-//                            val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() // Передаем null, чтобы показать активы без типа
-//                            val assetTypeName = backStackEntry.arguments?.getString("assetTypeName").toString()
-//                            val serialNumber = backStackEntry.arguments?.getString("serialNumber").toString()
-//                            val inventoryId = backStackEntry.arguments?.getString("inventoryId").toString()
-//                            AssetsByTypeScreen(
-//                                assetTypeId = assetTypeId,
-//                                assetTypeName = assetTypeName,
-//                                navController = navController,
-//                                assetViewModel = assetViewModel,
-//                                mainViewModel = mainViewModel,
-//                                serialNumber = serialNumber,
-//                                inventoryId = inventoryId,
-//                            )
-//                        }
-//
-//                        // Переход на экран списка активов текущего пользователя
-//                        composable("my_assets_list") {backStackEntry ->
-//                            AssetsByTypeScreen(
-//                                assetTypeName = "Мои активы",
-//                                navController = navController,
-//                                assetViewModel = assetViewModel,
-//                                mainViewModel = mainViewModel,
-//                                onlyMy = true
-//                            )
-//                        }
-//
-//                        composable("mobile_devices") {
-//                            MobileDevicesScreen(
-//                                mobileViewModel = mobileViewModel,
-//                                onDeviceClick = { serialNumber ->
-//                                    navController.navigate("mobile_device_detail/$serialNumber")
-//                                },
-//                                onNavigateBack = { navController.popBackStack() },
-//                            )
-//                        }
-//
-//                        composable(
-//                            route = "mobile_device_detail/{serialNumber}",
-//                            arguments = listOf(navArgument("serialNumber") { type = NavType.StringType })
-//                        ) { backStackEntry ->
-//                            val serialNumber = backStackEntry.arguments?.getString("serialNumber") ?: return@composable
-//                            MobileDeviceDetailScreen(
-//                                mobileViewModel = mobileViewModel,
-//                                serialNumber = serialNumber,
-//                                onNavigateBack = { navController.popBackStack() }
-//                            )
-//                        }
-//
-//                        // Перейти на экран актива по assetId (необходимо для уведомлений)
-//                        composable("asset_details/{assetId}") { backStackEntry ->
-//                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull() ?: return@composable
-//                            AssetDetailsScreen(
-//                                assetId = assetId,
-//                                navController = navController,
-//                                assetViewModel = assetViewModel
-//                            )
-//                        }
-//
-//                        composable(
-//                            route = "asset_details?assetId={assetId}&materialId={materialId}",
-//                            arguments = listOf(
-//                                navArgument("assetId") {
-//                                    // ИЗМЕНЕНО: IntType не поддерживает nullable. Используем StringType.
-//                                    type = NavType.StringType
-//                                    nullable = true
-//                                    defaultValue = null
-//                                },
-//                                navArgument("materialId") {
-//                                    type = NavType.StringType
-//                                    nullable = true
-//                                    defaultValue = null
-//                                }
-//                            )
-//                        ) { backStackEntry ->
-//                            // Безопасно получаем строку и парсим её в Int?
-//                            val assetIdStr = backStackEntry.arguments?.getString("assetId")
-//                            val assetId = assetIdStr?.toIntOrNull()
-//                            val materialId = backStackEntry.arguments?.getString("materialId")
-//
-//                            // Защита: если не передан ни один идентификатор, возвращаемся назад
-//                            if (assetId == null && materialId == null) {
-//                                navController.popBackStack()
-//                                return@composable
-//                            }
-//
-//                            AssetDetailsScreen(
-//                                assetId = assetId,
-//                                materialId = materialId,
-//                                navController = navController,
-//                                assetViewModel = assetViewModel
-//                            )
-//                        }
-//
-//                        composable("my_pcs") {
-//                            MyPcsScreen(
-//                                navController = navController,
-//                                assetViewModel = assetViewModel
-//                            )
-//                        }
-//
-//                        composable("my_pc_details/{pcId}") { backStackEntry ->
-//                            val pcId = backStackEntry.arguments?.getString("pcId")?.toIntOrNull() ?: 0
-//                            MyPcDetailsScreen(
-//                                pcId = pcId,
-//                                navController = navController,
-//                                assetViewModel = assetViewModel
-//                            )
-//                        }
-//
-//                        // Инвентаризация активов
-//                        composable("inventorization_sessions") {
-//                            InventorizationSessionsScreen(
-//                                navController = navController,
-//                                assetViewModel = assetViewModel
-//                            )
-//                        }
-//
-//                        composable("inventorization_items/{sessionId}/{isCompleted}") { backStackEntry ->
-//                            val sessionId = backStackEntry.arguments?.getString("sessionId")?.toIntOrNull() ?: 0
-//                            val isCompleted = backStackEntry.arguments?.getString("isCompleted")?.toBoolean() ?: false
-//
-//                            InventorizationItemsScreen(
-//                                sessionId = sessionId,
-//                                isCompleted = isCompleted,
-//                                navController = navController,
-//                                assetViewModel = assetViewModel,
-//                                mainViewModel = mainViewModel
-//                            )
-//                        }
-//
-//                        composable("assets_map_web") {
-//                            AssetMapWebViewScreen(navController = navController)
-//                        }
-//
-//                        composable("asset_notifications"){
-//                            val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
-//
-//                            NotificationsScreen(
-//                                navController = navController,
-//                                highlightNotificationId = highlightId,
-//                                onHighlightHandled = { mainViewModel.setPendingHighlightId(null) },
-//                                assetViewModel = assetViewModel
-//                            )
-//                        }
-//
-//                        composable("asset_notifications/asset/{assetId}"){ backStackEntry ->
-//                            val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull()
-//                            val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
-//
-//                            NotificationsScreen(
-//                                navController = navController,
-//                                highlightNotificationId = highlightId,
-//                                onHighlightHandled = { mainViewModel.setPendingHighlightId(null) },
-//                                assetId = assetId,
-//                                assetViewModel = assetViewModel
-//                            )
-//                        }
-////
-////                        composable("asset_notifications/session/{sessionId}"){ backStackEntry ->
-////                            val sessionId = backStackEntry.arguments?.getString("sessionId")?.toIntOrNull()
-////                            val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
-////
-////                            NotificationsScreen(
-////                                navController = navController,
-////                                highlightNotificationId = highlightId,
-////                                onHighlightHandled = { mainViewModel.setPendingHighlightId(null) },
-////                                sessionId = sessionId,
-////                            )
-////                        }
-//                    }
-//
-//                    // Показ диалога поверх всего контента (после NavHost):
-//                    if (showUpdateDialog != null) {
-//                        UpdateDialog(
-//                            currentVersionName = currentVersionName,
-//                            remoteVersion = showUpdateDialog!!,
-//                            onDownload = {
-//                                scope.launch {
-//                                    val success = updateManager.downloadUpdate(
-//                                        baseUrl = Constants.BASE_URL_UPDATE,
-//                                        onProgress = { /* Прогресс теперь отображается только в системном Notification */ }
-//                                    )
-//                                    if (success) {
-//                                        android.widget.Toast.makeText(
-//                                            this@MainActivity,
-//                                            "Обновление загружено! Запуск установки...",
-//                                            android.widget.Toast.LENGTH_LONG
-//                                        ).show()
-//                                    } else {
-//                                        android.widget.Toast.makeText(
-//                                            this@MainActivity,
-//                                            "Ошибка загрузки",
-//                                            android.widget.Toast.LENGTH_SHORT
-//                                        ).show()
-//                                    }
-//                                }
-//                            },
-//                            onDismiss = { showUpdateDialog = null }
-//                        )
-//                    }
-//
-//                    // === НОВОЕ: Глобальный баннер офлайн-режима (поверх NavHost и диалогов) ===
-//                    OfflineBannerOverlay(isOnline = isOnline)
-//                }
-//            }
-
-
             MaterialTheme(
                 colorScheme = if (darkTheme) darkColorScheme() else lightColorScheme(),
                 typography = Typography()
             ) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    // === НОВОЕ: Box позволяет накладывать элементы друг на друга по оси Z ===
+                    // Внешний Box нужен только для того, чтобы UpdateDialog был поверх ВСЕГО (и баннера, и контента)
                     Box(modifier = Modifier.fillMaxSize()) {
-                        val navController = rememberNavController()
 
-                        LaunchedEffect(pendingHighlightId) {
-                            if (pendingHighlightId != null) {
-                                val currentRoute = navController.currentDestination?.route
-                                if (currentRoute != "asset_notifications") {
-                                    navController.navigate("asset_notifications") {
-                                        launchSingleTop = true
-                                    }
-                                }
-                            }
-                        }
+                        // === НОВОЕ: Column выстраивает баннер и NavHost друг под другом ===
+                        Column(modifier = Modifier.fillMaxSize()) {
 
-                        LaunchedEffect(Unit) {
-                            mainViewModel.uiState.collect { state ->
-                                if (state is MainViewModel.UiState.SessionExpired) {
-                                    val currentRoute =
-                                        navController.currentBackStackEntry?.destination?.route
-                                    if (currentRoute != "login") {
-                                        navController.navigate("login") {
-                                            popUpTo(0) { inclusive = true }
+                            val navController = rememberNavController()
+
+                            LaunchedEffect(pendingHighlightId) {
+                                if (pendingHighlightId != null) {
+                                    val currentRoute = navController.currentDestination?.route
+                                    if (currentRoute != "asset_notifications") {
+                                        navController.navigate("asset_notifications") {
                                             launchSingleTop = true
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        // Твой NavHost остается без изменений
-                        NavHost(navController = navController, startDestination = "login") {
-                            composable("login") {
-                                LoginScreen(
-                                    onLoginSuccess = {
-                                        navController.navigate("home") {
-                                            popUpTo("login") { inclusive = true }
+                            LaunchedEffect(Unit) {
+                                mainViewModel.uiState.collect { state ->
+                                    if (state is MainViewModel.UiState.SessionExpired) {
+                                        val currentRoute =
+                                            navController.currentBackStackEntry?.destination?.route
+                                        if (currentRoute != "login") {
+                                            navController.navigate("login") {
+                                                popUpTo(0) { inclusive = true }
+                                                launchSingleTop = true
+                                            }
                                         }
-                                        // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПОСЛЕ ВХОДА
-                                        checkForAppUpdate()
-                                    },
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("home") {
-                                HomeScreen(
-                                    navController = navController,
-                                    mainViewModel = mainViewModel,
-                                    assetViewModel = assetViewModel
-                                )
-                            }
-                            composable("orders") {
-                                OrdersScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("archive") {
-                                ArchiveScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("order_details/{orderNumber}") { backStackEntry ->
-                                val orderNumber =
-                                    backStackEntry.arguments?.getString("orderNumber") ?: ""
-                                OrderDetailsScreen(
-                                    orderNumber = orderNumber,
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("receive/{orderNumber}") { backStackEntry ->
-                                val orderNumber =
-                                    backStackEntry.arguments?.getString("orderNumber") ?: ""
-                                ReceiveMaterialsScreen(
-                                    orderNumber = orderNumber,
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("packaging") {
-                                PackagingScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("pack_to_warehouse") {
-                                PackToWarehouseScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("inventory") {
-                                InventoryListScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("inventory_check/{orderNumber}") { backStackEntry ->
-                                val orderNumber =
-                                    backStackEntry.arguments?.getString("orderNumber") ?: ""
-                                InventoryCheckScreen(
-                                    orderNumber = orderNumber,
-                                    navController = navController,
-                                    mainViewModel = mainViewModel
-                                )
-                            }
-                            composable("wms") {
-                                WmsScreen(
-                                    navController = navController,
-                                    mainViewModel = mainViewModel
-                                )
-                            }
-                            composable(
-                                route = "wms_item_details/{material}/{storageId}",
-                                arguments = listOf(
-                                    navArgument("material") { type = NavType.StringType },
-                                    navArgument("storageId") { type = NavType.StringType }
-                                )
-                            ) { backStackEntry ->
-                                val material =
-                                    backStackEntry.arguments?.getString("material").orEmpty()
-                                val storageId =
-                                    backStackEntry.arguments?.getString("storageId").orEmpty()
-                                WmsItemDetailsScreen(
-                                    material = material,
-                                    storageId = storageId,
-                                    navController = navController,
-                                    mainViewModel = mainViewModel
-                                )
-                            }
-
-                            composable("wms_requests") {
-                                WmsRequestsScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("warehouse") {
-                                WarehouseMaterialsScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("wms_receive") {
-                                WmsReceiveScreen(
-                                    navController = navController,
-                                    mainViewModel = mainViewModel
-                                )
-                            }
-                            composable("wms_write_off") {
-                                WmsWriteOffScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("profile") {
-                                ProfileScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-                            composable("settings") {
-                                SettingsScreen(
-                                    navController = navController,
-                                    viewModel = mainViewModel
-                                )
-                            }
-
-
-                            // АКТИВЫ
-                            composable("asset_types") {
-                                AssetTypeListScreen(
-                                    navController = navController,
-                                    assetViewModel = assetViewModel,
-                                    mainViewModel = mainViewModel
-                                )
-                            }
-
-                            // Обычный переход к типу актива
-                            composable("assets_list/{assetTypeId}/{assetTypeName}") { backStackEntry ->
-                                val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")
-                                    ?.toIntOrNull() // Передаем null, чтобы показать активы без типа
-                                val assetTypeName =
-                                    backStackEntry.arguments?.getString("assetTypeName").toString()
-                                AssetsByTypeScreen(
-                                    assetTypeId = assetTypeId,
-                                    assetTypeName = assetTypeName,
-                                    navController = navController,
-                                    assetViewModel = assetViewModel,
-                                    mainViewModel = mainViewModel,
-                                )
-                            }
-
-                            // Переход к типу активу с параметрами
-                            composable("assets_list/{assetTypeId}/{assetTypeName}/{serialNumber}/{inventoryId}") { backStackEntry ->
-                                val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")
-                                    ?.toIntOrNull() // Передаем null, чтобы показать активы без типа
-                                val assetTypeName =
-                                    backStackEntry.arguments?.getString("assetTypeName").toString()
-                                val serialNumber =
-                                    backStackEntry.arguments?.getString("serialNumber").toString()
-                                val inventoryId =
-                                    backStackEntry.arguments?.getString("inventoryId").toString()
-                                AssetsByTypeScreen(
-                                    assetTypeId = assetTypeId,
-                                    assetTypeName = assetTypeName,
-                                    navController = navController,
-                                    assetViewModel = assetViewModel,
-                                    mainViewModel = mainViewModel,
-                                    serialNumber = serialNumber,
-                                    inventoryId = inventoryId,
-                                )
-                            }
-
-                            // Переход на экран списка активов текущего пользователя
-                            composable("my_assets_list") { backStackEntry ->
-                                AssetsByTypeScreen(
-                                    assetTypeName = "Мои активы",
-                                    navController = navController,
-                                    assetViewModel = assetViewModel,
-                                    mainViewModel = mainViewModel,
-                                    onlyMy = true
-                                )
-                            }
-
-                            composable("mobile_devices") {
-                                MobileDevicesScreen(
-                                    mobileViewModel = mobileViewModel,
-                                    onDeviceClick = { serialNumber ->
-                                        navController.navigate("mobile_device_detail/$serialNumber")
-                                    },
-                                    onNavigateBack = { navController.popBackStack() },
-                                )
-                            }
-
-                            composable(
-                                route = "mobile_device_detail/{serialNumber}",
-                                arguments = listOf(navArgument("serialNumber") {
-                                    type = NavType.StringType
-                                })
-                            ) { backStackEntry ->
-                                val serialNumber =
-                                    backStackEntry.arguments?.getString("serialNumber")
-                                        ?: return@composable
-                                MobileDeviceDetailScreen(
-                                    mobileViewModel = mobileViewModel,
-                                    serialNumber = serialNumber,
-                                    onNavigateBack = { navController.popBackStack() }
-                                )
-                            }
-
-                            // Перейти на экран актива по assetId (необходимо для уведомлений)
-                            composable("asset_details/{assetId}") { backStackEntry ->
-                                val assetId =
-                                    backStackEntry.arguments?.getString("assetId")?.toIntOrNull()
-                                        ?: return@composable
-                                AssetDetailsScreen(
-                                    assetId = assetId,
-                                    navController = navController,
-                                    assetViewModel = assetViewModel
-                                )
-                            }
-
-                            composable(
-                                route = "asset_details?assetId={assetId}&materialId={materialId}",
-                                arguments = listOf(
-                                    navArgument("assetId") {
-                                        // ИЗМЕНЕНО: IntType не поддерживает nullable. Используем StringType.
-                                        type = NavType.StringType
-                                        nullable = true
-                                        defaultValue = null
-                                    },
-                                    navArgument("materialId") {
-                                        type = NavType.StringType
-                                        nullable = true
-                                        defaultValue = null
                                     }
-                                )
-                            ) { backStackEntry ->
-                                // Безопасно получаем строку и парсим её в Int?
-                                val assetIdStr = backStackEntry.arguments?.getString("assetId")
-                                val assetId = assetIdStr?.toIntOrNull()
-                                val materialId = backStackEntry.arguments?.getString("materialId")
+                                }
+                            }
 
-                                // Защита: если не передан ни один идентификатор, возвращаемся назад
-                                if (assetId == null && materialId == null) {
-                                    navController.popBackStack()
-                                    return@composable
+                            // Баннер идет ПЕРВЫМ элементом в Column.
+                            // Когда он скрыт (AnimatedVisibility), его высота = 0.
+                            // Когда появляется, он плавно раздвигает NavHost вниз.
+                            OfflineBannerOverlay(isOnline = isOnline)
+
+                            // NavHost занимает ВСЁ ОСТАВШЕЕСЯ место благодаря weight(1f)
+                            NavHost(modifier = Modifier.weight(1f), navController = navController, startDestination = "login") {
+                                composable("login") {
+                                    LoginScreen(
+                                        onLoginSuccess = {
+                                            navController.navigate("home") {
+                                                popUpTo("login") { inclusive = true }
+                                            }
+                                            // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПОСЛЕ ВХОДА
+                                            checkForAppUpdate()
+                                        },
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("home") {
+                                    HomeScreen(
+                                        navController = navController,
+                                        mainViewModel = mainViewModel,
+                                        assetViewModel = assetViewModel
+                                    )
+                                }
+                                composable("orders") {
+                                    OrdersScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("archive") {
+                                    ArchiveScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("order_details/{orderNumber}") { backStackEntry ->
+                                    val orderNumber =
+                                        backStackEntry.arguments?.getString("orderNumber") ?: ""
+                                    OrderDetailsScreen(
+                                        orderNumber = orderNumber,
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("receive/{orderNumber}") { backStackEntry ->
+                                    val orderNumber =
+                                        backStackEntry.arguments?.getString("orderNumber") ?: ""
+                                    ReceiveMaterialsScreen(
+                                        orderNumber = orderNumber,
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("packaging") {
+                                    PackagingScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("pack_to_warehouse") {
+                                    PackToWarehouseScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("inventory") {
+                                    InventoryListScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("inventory_check/{orderNumber}") { backStackEntry ->
+                                    val orderNumber =
+                                        backStackEntry.arguments?.getString("orderNumber") ?: ""
+                                    InventoryCheckScreen(
+                                        orderNumber = orderNumber,
+                                        navController = navController,
+                                        mainViewModel = mainViewModel
+                                    )
+                                }
+                                composable("wms") {
+                                    WmsScreen(
+                                        navController = navController,
+                                        mainViewModel = mainViewModel
+                                    )
+                                }
+                                composable(
+                                    route = "wms_item_details/{material}/{storageId}",
+                                    arguments = listOf(
+                                        navArgument("material") { type = NavType.StringType },
+                                        navArgument("storageId") { type = NavType.StringType }
+                                    )
+                                ) { backStackEntry ->
+                                    val material =
+                                        backStackEntry.arguments?.getString("material").orEmpty()
+                                    val storageId =
+                                        backStackEntry.arguments?.getString("storageId").orEmpty()
+                                    WmsItemDetailsScreen(
+                                        material = material,
+                                        storageId = storageId,
+                                        navController = navController,
+                                        mainViewModel = mainViewModel
+                                    )
                                 }
 
-                                AssetDetailsScreen(
-                                    assetId = assetId,
-                                    materialId = materialId,
-                                    navController = navController,
-                                    assetViewModel = assetViewModel
-                                )
-                            }
+                                composable("wms_requests") {
+                                    WmsRequestsScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("warehouse") {
+                                    WarehouseMaterialsScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("wms_receive") {
+                                    WmsReceiveScreen(
+                                        navController = navController,
+                                        mainViewModel = mainViewModel
+                                    )
+                                }
+                                composable("wms_write_off") {
+                                    WmsWriteOffScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("profile") {
+                                    ProfileScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
+                                composable("settings") {
+                                    SettingsScreen(
+                                        navController = navController,
+                                        viewModel = mainViewModel
+                                    )
+                                }
 
-                            composable("my_pcs") {
-                                MyPcsScreen(
-                                    navController = navController,
-                                    assetViewModel = assetViewModel
-                                )
-                            }
 
-                            composable("my_pc_details/{pcId}") { backStackEntry ->
-                                val pcId =
-                                    backStackEntry.arguments?.getString("pcId")?.toIntOrNull() ?: 0
-                                MyPcDetailsScreen(
-                                    pcId = pcId,
-                                    navController = navController,
-                                    assetViewModel = assetViewModel
-                                )
-                            }
+                                // АКТИВЫ
+                                composable("asset_types") {
+                                    AssetTypeListScreen(
+                                        navController = navController,
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel
+                                    )
+                                }
 
-                            // Инвентаризация активов
-                            composable("inventorization_sessions") {
-                                InventorizationSessionsScreen(
-                                    navController = navController,
-                                    assetViewModel = assetViewModel
-                                )
-                            }
+                                // Обычный переход к типу актива
+                                composable("assets_list/{assetTypeId}/{assetTypeName}") { backStackEntry ->
+                                    val assetTypeId =
+                                        backStackEntry.arguments?.getString("assetTypeId")
+                                            ?.toIntOrNull() // Передаем null, чтобы показать активы без типа
+                                    val assetTypeName =
+                                        backStackEntry.arguments?.getString("assetTypeName")
+                                            .toString()
+                                    AssetsByTypeScreen(
+                                        assetTypeId = assetTypeId,
+                                        assetTypeName = assetTypeName,
+                                        navController = navController,
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel,
+                                    )
+                                }
 
-                            composable("inventorization_items/{sessionId}/{isCompleted}") { backStackEntry ->
-                                val sessionId =
-                                    backStackEntry.arguments?.getString("sessionId")?.toIntOrNull()
-                                        ?: 0
-                                val isCompleted =
-                                    backStackEntry.arguments?.getString("isCompleted")?.toBoolean()
-                                        ?: false
+                                // Переход к типу активу с параметрами
+                                composable("assets_list/{assetTypeId}/{assetTypeName}/{serialNumber}/{inventoryId}") { backStackEntry ->
+                                    val assetTypeId =
+                                        backStackEntry.arguments?.getString("assetTypeId")
+                                            ?.toIntOrNull() // Передаем null, чтобы показать активы без типа
+                                    val assetTypeName =
+                                        backStackEntry.arguments?.getString("assetTypeName")
+                                            .toString()
+                                    val serialNumber =
+                                        backStackEntry.arguments?.getString("serialNumber")
+                                            .toString()
+                                    val inventoryId =
+                                        backStackEntry.arguments?.getString("inventoryId")
+                                            .toString()
+                                    AssetsByTypeScreen(
+                                        assetTypeId = assetTypeId,
+                                        assetTypeName = assetTypeName,
+                                        navController = navController,
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel,
+                                        serialNumber = serialNumber,
+                                        inventoryId = inventoryId,
+                                    )
+                                }
 
-                                InventorizationItemsScreen(
-                                    sessionId = sessionId,
-                                    isCompleted = isCompleted,
-                                    navController = navController,
-                                    assetViewModel = assetViewModel,
-                                    mainViewModel = mainViewModel
-                                )
-                            }
+                                // Переход на экран списка активов текущего пользователя
+                                composable("my_assets_list") { backStackEntry ->
+                                    AssetsByTypeScreen(
+                                        assetTypeName = "Мои активы",
+                                        navController = navController,
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel,
+                                        onlyMy = true
+                                    )
+                                }
 
-                            composable("assets_map_web") {
-                                AssetMapWebViewScreen(navController = navController)
-                            }
+                                composable("mobile_devices") {
+                                    MobileDevicesScreen(
+                                        mobileViewModel = mobileViewModel,
+                                        onDeviceClick = { serialNumber ->
+                                            navController.navigate("mobile_device_detail/$serialNumber")
+                                        },
+                                        onNavigateBack = { navController.popBackStack() },
+                                    )
+                                }
 
-                            composable("asset_notifications") {
-                                val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
+                                composable(
+                                    route = "mobile_device_detail/{serialNumber}",
+                                    arguments = listOf(navArgument("serialNumber") {
+                                        type = NavType.StringType
+                                    })
+                                ) { backStackEntry ->
+                                    val serialNumber =
+                                        backStackEntry.arguments?.getString("serialNumber")
+                                            ?: return@composable
+                                    MobileDeviceDetailScreen(
+                                        mobileViewModel = mobileViewModel,
+                                        serialNumber = serialNumber,
+                                        onNavigateBack = { navController.popBackStack() }
+                                    )
+                                }
 
-                                NotificationsScreen(
-                                    navController = navController,
-                                    highlightNotificationId = highlightId,
-                                    onHighlightHandled = { mainViewModel.setPendingHighlightId(null) },
-                                    assetViewModel = assetViewModel
-                                )
-                            }
+                                // Перейти на экран актива по assetId (необходимо для уведомлений)
+                                composable("asset_details/{assetId}") { backStackEntry ->
+                                    val assetId = backStackEntry.arguments?.getString("assetId")
+                                        ?.toIntOrNull() ?: return@composable
+                                    AssetDetailsScreen(
+                                        assetId = assetId,
+                                        navController = navController,
+                                        assetViewModel = assetViewModel
+                                    )
+                                }
 
-                            composable("asset_notifications/asset/{assetId}") { backStackEntry ->
-                                val assetId =
-                                    backStackEntry.arguments?.getString("assetId")?.toIntOrNull()
-                                val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
+                                composable(
+                                    route = "asset_details?assetId={assetId}&materialId={materialId}",
+                                    arguments = listOf(
+                                        navArgument("assetId") {
+                                            // ИЗМЕНЕНО: IntType не поддерживает nullable. Используем StringType.
+                                            type = NavType.StringType
+                                            nullable = true
+                                            defaultValue = null
+                                        },
+                                        navArgument("materialId") {
+                                            type = NavType.StringType
+                                            nullable = true
+                                            defaultValue = null
+                                        }
+                                    )
+                                ) { backStackEntry ->
+                                    // Безопасно получаем строку и парсим её в Int?
+                                    val assetIdStr = backStackEntry.arguments?.getString("assetId")
+                                    val assetId = assetIdStr?.toIntOrNull()
+                                    val materialId =
+                                        backStackEntry.arguments?.getString("materialId")
 
-                                NotificationsScreen(
-                                    navController = navController,
-                                    highlightNotificationId = highlightId,
-                                    onHighlightHandled = { mainViewModel.setPendingHighlightId(null) },
-                                    assetId = assetId,
-                                    assetViewModel = assetViewModel
-                                )
-                            }
+                                    // Защита: если не передан ни один идентификатор, возвращаемся назад
+                                    if (assetId == null && materialId == null) {
+                                        navController.popBackStack()
+                                        return@composable
+                                    }
+
+                                    AssetDetailsScreen(
+                                        assetId = assetId,
+                                        materialId = materialId,
+                                        navController = navController,
+                                        assetViewModel = assetViewModel
+                                    )
+                                }
+
+                                composable("my_pcs") {
+                                    MyPcsScreen(
+                                        navController = navController,
+                                        assetViewModel = assetViewModel
+                                    )
+                                }
+
+                                composable("my_pc_details/{pcId}") { backStackEntry ->
+                                    val pcId =
+                                        backStackEntry.arguments?.getString("pcId")?.toIntOrNull()
+                                            ?: 0
+                                    MyPcDetailsScreen(
+                                        pcId = pcId,
+                                        navController = navController,
+                                        assetViewModel = assetViewModel
+                                    )
+                                }
+
+                                // Инвентаризация активов
+                                composable("inventorization_sessions") {
+                                    InventorizationSessionsScreen(
+                                        navController = navController,
+                                        assetViewModel = assetViewModel
+                                    )
+                                }
+
+                                composable("inventorization_items/{sessionId}/{isCompleted}") { backStackEntry ->
+                                    val sessionId = backStackEntry.arguments?.getString("sessionId")
+                                        ?.toIntOrNull() ?: 0
+                                    val isCompleted =
+                                        backStackEntry.arguments?.getString("isCompleted")
+                                            ?.toBoolean() ?: false
+
+                                    InventorizationItemsScreen(
+                                        sessionId = sessionId,
+                                        isCompleted = isCompleted,
+                                        navController = navController,
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel
+                                    )
+                                }
+
+                                composable("assets_map_web") {
+                                    AssetMapWebViewScreen(navController = navController)
+                                }
+
+                                composable("asset_notifications") {
+                                    val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
+
+                                    NotificationsScreen(
+                                        navController = navController,
+                                        highlightNotificationId = highlightId,
+                                        onHighlightHandled = {
+                                            mainViewModel.setPendingHighlightId(
+                                                null
+                                            )
+                                        },
+                                        assetViewModel = assetViewModel
+                                    )
+                                }
+
+                                composable("asset_notifications/asset/{assetId}") { backStackEntry ->
+                                    val assetId = backStackEntry.arguments?.getString("assetId")
+                                        ?.toIntOrNull()
+                                    val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
+
+                                    NotificationsScreen(
+                                        navController = navController,
+                                        highlightNotificationId = highlightId,
+                                        onHighlightHandled = {
+                                            mainViewModel.setPendingHighlightId(
+                                                null
+                                            )
+                                        },
+                                        assetId = assetId,
+                                        assetViewModel = assetViewModel
+                                    )
+                                }
 //
 //                        composable("asset_notifications/session/{sessionId}"){ backStackEntry ->
 //                            val sessionId = backStackEntry.arguments?.getString("sessionId")?.toIntOrNull()
@@ -940,9 +564,10 @@ class MainActivity : ComponentActivity() {
 //                                sessionId = sessionId,
 //                            )
 //                        }
+                            }
                         }
 
-                        // Показ диалога поверх всего контента:
+                        // Диалог обновления оставляем во внешнем Box, чтобы он был поверх Column
                         if (showUpdateDialog != null) {
                             UpdateDialog(
                                 currentVersionName = currentVersionName,
@@ -951,7 +576,7 @@ class MainActivity : ComponentActivity() {
                                     scope.launch {
                                         val success = updateManager.downloadUpdate(
                                             baseUrl = Constants.BASE_URL_UPDATE,
-                                            onProgress = { /* Прогресс теперь отображается только в системном Notification */ }
+                                            onProgress = { /* ... */ }
                                         )
                                         if (success) {
                                             android.widget.Toast.makeText(
@@ -971,9 +596,6 @@ class MainActivity : ComponentActivity() {
                                 onDismiss = { showUpdateDialog = null }
                             )
                         }
-
-                        // === НОВОЕ: Глобальный баннер офлайн-режима (поверх NavHost и диалогов) ===
-                        OfflineBannerOverlay(isOnline = isOnline)
                     }
                 }
             }

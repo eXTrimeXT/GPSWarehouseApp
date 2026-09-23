@@ -31,7 +31,6 @@ import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.AppPreferences
 import com.gps.warehouse.utils.Constants.TAB_VISIBLE
-import com.gps.warehouse.utils.NetworkMonitor
 
 // Перечисление вкладок нижней навигации
 enum class HomeTab(val title: String, val icon: ImageVector) {
@@ -57,11 +56,6 @@ fun HomeScreen(
     var selectedTabIndex by rememberSaveable {
         mutableIntStateOf(AppPreferences.getDefaultTab(context))
     }
-
-    // Мониторинг сети
-//    val networkMonitor = remember { NetworkMonitor(context) }
-//    val isOnline by networkMonitor.isOnline.collectAsState(initial = networkMonitor.isCurrentlyConnected())
-
 
     LaunchedEffect(Unit) {
         mainViewModel.loadUserProfile()
@@ -90,9 +84,6 @@ fun HomeScreen(
         }
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize()) {
-            // Показываем баннер поверх контента
-            // OfflineBanner(isOnline = isOnline)
-
             HomeScreenContent(
                 modifier = Modifier
                     .weight(1f) // Занимает всё оставшееся место под баннером
@@ -468,7 +459,7 @@ private fun HomeScreenPreview() {
 @Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
 @Composable
 private fun HomeScreenPreview2() {
-    var selectedTabIndex by remember { mutableIntStateOf(2) } // 0 = Заказы (по умолчанию)
+    var selectedTabIndex by remember { mutableIntStateOf(1) } // 0 = Заказы (по умолчанию)
     val tabs = HomeTab.entries.toTypedArray()
     Scaffold(
         bottomBar = {
