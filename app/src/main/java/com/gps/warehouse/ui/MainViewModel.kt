@@ -181,18 +181,6 @@ class MainViewModel @Inject constructor(
     }
 
 
-    private fun checkTimeoutSession(timestamp: Long?): Boolean {
-        if (timestamp != null) {
-            val currentTime = System.currentTimeMillis()
-            if ((currentTime - timestamp) > SESSION_DURATION_MS) {
-                Log.d("MainViewModel", "Сессия истекла. Выполняется выход.")
-                logout() // Автоматический выход
-                return false
-            }
-        }
-        return true
-    }
-
     /**
      * Запускает фоновую задачу, которая каждые N минут проверяет,
      * не истекла ли сессия по абсолютному времени (utils Constants.SESSION_DURATION_MS с момента входа)
@@ -206,7 +194,11 @@ class MainViewModel @Inject constructor(
                 val timestamp = localStorage.getLoginTimestamp()
 
                 if (token != null && timestamp != null) {
-                    checkTimeoutSession(timestamp)
+                    val currentTime = System.currentTimeMillis()
+                    if ((currentTime - timestamp) > SESSION_DURATION_MS) {
+                        Log.d("MainViewModel", "Сессия истекла. Выполняется выход.")
+                        logout() // Автоматический выход
+                    }
                 }
             }
         }
@@ -230,7 +222,10 @@ class MainViewModel @Inject constructor(
         // Если времени нет, считаем сессию невалидной
         val timestamp = localStorage.getLoginTimestamp() ?: return true
 
-        if (checkTimeoutSession(timestamp)) {
+        val currentTime = System.currentTimeMillis()
+        if ((currentTime - timestamp) > SESSION_DURATION_MS) {
+            Log.d("MainViewModel", "Сессия истекла. Выполняется выход.")
+            logout() // Автоматический выход
             return false
         } else {
             currentToken = token

@@ -13,11 +13,11 @@ object AppPreferences {
     private const val KEY_DEFAULT_TAB = "default_tab_index"
 
     /**
-     * Получает индекс вкладки по умолчанию (0 = Заказы)
+     * Получает индекс вкладки по умолчанию (3 = Настройки)
      */
     fun getDefaultTab(context: Context): Int {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        return prefs.getInt(KEY_DEFAULT_TAB, 0)
+        return prefs.getInt(KEY_DEFAULT_TAB, 3)
     }
 
     /**
