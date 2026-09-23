@@ -118,6 +118,8 @@ fun HomeScreenContent(
     bmList: List<BmListDto>,
     notificationCount: Int?
 ) {
+
+
     Column(
         modifier = modifier
             .fillMaxSize()

@@ -95,6 +95,30 @@ class AssetViewModel @Inject constructor(
         data class Error(val message: String) : AssetTypesUiState()
     }
 
+    sealed class TransferStatus {
+        object None : TransferStatus()  // Нет активных передач
+
+        data class Outgoing(  // Я инициатор, ожидает ответа
+            val notificationId: Int,
+            val targetEmployeeName: String,
+            val targetEmployeeId: String,
+            val assignmentType: String,
+            val comment: String?,
+            val createdAt: String
+        ) : TransferStatus()
+
+        data class Incoming(  // Я получатель, ожидает моего ответа
+            val notificationId: Int,
+            val initiatorName: String,
+            val initiatorId: String,
+            val assetId: Int,
+            val assetName: String,
+            val assignmentType: String,
+            val comment: String?,
+            val createdAt: String
+        ) : TransferStatus()
+    }
+
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
@@ -143,6 +167,9 @@ class AssetViewModel @Inject constructor(
 
     private val _employees = MutableStateFlow<PaginatedResponse<EmployeeShortResponse>?>(null)
     val employees = _employees.asStateFlow()
+
+    private val _transferStatus = MutableStateFlow<TransferStatus>(TransferStatus.None)
+    val transferStatus: StateFlow<TransferStatus> = _transferStatus.asStateFlow()
 
     private var eventSource: EventSource? = null
 
@@ -213,19 +240,6 @@ class AssetViewModel @Inject constructor(
                 _assetHistory.value = history
             } catch (e: Exception) {
                 // Логируем, но не показываем пользователю
-            }
-        }
-    }
-
-    // Метод получения актива по ID:
-    fun loadMyAssetDetails(assetId: Int) {
-        viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
-            try {
-                val asset = assetApiService.getMyAssetById("Bearer ${getToken()}", assetId)
-                _uiState.value = AssetUiState.MyAssetDetailsLoaded(asset)
-            } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
             }
         }
     }
@@ -712,5 +726,5 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
-// ================== Передача актива ==================
+    // ================== Передача актива ==================
 }
