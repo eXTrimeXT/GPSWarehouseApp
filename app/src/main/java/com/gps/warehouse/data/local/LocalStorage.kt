@@ -7,10 +7,14 @@ import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.google.common.reflect.TypeToken
+import com.google.gson.Gson
 import com.gps.warehouse.data.local.LocalStorage.PreferencesKeys.KEY_CAMERA_SCAN
 import com.gps.warehouse.data.local.LocalStorage.PreferencesKeys.LOGIN_TIMESTAMP
 import com.gps.warehouse.data.local.LocalStorage.PreferencesKeys.THEME_MODE_KEY
 import com.gps.warehouse.data.local.LocalStorage.PreferencesKeys.TOKEN
+import com.gps.warehouse.data.remote.gps_dto.BmListDto
+import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
 import com.gps.warehouse.utils.AppThemeMode
 import com.gps.warehouse.utils.Constants
 import kotlinx.coroutines.flow.Flow
@@ -19,16 +23,20 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import java.io.IOException
+import java.util.prefs.Preferences
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private val Context.dataStore by preferencesDataStore(name = Constants.TOKEN_PREFS_NAME)
+private const val TOKEN_PREFS_NAME = "gps_token_prefs"
+private const val TOKEN_KEY = "jwt_token"
+
+private val Context.dataStore by preferencesDataStore(name = TOKEN_PREFS_NAME)
 
 @Singleton
 class LocalStorage @Inject constructor(private val context: Context) {
     object PreferencesKeys {
         // Работа с ТОКЕНОМ
-        val TOKEN = stringPreferencesKey(Constants.TOKEN_KEY)
+        val TOKEN = stringPreferencesKey(TOKEN_KEY)
         val LOGIN_TIMESTAMP = longPreferencesKey("login_timestamp")
 
         // Для Темы
@@ -91,5 +99,4 @@ class LocalStorage @Inject constructor(private val context: Context) {
         context.dataStore.edit { prefs -> prefs[KEY_CAMERA_SCAN] = enabled }
     }
     // ======================== Камера ========================
-
 }

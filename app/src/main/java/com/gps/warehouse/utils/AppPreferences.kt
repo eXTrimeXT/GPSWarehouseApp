@@ -2,6 +2,11 @@ package com.gps.warehouse.utils
 
 import android.content.Context
 import androidx.core.content.edit
+import androidx.datastore.preferences.core.edit
+import com.google.common.reflect.TypeToken
+import com.google.gson.Gson
+import com.gps.warehouse.data.remote.gps_dto.BmListDto
+import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
 
 object AppPreferences {
     private const val PREFS_NAME = "app_ui_prefs"
