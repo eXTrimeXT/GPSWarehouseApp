@@ -29,7 +29,6 @@ import com.gps.warehouse.data.remote.gps_dto.BmListDto
 import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.ui.components.OfflineBanner
 import com.gps.warehouse.utils.AppPreferences
 import com.gps.warehouse.utils.Constants.TAB_VISIBLE
 import com.gps.warehouse.utils.NetworkMonitor
@@ -60,8 +59,8 @@ fun HomeScreen(
     }
 
     // Мониторинг сети
-    val networkMonitor = remember { NetworkMonitor(context) }
-    val isOnline by networkMonitor.isOnline.collectAsState(initial = networkMonitor.isCurrentlyConnected())
+//    val networkMonitor = remember { NetworkMonitor(context) }
+//    val isOnline by networkMonitor.isOnline.collectAsState(initial = networkMonitor.isCurrentlyConnected())
 
 
     LaunchedEffect(Unit) {
@@ -69,23 +68,9 @@ fun HomeScreen(
         assetViewModel.loadNotifications()
     }
 
-    // === Страховочная сетка для вкладок ===
-    // Если сохраненная вкладка вдруг стала недоступна (например, изменились права или пустой кэш),
-    // принудительно переключаем на первую доступную вкладку.
-//    LaunchedEffect(bmList, isUserAssetsAdmin) {
-//        val currentTab = HomeTab.entries.getOrNull(selectedTabIndex)
-//        if (currentTab != null && !isTabFilter(bmList, currentTab)) {
-//            val firstVisibleIndex = HomeTab.entries.indexOfFirst { isTabFilter(bmList, it) }
-//            if (firstVisibleIndex != -1) {
-//                selectedTabIndex = firstVisibleIndex
-//                AppPreferences.setDefaultTab(context, firstVisibleIndex)
-//            }
-//        }
-//    }
-
     // Флаг прав, есть ли хотя бы 1 элемент доступа
     val isPermissions = gpsPermissions.any { it.read } || isUserAssetsAdmin
-//    val isPermissions = gpsPermissions.any { it.read }
+    // val isPermissions = gpsPermissions.any { it.read }
     Log.d("isPermissions", isPermissions.toString())
 
     Scaffold(
@@ -106,7 +91,7 @@ fun HomeScreen(
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize()) {
             // Показываем баннер поверх контента
-            OfflineBanner(isOnline = isOnline)
+            // OfflineBanner(isOnline = isOnline)
 
             HomeScreenContent(
                 modifier = Modifier
@@ -132,7 +117,7 @@ fun isTabFilter(bmList: List<BmListDto>, tab: HomeTab): Boolean {
         (tab.title == HomeTab.WAREHOUSE.title && bmList.any { it.name == "Warehouse management" })
     )
     // Чтобы отображать все NavigationBar возвращаем true
-//     return true
+    // return true
 }
 
 @Composable
@@ -262,7 +247,6 @@ fun HomeScreenContent(
                         isVisible = TAB_VISIBLE
                     )
 
-//                val employeeId =
                 MenuButton(
                     title = "Мои активы",
                     subtitle = "Список вашего оборудования",
