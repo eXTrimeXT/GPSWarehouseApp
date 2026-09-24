@@ -1426,4 +1426,111 @@ class MainViewModel @Inject constructor(
             }
         }
     }
+
+
+    // ====================== ЧЕРНОВИКИ ЭКРАНОВ (Кэш при навигации) ======================
+    // Упаковка (Packaging)
+    private val _packagingMaterials = MutableStateFlow<List<Pair<String, Int>>>(emptyList())
+    val packagingMaterials: StateFlow<List<Pair<String, Int>>> = _packagingMaterials.asStateFlow()
+
+    fun addPackagingMaterial(material: String, qty: Int) {
+        val current = _packagingMaterials.value.toMutableList()
+        val existingIndex = current.indexOfFirst { it.first == material }
+        if (existingIndex != -1) {
+            current[existingIndex] = Pair(material, current[existingIndex].second + qty)
+        } else {
+            current.add(Pair(material, qty))
+        }
+        _packagingMaterials.value = current
+    }
+
+    fun removePackagingMaterial(index: Int) {
+        val current = _packagingMaterials.value.toMutableList()
+        if (index in current.indices) current.removeAt(index)
+        _packagingMaterials.value = current
+    }
+
+    fun updatePackagingMaterial(index: Int, material: String, qty: Int) {
+        val current = _packagingMaterials.value.toMutableList()
+        if (index in current.indices) {
+            current[index] = Pair(material, qty)
+        }
+        _packagingMaterials.value = current
+    }
+
+    fun clearPackagingMaterials() { _packagingMaterials.value = emptyList() }
+
+
+    // Упаковка на склад (PackToWarehouse)
+    data class PackToWarehouseDraft(val material: String = "", val qty: String = "", val code: String = "")
+    private val _packToWarehouseDraft = MutableStateFlow(PackToWarehouseDraft())
+    val packToWarehouseDraft: StateFlow<PackToWarehouseDraft> = _packToWarehouseDraft.asStateFlow()
+
+    fun updatePackToWarehouseDraft(material: String? = null, qty: String? = null, code: String? = null) {
+        val current = _packToWarehouseDraft.value
+        _packToWarehouseDraft.value = current.copy(
+            material = material ?: current.material,
+            qty = qty ?: current.qty,
+            code = code ?: current.code
+        )
+    }
+    fun clearPackToWarehouseDraft() { _packToWarehouseDraft.value = PackToWarehouseDraft() }
+
+
+    // Списание (WmsWriteOff)
+    private val _writeOffItems = MutableStateFlow<List<WmsWriteOffItem>>(emptyList())
+    val writeOffItems: StateFlow<List<WmsWriteOffItem>> = _writeOffItems.asStateFlow()
+
+    fun addWriteOffItem(item: WmsWriteOffItem) {
+        val current = _writeOffItems.value.toMutableList()
+        // Можно добавить логику объединения, если нужно, пока просто добавляем
+        current.add(item)
+        _writeOffItems.value = current
+    }
+
+    fun updateWriteOffItem(index: Int, item: WmsWriteOffItem) {
+        val current = _writeOffItems.value.toMutableList()
+        if (index in current.indices) current[index] = item
+        _writeOffItems.value = current
+    }
+
+    fun removeWriteOffItem(index: Int) {
+        val current = _writeOffItems.value.toMutableList()
+        if (index in current.indices) current.removeAt(index)
+        _writeOffItems.value = current
+    }
+
+    fun clearWriteOffItems() { _writeOffItems.value = emptyList() }
+
+    // Приемка (WmsReceive)
+    private val _receiveItems = MutableStateFlow<List<WmsReceiveItem>>(emptyList())
+    val receiveItems: StateFlow<List<WmsReceiveItem>> = _receiveItems.asStateFlow()
+
+    // Для блокировки заказа при сканировании
+    private val _activeReceiveOrder = MutableStateFlow("")
+    val activeReceiveOrder: StateFlow<String> = _activeReceiveOrder.asStateFlow()
+
+    fun setReceiveItems(items: List<WmsReceiveItem>) { _receiveItems.value = items }
+
+    fun updateReceiveItem(index: Int, item: WmsReceiveItem) {
+        val current = _receiveItems.value.toMutableList()
+        if (index in current.indices) current[index] = item
+        _receiveItems.value = current
+    }
+
+    fun removeReceiveItem(index: Int) {
+        val current = _receiveItems.value.toMutableList()
+        if (index in current.indices) {
+            current.removeAt(index)
+            if (current.isEmpty()) _activeReceiveOrder.value = "" // Сброс при очистке
+        }
+        _receiveItems.value = current
+    }
+
+    fun setActiveReceiveOrder(order: String) { _activeReceiveOrder.value = order }
+    fun clearReceiveItems() {
+        _receiveItems.value = emptyList()
+        _activeReceiveOrder.value = ""
+    }
+    // =====================================================================================
 }

@@ -360,7 +360,7 @@ fun PackToWarehousePreviewError() {
                 onQuantityChange = {},
                 uniqueCode = "BOX-998877",
                 onCodeChange = {},
-                uiState = MainViewModel.UiState.Error("Error"),
+                uiState = MainViewModel.UiState.PackToWarehouseIdle(),
                 onPackClick = {},
                 onBackClick = {},
                 onClearClick = {},

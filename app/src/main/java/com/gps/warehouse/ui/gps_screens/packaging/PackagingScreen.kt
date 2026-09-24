@@ -40,7 +40,8 @@ fun PackagingScreen(
     navController: NavHostController,
     viewModel: MainViewModel
 ) {
-    var orderMaterials by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+    val orderMaterials by viewModel.packagingMaterials.collectAsState()
+
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
@@ -60,10 +61,9 @@ fun PackagingScreen(
     var dialogMaterial by remember { mutableStateOf("") }
     var dialogQty by remember { mutableStateOf("1") }
 
-    // Инициализируем хелпер Honeywell AIDC
     val scannerManager = remember { ScannerManager(context) }
 
-    fun processScannedData(scannedData: String){
+    fun processScannedData(scannedData: String) {
         if (scannedData.isNotEmpty()) {
             // Используем новый парсер
             val parsedData = BarcodeParser.parse(scannedData)
@@ -77,8 +77,7 @@ fun PackagingScreen(
                     dialogMaterial = material
                 } else {
                     // Если диалог закрыт, добавляем в список
-                    val newList = addOrUpdateMaterial(orderMaterials, material, qty)
-                    orderMaterials = newList
+                    viewModel.addPackagingMaterial(material, qty)
                 }
             } else {
                 Toast.makeText(context, "Ошибка распознавания штрихкода", Toast.LENGTH_SHORT).show()
@@ -113,13 +112,14 @@ fun PackagingScreen(
             onConfirm = { mat, q ->
                 val qtyInt = q.toIntOrNull() ?: 1
                 if (qtyInt >= 0 && mat.isNotBlank()) {
-                    orderMaterials = if (editingIndex != null) {
+                    if (editingIndex != null) {
                         orderMaterials.toMutableList().apply {
                             set(editingIndex!!, Pair(mat, qtyInt))
                         }
+                        viewModel.updatePackagingMaterial(editingIndex!!, mat, qtyInt)
                     } else {
                         // Добавление: ищем и суммируем или добавляем новый
-                        addOrUpdateMaterial(orderMaterials, mat, qtyInt)
+                        viewModel.addPackagingMaterial(mat, qtyInt)
                     }
                     showDialog = false
                 }
@@ -167,7 +167,7 @@ fun PackagingScreen(
                 Button(
                     onClick = {
                         deleteConfirmIndex?.let { idx ->
-                            orderMaterials = orderMaterials.toMutableList().apply { removeAt(idx) }
+                            viewModel.removePackagingMaterial(idx)
                             deleteConfirmIndex = null
                         }
                     },
@@ -194,7 +194,11 @@ fun PackagingScreen(
                 // Запрещаем закрытие по клику вне области, чтобы пользователь явно нажал кнопку
             },
             icon = {
-                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
             },
             title = {
                 Text("Заказ успешно создан!")
@@ -219,7 +223,7 @@ fun PackagingScreen(
                 Button(
                     onClick = {
                         // Очищаем локальный список материалов
-                        orderMaterials = emptyList()
+                        viewModel.clearPackagingMaterials() // <--- Очищаем черновик только после успеха!
                         // Сбрасываем состояние ViewModel (чтобы скрыть диалог и вернуть Idle)
                         viewModel.resetStateToIdle()
                     },
@@ -265,27 +269,7 @@ fun PackagingScreen(
     )
 }
 
-/**
- * Добавляет материал или увеличивает количество, если он уже есть.
- * Используется ТОЛЬКО при добавлении нового материала (не при редактировании).
- */
-private fun addOrUpdateMaterial(
-    currentOrder: List<Pair<String, Int>>,
-    material: String,
-    qtyToAdd: Int
-): List<Pair<String, Int>> {
-    val existingIndex = currentOrder.indexOfFirst { it.first == material }
-    return if (existingIndex != -1) {
-        val mutableList = currentOrder.toMutableList()
-        val oldQty = mutableList[existingIndex].second
-        mutableList[existingIndex] = Pair(material, oldQty + qtyToAdd)
-        mutableList.toList()
-    } else {
-        currentOrder + Pair(material, qtyToAdd)
-    }
-}
-
-// 2. Чистый UI компонент
+// Чистый UI компонент
 @Composable
 fun PackagingScreenContent(
     orderMaterials: List<Pair<String, Int>>,
@@ -424,12 +408,20 @@ fun RenderMaterialsList(
 
                         // Кнопка редактирования
                         IconButton(onClick = { if (index != -1) onEditClick(index) }) {
-                            Icon(Icons.Default.Edit, "Редактировать", tint = MaterialTheme.colorScheme.primary)
+                            Icon(
+                                Icons.Default.Edit,
+                                "Редактировать",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
                         }
 
                         // Кнопка удаления
                         IconButton(onClick = { if (index != -1) onRequestDelete(index) }) {
-                            Icon(Icons.Default.Delete, "Удалить", tint = MaterialTheme.colorScheme.error)
+                            Icon(
+                                Icons.Default.Delete,
+                                "Удалить",
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }
@@ -549,14 +541,11 @@ fun PackagingPreviewEmpty() {
 @Preview(showBackground = true, name = "Packaging - Success Dialog Overlay")
 @Composable
 fun PackagingPreviewSuccess() {
-    // В превью мы не можем легко показать AlertDialog поверх другого контента без NavHost,
-    // но этот превью показывает, как выглядит список под диалогом (если бы он был прозрачным)
-    // Или просто проверяет рендеринг списка.
     PackagingScreenContent(
-        orderMaterials = listOf(Pair("MAT-001", 5), Pair("2", 3)),
+        orderMaterials = listOf(Pair("MAT-001", 5), Pair("mat_2", 3)),
         cameraScanEnabled = true,
         onCameraScanClick = {},
-        uiState = MainViewModel.UiState.OrderCreatedAndReadyForReceive("GPS_ORDER_282"),
+        uiState = MainViewModel.UiState.Idle,
         onEditClick = {},
         onRequestDelete = {},
         onAddManualClick = {},
