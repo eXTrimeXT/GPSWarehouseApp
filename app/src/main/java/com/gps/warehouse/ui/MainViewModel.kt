@@ -9,9 +9,9 @@ import com.gps.warehouse.data.remote.GPSApiService
 import com.gps.warehouse.data.remote.NotificationSseManager
 import com.gps.warehouse.data.remote.gps_dto.*
 import com.gps.warehouse.utils.AppThemeMode
-import com.gps.warehouse.utils.Constants.SESSION_DURATION_MS
 import com.gps.warehouse.utils.NetworkMonitor
 import com.gps.warehouse.utils.RsaUtils.encryptPassword
+import com.gps.warehouse.utils.SessionManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -34,7 +34,8 @@ class MainViewModel @Inject constructor(
     private val localStorage: LocalStorage,
     private val apiService: GPSApiService,
     private val notificationSseManager: NotificationSseManager,
-    private val networkMonitor: NetworkMonitor
+    private val networkMonitor: NetworkMonitor,
+    private val sessionManager: SessionManager
 ) : ViewModel() {
 
     sealed class UiState {
@@ -131,11 +132,6 @@ class MainViewModel @Inject constructor(
     val hasMoreWms: StateFlow<Boolean> = _hasMoreWms.asStateFlow()
     // ====================================================
 
-    // Реактивное свойство для UI
-    val canLoadMore: Boolean get() = wmsCurrentPage < wmsTotalPages && !_isLoadingMore.value
-    val totalMaterials: Int get() = totalMaterialsCount
-    // ================================================
-
     // Параметры фильтрации (сохраняются между запросами)
     private var currentStorageFilterId: String? = null
     private var currentWmsSearchQuery: String = ""
@@ -182,6 +178,12 @@ class MainViewModel @Inject constructor(
             localStorage.themeModeFlow.collect { mode ->
                 _themeMode.value = mode
             }
+
+            // === Слушаем глобальные события 401 от Interceptor ===
+            sessionManager.sessionExpiredEvent.collect {
+                Log.w("MainViewModel", "Получен сигнал истечения сессии от Interceptor")
+                logout()
+            }
         }
         // Запускаем периодическую проверку сессии при инициализации
         startSessionMonitoring()
@@ -193,23 +195,38 @@ class MainViewModel @Inject constructor(
     }
 
 
-    /**
-     * Запускает фоновую задачу, которая каждые N минут проверяет,
-     * не истекла ли сессия по абсолютному времени (utils Constants.SESSION_DURATION_MS с момента входа)
-     */
+    // === Надежное извлечение времени истечения (exp) из JWT ===
+    private fun getTokenExpirationTime(token: String): Long? {
+        return try {
+            val parts = token.split(".")
+            if (parts.size >= 2) {
+                val payload = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP))
+                val json = JSONObject(payload)
+                // exp в JWT хранится в секундах, умножаем на 1000 для миллисекунд
+                val expSeconds = json.optLong("exp", 0L)
+                if (expSeconds > 0) expSeconds * 1000L else null
+            } else null
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Ошибка парсинга JWT exp", e)
+            null
+        }
+    }
+
     private fun startSessionMonitoring() {
         sessionMonitorScope.launch {
             while (true) {
-                delay(SESSION_DURATION_MS) // Проверка каждые N минут
+                delay(60 * 1000L) // Проверяем раз в минуту (оптимально для батареи и надежности)
 
                 val token = localStorage.getToken()
-                val timestamp = localStorage.getLoginTimestamp()
-
-                if (token != null && timestamp != null) {
-                    val currentTime = System.currentTimeMillis()
-                    if ((currentTime - timestamp) > SESSION_DURATION_MS) {
-                        Log.d("MainViewModel", "Сессия истекла. Выполняется выход.")
-                        logout() // Автоматический выход
+                if (!token.isNullOrEmpty()) {
+                    val expTimeMs = getTokenExpirationTime(token)
+                    if (expTimeMs != null) {
+                        val currentTime = System.currentTimeMillis()
+                        // Добавляем буфер 10 секунд, чтобы не было гонок на грани истечения
+                        if (currentTime >= (expTimeMs - 10000)) {
+                            Log.d("MainViewModel", "Сессия истекла (по JWT exp). Выполняется выход.")
+                            logout()
+                        }
                     }
                 }
             }
@@ -224,20 +241,21 @@ class MainViewModel @Inject constructor(
      * Иначе сохраняем состояние входа
      */
     private suspend fun isSessionValid(token: String?): Boolean {
-        // Если нет токена или он пустой - выходим и меняем состояние на авторизацию
         if (token.isNullOrEmpty()) {
             currentToken = null
-            _uiState.value = UiState.Idle
+            if (_uiState.value !is UiState.SessionExpired) {
+                _uiState.value = UiState.Idle
+            }
             return false
         }
 
-        // Если времени нет, считаем сессию невалидной
-        val timestamp = localStorage.getLoginTimestamp() ?: return true
-
+        // === Проверяем реальный exp из токена, а не localStorage.getLoginTimestamp() ===
+        val expTimeMs = getTokenExpirationTime(token)
         val currentTime = System.currentTimeMillis()
-        if ((currentTime - timestamp) > SESSION_DURATION_MS) {
-            Log.d("MainViewModel", "Сессия истекла. Выполняется выход.")
-            logout() // Автоматический выход
+
+        if (expTimeMs != null && currentTime >= (expTimeMs - 10000)) {
+            Log.d("MainViewModel", "Сессия невалидна (истекла по JWT). Выполняется выход.")
+            logout()
             return false
         } else {
             currentToken = token
@@ -264,7 +282,9 @@ class MainViewModel @Inject constructor(
 
                 // 3. Проверяем статус ответа
                 if (gpsResponse.status == "success" && gpsResponse.data != null) {
+//                if (true) {
                     val gpsToken = gpsResponse.data.token
+//                    val gpsToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3OTAzMjY3MzYsImV4cCI6MTc5MDMyNjg1NiwibG9naW4iOiJndzA3MDE1MzcwIiwibGFzdF9pcCI6IjEwLjE2OC4xNTQuNDIiLCJsYXN0X3RpbWUiOiIxMjo0Nzo1MiAyMS4wNy4yMDI2IiwiZGVwYXJ0bWVudCI6IlJEQyIsInBlcm1pc3Npb25zIjpbeyJuYW1lX2dyb3VwIjoiY29tcHV0ZXIiLCJyZWFkIjp0cnVlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6Im1lc19lcXVpcG1lbnQiLCJyZWFkIjpmYWxzZSwid3JpdGUiOmZhbHNlfSx7Im5hbWVfZ3JvdXAiOiJzdXBwbGllcyIsInJlYWQiOmZhbHNlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6InBvd2VyX2FkYXB0ZXIiLCJyZWFkIjpmYWxzZSwid3JpdGUiOmZhbHNlfSx7Im5hbWVfZ3JvdXAiOiJkYXRhX2NvbGxlY3Rpb25fZXF1aXBtZW50IiwicmVhZCI6ZmFsc2UsIndyaXRlIjpmYWxzZX0seyJuYW1lX2dyb3VwIjoiQWNjZXNzb3JpZXMiLCJyZWFkIjpmYWxzZSwid3JpdGUiOmZhbHNlfSx7Im5hbWVfZ3JvdXAiOiJuZXR3b3JrX2VxdWlwbWVudCIsInJlYWQiOmZhbHNlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6InByaW50aW5nX2VxdWlwbWVudCIsInJlYWQiOmZhbHNlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6InNlcnZlcl9oYXJkd2FyZSIsInJlYWQiOmZhbHNlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6InVzZXJzIiwicmVhZCI6ZmFsc2UsIndyaXRlIjpmYWxzZX0seyJuYW1lX2dyb3VwIjoiQXNzZXRzTVUiLCJyZWFkIjpmYWxzZSwid3JpdGUiOmZhbHNlfV0sImFzc2V0c19hZG1pbiI6dHJ1ZSwidXNlcl9kYXRhIjp7ImVtYWlsIjoiVGltdXIuTWFseXNoZXZAaG1tci5ydSIsImZ1bGxuYW1lIjoiVGltdXIgTWFseXNoZXYiLCJkZXBhcnRtZW50IjoiU0RHIiwiZGlzdGluZ3Vpc2hlZE5hbWUiOiJDTj1UaW11ciBNYWx5c2hldixPVT1TT0ZUV0FSRSBERVZFTE9QTUVOVCBHUk9VUCAoU0RHKSxPVT1JTkZPUk1BVElPTiBTWVNURU1TIFNVUFBPUlQgU0VDVElPTiAoSVNTUyksT1U9UnVzc2lhbiBEaWdpdGFsIENlbnRlciAoUkRDKSxPVT1Vc2VycyxPVT1ITU1SLERDPWxvY2FsLERDPWhtbXIsREM9cnUiLCJncm91cHMiOltdfX0.Fe72RgeeJlvb2UfhVLwcmcFLwvZC-ZrIAKXEJ8yx-2c"
 
                     // 4. Сохраняем токен
                     localStorage.saveToken(gpsToken)
@@ -309,17 +329,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
-    fun logout() {
-        viewModelScope.launch {
-            localStorage.clearToken()
-            currentToken = null
-//            _uiState.value = UiState.Idle
-            _uiState.value = UiState.SessionExpired
-        }
+    suspend fun logout() {
+        localStorage.clearToken()
+        currentToken = null
+        _uiState.value = UiState.SessionExpired
         stopGlobalNotifications()
-
-        Log.e("MainViewModel", "logout: Токен отсутствует. Автовыход.")
-//        throw Exception("Пользователь не авторизован")
+        Log.e("MainViewModel", "logout: Токен очищен. Выполняется автовыход.")
     }
 
     // Вызываем этот метод при успешной авторизации
@@ -351,41 +366,12 @@ class MainViewModel @Inject constructor(
         }
     }
 
-//    fun loadUserProfile() {
-//        viewModelScope.launch {
-//            _uiState.value = UiState.Loading
-//            try {
-//                // Загружаем профиль из GPS API
-//                val gpsProfile = apiService.getUserProfile(GetUserProfileRequest(getTokenOrThrow()))
-//                val storages = gpsProfile.warehousePermissions
-//                val isAssetsAdmin = gpsProfile.assetsIsAdmin ?: false
-//                if (storages != null) {
-//                    _availableWarehouses.value = storages
-//                }
-//                _userIsAssetsAdmin.value = isAssetsAdmin
-//                val permissions = gpsProfile.permissions ?: emptyList()
-//                _gpsPermissions.value = permissions.map { it }
-//
-//                val bmList = gpsProfile.bmList ?: emptyList()
-//                _bmList.value = bmList.map { it }
-//                _uiState.value = UiState.ProfileLoaded(gpsProfile)
-//                Log.d("MainViewModel", "isAssetsAdmin = $isAssetsAdmin")
-//            } catch (e: Exception) {
-//                Log.e("MainViewModel", "Ошибка загрузки профиля", e)
-//                _uiState.value = UiState.Error(e.message ?: "Не удалось загрузить профиль")
-//            }
-//        }
-//    }
-
     fun loadUserProfile() {
         viewModelScope.launch {
             // Проверяем, есть ли уже данные, чтобы не показывать Loading и не стирать экран
             val hasCache = _bmList.value.isNotEmpty() || _gpsPermissions.value.isNotEmpty()
             if (!hasCache) {
                 _uiState.value = UiState.Loading
-            }
-            else {
-
             }
 
             try {

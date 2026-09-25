@@ -23,15 +23,16 @@ object AssetNetworkModule {
     @Provides
     @Singleton
     @Named("asset")
-    fun provideAssetOkHttpClient(): OkHttpClient {
+    fun provideAssetOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
         return OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(authInterceptor)               // ДОБАВЛЕНО: Перехватывает 401 ошибки
+            .addInterceptor(loggingInterceptor)            // Добавляем логгер
+            .connectTimeout(30, TimeUnit.SECONDS)   // Тайм-аут на установление соединения
+            .readTimeout(30, TimeUnit.SECONDS)      // Тайм-аут на чтение данных
             .build()
     }
 

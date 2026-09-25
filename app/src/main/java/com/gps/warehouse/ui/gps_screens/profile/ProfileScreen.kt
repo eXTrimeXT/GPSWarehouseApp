@@ -25,6 +25,7 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
@@ -36,8 +37,17 @@ fun ProfileScreen(
     // Состояние для диалога подтверждения выхода
     var showLogoutDialog by remember { mutableStateOf(false) }
 
+    // Для использования корутин
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(Unit) {
         viewModel.loadUserProfile()
+    }
+
+    fun onClickLogout(){
+        scope.launch {
+            viewModel.logout()
+        }
     }
 
     // Диалог подтверждения выхода
@@ -54,7 +64,8 @@ fun ProfileScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.logout()
+//                        viewModel.logout()
+                        onClickLogout()
                         showLogoutDialog = false
                         // Навигация на экран входа с очисткой стека
                         navController.navigate("login") {

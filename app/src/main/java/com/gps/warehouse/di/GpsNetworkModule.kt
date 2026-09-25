@@ -18,6 +18,7 @@ import java.net.CookiePolicy
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
+import kotlin.math.log
 
 /**
  * Модуль Hilt для предоставления зависимостей, связанных с сетью.
@@ -39,7 +40,7 @@ object GpsNetworkModule {
     @Provides
     @Singleton
     @Named("gps")
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
         // Настраиваем интерцептор для логирования всего тела запроса и ответа.
         // Уровень BODY полезен при разработке, но в продакшене лучше использовать NONE или HEADERS.
         val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -50,10 +51,11 @@ object GpsNetworkModule {
         val cookieJar = PersistentCookieJar()
 
         return OkHttpClient.Builder()
-            .addInterceptor(loggingInterceptor)            // Добавляем логгер
+            .addInterceptor(authInterceptor)                // Перехватывает 401 ошибки
+            .addInterceptor(loggingInterceptor)             // Добавляем логгер
             .connectTimeout(300, TimeUnit.SECONDS)   // Тайм-аут на установление соединения
             .readTimeout(300, TimeUnit.SECONDS)      // Тайм-аут на чтение данных
-            .cookieJar(cookieJar)                          // Устанавливаем менеджер куки
+            .cookieJar(cookieJar)                           // Устанавливаем менеджер куки
             .build()
     }
 
@@ -80,8 +82,8 @@ object GpsNetworkModule {
     @Named("gps")
     fun provideRetrofit(@Named("gps") client: OkHttpClient, gson: Gson): Retrofit {
         return Retrofit.Builder()
-            .baseUrl(Constants.BASE_URL_API)    // Базовый URL API, взятый из Constants
-            .client(client)                 // Используем настроенный OkHttpClient
+            .baseUrl(Constants.BASE_URL_API) // Базовый URL API, взятый из Constants
+            .client(client)                  // Используем настроенный OkHttpClient
             // ScalarsConverterFactory нужен для обработки простых типов (String, Int и т.д.).
             // Он используется в методе getPublicKey(), который возвращает plain text.
             .addConverterFactory(ScalarsConverterFactory.create())
