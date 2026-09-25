@@ -79,6 +79,10 @@ fun AssetDetailsScreen(
     var transferToCancel by remember { mutableStateOf<Int?>(null) }
     var isCancellingTransfer by remember { mutableStateOf(false) }
 
+    // Диалог действия по передаче (принять/отклонить)
+    var transferToRespond by remember { mutableStateOf<AssetTransferDto?>(null) }
+    var isRespondingTransfer by remember { mutableStateOf(false) }
+
     // === Вкладки ===
     val pagerState = rememberPagerState(pageCount = { 3 })
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -299,6 +303,62 @@ fun AssetDetailsScreen(
         )
     }
 
+    // Диалог действия: принять / отклонить
+    transferToRespond?.let { transfer ->
+        TransferActionDialog(
+            transfer = transfer,
+            isLoading = isRespondingTransfer,
+            onDismiss = {
+                if (!isRespondingTransfer) transferToRespond = null
+            },
+            onAccept = { comment ->
+                isRespondingTransfer = true
+                assetViewModel.respondToTransfer(
+                    transferId = transfer.transferId,
+                    action = "accept",
+                    comment = comment,
+                    onSuccess = { response ->
+                        isRespondingTransfer = false
+                        transferToRespond = null
+                        Toast.makeText(context, response.message, Toast.LENGTH_LONG).show()
+                        (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)
+                            ?.asset?.assetId?.let { assetId ->
+                                assetViewModel.loadAssetTransfers(assetId)
+                                assetViewModel.checkTransferExists(assetId)
+                                assetViewModel.loadAssetDetails(assetId)
+                            }
+                    },
+                    onError = { error ->
+                        isRespondingTransfer = false
+                        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                    }
+                )
+            },
+            onDecline = { comment ->
+                isRespondingTransfer = true
+                assetViewModel.respondToTransfer(
+                    transferId = transfer.transferId,
+                    action = "decline",
+                    comment = comment,
+                    onSuccess = { response ->
+                        isRespondingTransfer = false
+                        transferToRespond = null
+                        Toast.makeText(context, response.message, Toast.LENGTH_LONG).show()
+                        (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)
+                            ?.asset?.assetId?.let { assetId ->
+                                assetViewModel.loadAssetTransfers(assetId)
+                                assetViewModel.checkTransferExists(assetId)
+                            }
+                    },
+                    onError = { error ->
+                        isRespondingTransfer = false
+                        Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                    }
+                )
+            }
+        )
+    }
+
     // === Контент ===
     AssetDetailsContent(
         uiState = uiState,
@@ -351,7 +411,8 @@ fun AssetDetailsScreen(
         onCancelTransfer = { transferId ->            // ← новое
             // Открываем диалог подтверждения через state
             transferToCancel = transferId
-        }
+        },
+        onRespondTransfer = { transfer -> transferToRespond = transfer }
     )
 }
 
@@ -389,7 +450,8 @@ fun AssetDetailsContent(
     onTransferClick: () -> Unit,
     assetTransfers: List<AssetTransferDto>,
     currentEmployeeId: String?,
-    onCancelTransfer: (Int) -> Unit
+    onCancelTransfer: (Int) -> Unit,
+    onRespondTransfer: (AssetTransferDto) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         when (uiState) {
@@ -484,7 +546,8 @@ fun AssetDetailsContent(
                                 onTransferClick = onTransferClick,
                                 onCancelTransfer = onCancelTransfer,
                                 transfers = assetTransfers,
-                                currentEmployeeId = currentEmployeeId
+                                currentEmployeeId = currentEmployeeId,
+                                onRespondTransfer = onRespondTransfer,
                             )
                             2 -> HistoryTab(
                                 asset = asset,
@@ -780,8 +843,9 @@ fun UsersTab(
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)?,
     onTransferClick: () -> Unit,
     transfers: List<AssetTransferDto>,
-    currentEmployeeId: String?,                       // ← новое
-    onCancelTransfer: (Int) -> Unit                   // ← новое
+    currentEmployeeId: String?,
+    onCancelTransfer: (Int) -> Unit,
+    onRespondTransfer: (AssetTransferDto) -> Unit
 ) {
     // Определяем: есть ли текущий пользователь среди владельцев
     val currentUsers = editState?.currentUsers ?: asset.users
@@ -814,19 +878,6 @@ fun UsersTab(
             }
         }
 
-        // === Обслуживающий персонал ===
-        item {
-            UsersSection(
-                title = "Обслуживающий персонал",
-                users = editState?.currentServingUsers ?: asset.servingUsers,
-                icon = Icons.Default.Build,
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-                isEditing = isEditing,
-                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.SERVING) } } else null,
-                onRemoveUser = onRemoveUser
-            )
-        }
-
         // === Владелец ===
         item {
             UsersSection(
@@ -840,13 +891,27 @@ fun UsersTab(
             )
         }
 
+        // === Обслуживающий персонал ===
+        item {
+            UsersSection(
+                title = "Обслуживающий персонал",
+                users = editState?.currentServingUsers ?: asset.servingUsers,
+                icon = Icons.Default.Build,
+                color = MaterialTheme.colorScheme.tertiaryContainer,
+                isEditing = isEditing,
+                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.SERVING) } } else null,
+                onRemoveUser = onRemoveUser
+            )
+        }
+
         // === История передач ===
         if (!isEditing && transfers.isNotEmpty()) {
             item {
                 AssetTransfersSection(
                     transfers = transfers,
                     currentEmployeeId = currentEmployeeId,
-                    onCancelTransfer = onCancelTransfer
+                    onCancelTransfer = onCancelTransfer,
+                    onRespondTransfer = onRespondTransfer
                 )
             }
         }
@@ -1413,7 +1478,8 @@ private fun InfoRowSmall(label: String, value: String) {
 private fun AssetTransfersSection(
     transfers: List<AssetTransferDto>,
     currentEmployeeId: String?,
-    onCancelTransfer: (Int) -> Unit
+    onCancelTransfer: (Int) -> Unit,
+    onRespondTransfer: (AssetTransferDto) -> Unit
 ) {
     InfoSectionCard(
         icon = Icons.Default.SwapHoriz,
@@ -1427,7 +1493,8 @@ private fun AssetTransfersSection(
                 AssetTransferCard(
                     transfer = transfer,
                     currentEmployeeId = currentEmployeeId,
-                    onCancelTransfer = onCancelTransfer
+                    onCancelTransfer = onCancelTransfer,
+                    onRespondTransfer = onRespondTransfer
                 )
             }
         }
@@ -1566,7 +1633,8 @@ private fun AssetTransfersSection(
 private fun AssetTransferCard(
     transfer: AssetTransferDto,
     currentEmployeeId: String?,
-    onCancelTransfer: (Int) -> Unit
+    onCancelTransfer: (Int) -> Unit,
+    onRespondTransfer: (AssetTransferDto) -> Unit
 ) {
     var expanded by rememberSaveable(transfer.transferId) { mutableStateOf(false) }
     val statusInfo = transferStatusInfo(transfer.status)
@@ -1577,6 +1645,10 @@ private fun AssetTransferCard(
     val canCancel = transfer.status.equals("PENDING", ignoreCase = true) &&
             currentEmployeeId != null &&
             transfer.initiator.employeeId == currentEmployeeId
+
+    val canRespond = transfer.status.equals("PENDING", ignoreCase = true) &&
+            currentEmployeeId != null &&
+            transfer.targetEmployee.employeeId == currentEmployeeId
 
     Card(
         modifier = Modifier
@@ -1752,9 +1824,30 @@ private fun AssetTransferCard(
                     )
                 }
 
-                // === Кнопка отмены ===
-                if (canCancel) {
+                // === Кнопка «Действие» (принять/отклонить) ===
+                if (canRespond) {
                     Spacer(Modifier.height(12.dp))
+                    Button(
+                        onClick = { onRespondTransfer(transfer) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text("Действие")
+                    }
+                }
+
+                // === Кнопка отмены (для инициатора) ===
+                if (canCancel) {
+                    Spacer(Modifier.height(if (canRespond) 6.dp else 12.dp))
                     OutlinedButton(
                         onClick = { onCancelTransfer(transfer.transferId) },
                         modifier = Modifier.fillMaxWidth(),
@@ -1912,6 +2005,158 @@ fun AssetTransferDialog(
     )
 }
 
+@Composable
+fun TransferActionDialog(
+    transfer: AssetTransferDto,
+    isLoading: Boolean = false,
+    onDismiss: () -> Unit,
+    onAccept: (comment: String?) -> Unit,
+    onDecline: (comment: String?) -> Unit
+) {
+    var comment by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        icon = {
+            Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(32.dp)
+            )
+        },
+        title = {
+            Text(
+                "Действие по передаче",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Информация об инициаторе
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "От кого",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            transfer.initiator.fullName ?: transfer.initiator.employeeId,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                // Роль
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "Роль",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            transfer.assignmentTypeRu ?: transfer.assignmentType,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+
+                // Комментарий инициатора
+                transfer.initiatorComment?.takeIf { it.isNotBlank() }?.let { initComment ->
+                    Surface(
+                        shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                "Комментарий",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                initComment,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+
+                // Поле для нашего комментария
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Ваш комментарий (опционально)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading,
+                    minLines = 2,
+                    maxLines = 4
+                )
+            }
+        },
+        confirmButton = {
+            // Кнопка "Принять"
+            Button(
+                onClick = {
+                    onAccept(comment.takeIf { it.isNotBlank() })
+                },
+                enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Icon(Icons.Default.Check, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Принять")
+            }
+        },
+        dismissButton = {
+            // Кнопка "Отклонить"
+            OutlinedButton(
+                onClick = {
+                    onDecline(comment.takeIf { it.isNotBlank() })
+                },
+                enabled = !isLoading,
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Icon(Icons.Default.Close, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Отклонить")
+            }
+        }
+    )
+}
+
 // ==================== PREVIEWS ====================
 @Preview(showBackground = true, showSystemUi = true, name = "Вкладка Основное", device = "spec:width=380dp,height=1000dp")
 @Composable
@@ -1956,7 +2201,8 @@ private fun AssetDetailsPreview_MainTab() {
                     )
                 ),
                 currentEmployeeId = "0000015370",   // или null
-                onCancelTransfer = {}
+                onCancelTransfer = {},
+                onRespondTransfer = {}
             )
         }
     }
@@ -2005,7 +2251,8 @@ private fun AssetDetailsPreview_UserTab() {
                     )
                 ),
                 currentEmployeeId = "0000015370",   // или null
-                onCancelTransfer = {}
+                onCancelTransfer = {},
+                onRespondTransfer = {}
             )
         }
     }
@@ -2066,7 +2313,8 @@ private fun AssetDetailsPreview_HistoryTab() {
                     )
                 ),
                 currentEmployeeId = "0000015370",   // или null
-                onCancelTransfer = {}
+                onCancelTransfer = {},
+                onRespondTransfer = {}
             )
         }
     }
