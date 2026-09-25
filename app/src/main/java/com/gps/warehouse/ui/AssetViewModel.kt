@@ -12,7 +12,11 @@ import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferCancelResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferExistsResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTransferRequestDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferRespondResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTransferResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
@@ -23,6 +27,7 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
+import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.utils.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -171,8 +176,18 @@ class AssetViewModel @Inject constructor(
     private val _employees = MutableStateFlow<PaginatedResponse<EmployeeShortResponse>?>(null)
     val employees = _employees.asStateFlow()
 
+    private val _employeeMe = MutableStateFlow<EmployeeShortResponse?>(null)
+    val employeeMe = _employeeMe.asStateFlow()
+
+    // Состояние для хранения информации о передаче
     private val _transferStatus = MutableStateFlow<TransferStatus>(TransferStatus.None)
     val transferStatus: StateFlow<TransferStatus> = _transferStatus.asStateFlow()
+
+    private val _transferInfo = MutableStateFlow<AssetTransferExistsResponseDto?>(null)
+    val transferInfo: StateFlow<AssetTransferExistsResponseDto?> = _transferInfo.asStateFlow()
+
+    private val _assetTransfers = MutableStateFlow<List<AssetTransferDto>>(emptyList())
+    val assetTransfers: StateFlow<List<AssetTransferDto>> = _assetTransfers.asStateFlow()
 
     private var eventSource: EventSource? = null
 
@@ -770,7 +785,21 @@ class AssetViewModel @Inject constructor(
             }
         }
     }
+
+    fun getEmployeeMe() {
+        viewModelScope.launch {
+            try {
+                val response = assetApiService.getEmployeeMe(token = "Bearer ${getToken()}")
+                _employeeMe.value = response
+            } catch (e: Exception) {
+                Log.e(TAG, "Ошибка загрузки текущего сотрудника: ${e.message}")
+                _employees.value = null
+            }
+        }
+    }
+
     // ================== Пользователи ==================
+
 
     // ================== Передача актива ==================
     fun requestAssetTransfer(
@@ -820,6 +849,100 @@ class AssetViewModel @Inject constructor(
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка передачи актива"
                 Log.e(TAG, "Ошибка передачи актива: $errorMessage")
+                onError(errorMessage)
+                _uiState.value = AssetUiState.Error(errorMessage)
+            }
+        }
+    }
+
+    // ==================== Управление передачами ====================
+    fun loadAssetTransfers(assetId: Int) {
+        viewModelScope.launch {
+            try {
+                val response = assetApiService.getAssetTransfers(
+                    token = "Bearer ${getToken()}",
+                    page = 1,
+                    pageSize = 100,
+                    assetId = assetId
+                )
+                _assetTransfers.value = response.items
+            } catch (e: Exception) {
+                Log.e(TAG, "Ошибка загрузки передач: ${e.message}")
+                _assetTransfers.value = emptyList()
+            }
+        }
+    }
+
+    /**
+     * Проверяет наличие активного запроса на передачу актива
+     */
+    fun checkTransferExists(assetId: Int) {
+        viewModelScope.launch {
+            try {
+                val response = assetApiService.checkTransferExists(
+                    token = "Bearer ${getToken()}",
+                    assetId = assetId
+                )
+                _transferInfo.value = response
+            } catch (e: Exception) {
+                Log.e(TAG, "Ошибка проверки передачи: ${e.message}")
+                _transferInfo.value = null
+            }
+        }
+    }
+
+    /**
+     * Отвечает на запрос передачи (принять или отклонить)
+     */
+    fun respondToTransfer(
+        transferId: Int,
+        action: String, // "accept" или "decline"
+        comment: String? = null,
+        onSuccess: (AssetTransferRespondResponseDto) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val request = TransferActionRequestDto(action = action, comment = comment)
+                val response = assetApiService.respondToTransfer(
+                    token = "Bearer ${getToken()}",
+                    transferId = transferId,
+                    request = request
+                )
+                onSuccess(response)
+                // Обновляем информацию о передаче
+                _transferInfo.value = null
+            } catch (e: Exception) {
+                val errorMessage = getErrorMessage(e) ?: "Ошибка обработки запроса"
+                Log.e(TAG, "Ошибка ответа на передачу: $errorMessage")
+                onError(errorMessage)
+                _uiState.value = AssetUiState.Error(errorMessage)
+            }
+        }
+    }
+
+    /**
+     * Отменяет запрос на передачу (доступно только инициатору)
+     */
+    fun cancelTransfer(
+        transferId: Int,
+        onSuccess: (AssetTransferCancelResponseDto) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val response = assetApiService.cancelTransfer(
+                    token = "Bearer ${getToken()}",
+                    transferId = transferId
+                )
+                onSuccess(response)
+                // Обновляем информацию о передаче
+                _transferInfo.value = null
+            } catch (e: Exception) {
+                val errorMessage = getErrorMessage(e) ?: "Ошибка отмены запроса"
+                Log.e(TAG, "Ошибка отмены передачи: $errorMessage")
                 onError(errorMessage)
                 _uiState.value = AssetUiState.Error(errorMessage)
             }

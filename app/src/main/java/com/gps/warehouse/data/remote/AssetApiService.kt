@@ -3,7 +3,11 @@ package com.gps.warehouse.data.remote
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferCancelResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferExistsResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferListResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTransferRequestDto
+import com.gps.warehouse.data.remote.assets_dto.AssetTransferRespondResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTransferResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
@@ -18,6 +22,7 @@ import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.PlaySoundResponse
+import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import retrofit2.Response
@@ -201,10 +206,49 @@ interface AssetApiService {
         @Query("search_position") searchPosition: String? = null
     ): PaginatedResponse<EmployeeShortResponse>
 
+    // Запросить свой табельный номер
+    @GET("zup/employees/me")
+    suspend fun getEmployeeMe(@Header("Authorization") token: String): EmployeeShortResponse
+
     // ==================== Передача актива ====================
     @POST("assets/transfers/request")
     suspend fun requestAssetTransfer(
         @Header("Authorization") token: String,
         @Body request: AssetTransferRequestDto
     ): AssetTransferResponseDto
+
+    // В файле AssetApiService.kt добавь:
+
+    // ==================== Проверка передачи ====================
+    @POST("assets/transfers/check-request")
+    suspend fun checkTransferExists(
+        @Header("Authorization") token: String,
+        @Query("asset_id") assetId: Int
+    ): AssetTransferExistsResponseDto
+
+    // ==================== Ответ на передачу ====================
+    @POST("assets/transfers/{transfer_id}/respond")
+    suspend fun respondToTransfer(
+        @Header("Authorization") token: String,
+        @Path("transfer_id") transferId: Int,
+        @Body request: TransferActionRequestDto
+    ): AssetTransferRespondResponseDto
+
+    // ==================== Отмена передачи ====================
+    @POST("assets/transfers/{transfer_id}/cancel")
+    suspend fun cancelTransfer(
+        @Header("Authorization") token: String,
+        @Path("transfer_id") transferId: Int
+    ): AssetTransferCancelResponseDto
+
+    // ==================== Список передач ====================
+    @GET("assets/transfers/")
+    suspend fun getAssetTransfers(
+        @Header("Authorization") token: String,
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 100,
+        @Query("asset_id") assetId: Int? = null,
+        @Query("initiator_id") initiatorId: String? = null,
+        @Query("target_employee_id") targetEmployeeId: String? = null
+    ): AssetTransferListResponseDto
 }

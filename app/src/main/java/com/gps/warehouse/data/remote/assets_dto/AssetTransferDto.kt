@@ -2,8 +2,6 @@ package com.gps.warehouse.data.remote.assets_dto
 
 import com.google.gson.annotations.SerializedName
 
-// ==================== Запрос на передачу актива ====================
-
 /**
  * Запрос на создание SAP актива (для передачи актива из SAP)
  */
@@ -27,8 +25,6 @@ data class AssetTransferRequestDto(
     @SerializedName("assignment_type") val assignmentType: String = "user",  // "user" или "responsible"
     @SerializedName("comment") val comment: String? = null
 )
-
-// ==================== Ответ на передачу актива ====================
 
 /**
  * Информация об активе
@@ -78,7 +74,6 @@ data class AssetTransferResponseDto(
     @SerializedName("created_at") val createdAt: String
 )
 
-// ==================== Ответ на принятие/отклонение передачи ====================
 
 /**
  * Запрос на принятие/отклонение передачи
@@ -104,4 +99,57 @@ data class AssetTransferRespondResponseDto(
     @SerializedName("responded_at") val respondedAt: String,
     @SerializedName("new_assignment_id") val newAssignmentId: Int? = null,
     @SerializedName("previous_assignment_closed") val previousAssignmentClosed: Boolean = false
+)
+
+/**
+ * Ответ на проверку наличия запроса на передачу актива
+ */
+data class AssetTransferExistsResponseDto(
+    @SerializedName("is_exists") val isExists: Boolean = false,
+    @SerializedName("transfer_id") val transferId: Int? = null,
+    @SerializedName("initiator") val initiator: EmployeeInfoDto? = null,
+    @SerializedName("target_employee") val targetEmployee: EmployeeInfoDto? = null,
+    @SerializedName("assignment_type") val assignmentType: String? = null,
+    @SerializedName("assignment_type_ru") val assignmentTypeRu: String? = null,
+    @SerializedName("initiator_comment") val comment: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    val direction: String,
+)
+
+data class AssetTransferCancelResponseDto(
+    val message: String,
+    @SerializedName("transfer_id") val transferId: Int,
+    val status: String,
+    @SerializedName("cancelled_at") val cancelledAt: String
+)
+
+
+/**
+ * Информация об одной передаче актива (из списка /assets/transfers/)
+ */
+data class AssetTransferDto(
+    @SerializedName("transfer_id") val transferId: Int,
+    @SerializedName("asset_id") val assetId: Int?,
+    @SerializedName("initiator") val initiator: EmployeeInfoDto,
+    @SerializedName("target_employee") val targetEmployee: EmployeeInfoDto,
+    @SerializedName("assignment_type") val assignmentType: String,
+    @SerializedName("assignment_type_ru") val assignmentTypeRu: String?,
+    @SerializedName("status") val status: String,  // "PENDING", "ACCEPTED", "DECLINED", "CANCELLED"
+    @SerializedName("initiator_comment") val initiatorComment: String?,
+    @SerializedName("responder_comment") val responderComment: String?,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("responded_at") val respondedAt: String?
+)
+
+/**
+ * Постраничный ответ на /assets/transfers/
+ */
+data class AssetTransferListResponseDto(
+    @SerializedName("items") val items: List<AssetTransferDto>,
+    @SerializedName("total") val total: Int,
+    @SerializedName("page") val page: Int,
+    @SerializedName("page_size") val pageSize: Int,
+    @SerializedName("total_pages") val totalPages: Int,
+    @SerializedName("has_next") val hasNext: Boolean,
+    @SerializedName("has_previous") val hasPrevious: Boolean
 )
