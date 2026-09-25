@@ -181,7 +181,7 @@ fun PackToWarehouseContent(
 
     // Следим за изменением артикула. Если он появился (не пустой), переводим фокус на количество
     LaunchedEffect(materialArticle) {
-        if (materialArticle.isNotEmpty()) {
+        if (materialArticle.isNotEmpty() && uniqueCode.isNotEmpty()) {
             quantityFocusRequester.requestFocus()
         }
     }
@@ -248,12 +248,14 @@ fun PackToWarehouseContent(
                             label = { Text("Артикул материала") },
                             modifier = Modifier.fillMaxWidth(),
                             trailingIcon = {
-                                Icon(
-                                    Icons.Default.QrCodeScanner,
-                                    contentDescription = "Сканировать"
-                                )
+                                IconButton(onClick = onCameraScanClick){
+                                    Icon(
+                                        Icons.Default.QrCodeScanner,
+                                        contentDescription = "Сканировать"
+                                    )
+                                }
                             },
-                            enabled = true
+                            enabled = uniqueCode.isEmpty()
                         )
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -312,11 +314,11 @@ fun PackToWarehouseContent(
         }
 
         // Плавающая кнопка сканирования (только если включено в настройках)
-        CameraScanButton(
-            onClick = onCameraScanClick,
-            cameraScanEnabled = cameraScanEnabled,
-            modifier = Modifier.align(Alignment.BottomEnd)
-        )
+//        CameraScanButton(
+//            onClick = onCameraScanClick,
+//            cameraScanEnabled = cameraScanEnabled,
+//            modifier = Modifier.align(Alignment.BottomEnd)
+//        )
     }
 }
 
