@@ -497,12 +497,12 @@ fun WmsPreviewLoaded() {
     val fakeItems = listOf(
         WmsItemDto(
             id = 66, material = "LA0602600443", max = 2, min = 0,
-            positionId = 0, position = "BUFF", price = 150.0, qty = 4.0,
+            positionId = emptyList(), position = "BUFF", price = 150.0, qty = 4.0,
             sapA = 0, storage = "3051", storageId = 1, name = "СИГНАЛИЗАЦИОННАЯ ЛАМПА"
         ),
         WmsItemDto(
             id = 67, material = "LA0713000190", max = 5, min = 1,
-            positionId = 0, position = "A-01", price = 1200.0, qty = 10.0,
+            positionId = emptyList(), position = "A-01", price = 1200.0, qty = 10.0,
             sapA = 1, storage = "4007", storageId = 2, name = "Станция зарядки"
         )
     )

@@ -1,7 +1,6 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
 import android.util.Log
-import android.widget.Space
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,7 +9,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -48,7 +46,8 @@ private const val TAG = "WmsItemDetails"
 data class WmsEditState(
     val material: String,
     val position: String,
-    val positionId: Int?,
+//    val positionId: Int?,
+    val positionId: List<String>,
     val qty: String,
     val min: String,
     val max: String
@@ -103,42 +102,6 @@ fun WmsItemDetailsScreen(
         }
     }
 
-    // Сканирование топологии: работает когда открыт ChangeTopologyDialog
-//    LaunchedEffect(Unit) {
-//        scannerManager.barcodeFlow.collect { scannedData ->
-//            Log.d("TAG", "CHECK LE scanner")
-//            if (scannedData.isEmpty()) return@collect
-//            if (!showChangeTopologyDialog) return@collect
-//            val current = currentItem ?: return@collect
-//
-//            val scannedCode = scannedData.trim()
-//            val matched = topologies.find {
-//                it.positionScan.equals(scannedCode, ignoreCase = true)
-//            }
-//            Log.d(TAG, "saveTopologyChange = $scannedCode")
-//
-//            if (matched != null) {
-//                // Автосохранение
-//                saveTopologyChange(
-//                    item = current,
-//                    topology = matched,
-//                    context = context,
-//                    mainViewModel = mainViewModel,
-//                    onSuccess = {
-//                        showChangeTopologyDialog = false
-//                        Toast.makeText(context, "Топология изменена на ${matched.position}", Toast.LENGTH_SHORT).show()
-//                    }
-//                )
-//            } else {
-//                Toast.makeText(
-//                    context,
-//                    "Позиция '$scannedCode' не найдена на этом складе",
-//                    Toast.LENGTH_LONG
-//                ).show()
-//            }
-//        }
-//    }
-    // Единый коллектор сканера: обрабатывает 2 режима:
     // Сканирование топологии и склада
     LaunchedEffect(Unit) {
         scannerManager.barcodeFlow.collect { scannedData ->
@@ -203,19 +166,6 @@ fun WmsItemDetailsScreen(
     }
 
     // Инициализация editState когда item и topologies загружены
-//    LaunchedEffect(item, topologies) {
-//        if (item != null && topologies.isNotEmpty()) {
-//            if (editState == null) {
-//                editState = WmsEditState.fromItem(item)
-//            }
-//            // Выходим из режима редактирования после успешной перезагрузки
-//            if (isEditing && uiState is MainViewModel.UiState.WmsLoaded) {
-//                // Данные обновились — сбрасываем editState
-//                editState = WmsEditState.fromItem(item)
-//                // isEditing оставим true — пользователь сам решит
-//            }
-//        }
-//    }
     LaunchedEffect(item, topologies) {
         if (item != null && isEditing) {
             editState = WmsEditState.fromItem(item)
@@ -434,7 +384,7 @@ private fun saveTopologyChange(
     mainViewModel.updateWmsItem(
         item = item,
         newPosition = topology.position,
-        newPositionId = topology.id.toIntOrNull(),
+        newPositionId = listOf(topology.positionScan),
         newMin = item.min,
         newMax = item.max,
         newMaterial = null,
@@ -774,7 +724,8 @@ private fun WmsLocationCard(
                                             onEditStateChange(
                                                 state.copy(
                                                     position = topology.position,
-                                                    positionId = topology.id.toInt()
+//                                                    positionId = topology.id.toInt()
+                                                    positionId = listOf(topology.id)
                                                 )
                                             )
                                         }
@@ -1367,7 +1318,7 @@ fun WmsItemDetailsContentPreview() {
                     material = "LA0602600443",
                     max = 111,
                     min = 10,
-                    positionId = 1,
+                    positionId = emptyList(),
                     position = "2-10-3",
                     price = 150.5,
                     qty = 42.0,
@@ -1383,7 +1334,7 @@ fun WmsItemDetailsContentPreview() {
                 editState = WmsEditState.fromItem(
                     WmsItemDto(
                         id = 1, name = "Сигнализационная лампа", material = "LA0602600443",
-                        max = 111, min = 10, positionId = 1, position = "BUFF",
+                        max = 111, min = 10, positionId = listOf("1"), position = "BUFF",
                         price = 150.5, qty = 42.0, sapA = 1, storage = "3051", storageId = 1
                     )
                 ),
@@ -1411,7 +1362,7 @@ fun WmsItemDetailsContentPreview_Editing() {
                     material = "LA0602600443",
                     max = 111,
                     min = 10,
-                    positionId = 1,
+                    positionId = listOf("1"),
                     position = "BUFF",
                     price = 150.5,
                     qty = 42.0,
@@ -1428,7 +1379,7 @@ fun WmsItemDetailsContentPreview_Editing() {
                 editState = WmsEditState(
                     material = "LA0602600443",
                     position = "A-01",
-                    positionId = 2,
+                    positionId = listOf("2"),
                     qty = "42",
                     min = "10",
                     max = "111"
@@ -1453,7 +1404,7 @@ fun MoveDialogPreview() {
             MoveMaterialDialog(
                 itemToMove = WmsItemDto(
                     id = 1, material = "material", max = 100, min = 1,
-                    positionId = 0, position = "position", price = 211.0,
+                    positionId = emptyList(), position = "position", price = 211.0,
                     qty = 222.0, sapA = 1, storage = "storage",
                     storageId = 3, name = "name"
                 ),
