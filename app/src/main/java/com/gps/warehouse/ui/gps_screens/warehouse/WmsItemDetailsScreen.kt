@@ -45,9 +45,10 @@ private const val TAG = "WmsItemDetails"
 // ====================== Внутреннее состояние редактирования ======================
 data class WmsEditState(
     val material: String,
-    val position: String,
+//    val position: String,
+    val position: List<String>,
 //    val positionId: Int?,
-    val positionId: List<String>,
+    val positionId: List<Int>,
     val qty: String,
     val min: String,
     val max: String
@@ -267,7 +268,7 @@ fun WmsItemDetailsScreen(
             val qtyInt = state.qty.toIntOrNull() ?: item.qty.toInt()
 
             // Валидация
-            if (state.position.isBlank() || state.positionId == null) {
+            if (state.position.isEmpty()) {
                 Toast.makeText(context, "Выберите позицию", Toast.LENGTH_SHORT).show()
                 return@WmsItemDetailsContent
             }
@@ -348,7 +349,7 @@ fun WmsItemDetailsScreen(
     // === ДИАЛОГ ИЗМЕНЕНИЯ ТОПОЛОГИИ ===
     if (showChangeTopologyDialog) {
         ChangeTopologyDialog(
-            currentPosition = item.position,
+            currentPosition = item.position[0],
             topologies = topologies,
             currentMaterial = item.material,
             onDismiss = { showChangeTopologyDialog = false },
@@ -383,8 +384,8 @@ private fun saveTopologyChange(
 ) {
     mainViewModel.updateWmsItem(
         item = item,
-        newPosition = topology.position,
-        newPositionId = listOf(topology.positionScan),
+        newPosition = listOf(topology.position),
+        newPositionId = listOf(topology.positionScan.toInt()),
         newMin = item.min,
         newMax = item.max,
         newMaterial = null,
@@ -689,13 +690,13 @@ private fun WmsLocationCard(
             // Топология
             if (isEditing) {
                 // Dropdown для выбора топологии
-                var expanded by remember { mutableStateOf(false) }
+                var expanded by remember { mutableStateOf(true) }
                 ExposedDropdownMenuBox(
                     expanded = expanded,
                     onExpandedChange = { expanded = !expanded }
                 ) {
                     OutlinedTextField(
-                        value = editState?.position ?: item.position,
+                        value = editState?.position[0] ?: item.position[0],
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Топология") },
@@ -723,16 +724,15 @@ private fun WmsLocationCard(
                                         editState?.let { state ->
                                             onEditStateChange(
                                                 state.copy(
-                                                    position = topology.position,
-//                                                    positionId = topology.id.toInt()
-                                                    positionId = listOf(topology.id)
+                                                    position = listOf(topology.position),
+                                                    positionId = listOf(topology.id.toInt())
                                                 )
                                             )
                                         }
                                         expanded = false
                                     },
                                     leadingIcon = {
-                                        if (topology.position == editState?.position) {
+                                        if (topology.position.equals(editState?.positionId)) {
                                             Icon(
                                                 Icons.Default.Check,
                                                 null,
@@ -774,7 +774,7 @@ private fun WmsLocationCard(
                         color = MaterialTheme.colorScheme.secondaryContainer
                     ) {
                         Text(
-                            text = item.position.ifBlank { "—" },
+                            text = item.position.toString(),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer,
@@ -1319,7 +1319,7 @@ fun WmsItemDetailsContentPreview() {
                     max = 111,
                     min = 10,
                     positionId = emptyList(),
-                    position = "2-10-3",
+                    position = listOf("2-10-3"),
                     price = 150.5,
                     qty = 42.0,
                     sapA = 1,
@@ -1334,7 +1334,7 @@ fun WmsItemDetailsContentPreview() {
                 editState = WmsEditState.fromItem(
                     WmsItemDto(
                         id = 1, name = "Сигнализационная лампа", material = "LA0602600443",
-                        max = 111, min = 10, positionId = listOf("1"), position = "BUFF",
+                        max = 111, min = 10, positionId = listOf(1), position = listOf("BUFF"),
                         price = 150.5, qty = 42.0, sapA = 1, storage = "3051", storageId = 1
                     )
                 ),
@@ -1362,8 +1362,8 @@ fun WmsItemDetailsContentPreview_Editing() {
                     material = "LA0602600443",
                     max = 111,
                     min = 10,
-                    positionId = listOf("1"),
-                    position = "BUFF",
+                    positionId = listOf(1),
+                    position = listOf("BUFF"),
                     price = 150.5,
                     qty = 42.0,
                     sapA = 0,
@@ -1378,8 +1378,8 @@ fun WmsItemDetailsContentPreview_Editing() {
                 isEditing = true,
                 editState = WmsEditState(
                     material = "LA0602600443",
-                    position = "A-01",
-                    positionId = listOf("2"),
+                    position = listOf("A-01"),
+                    positionId = listOf(2),
                     qty = "42",
                     min = "10",
                     max = "111"
@@ -1404,7 +1404,7 @@ fun MoveDialogPreview() {
             MoveMaterialDialog(
                 itemToMove = WmsItemDto(
                     id = 1, material = "material", max = 100, min = 1,
-                    positionId = emptyList(), position = "position", price = 211.0,
+                    positionId = emptyList(), position = listOf("position"), price = 211.0,
                     qty = 222.0, sapA = 1, storage = "storage",
                     storageId = 3, name = "name"
                 ),

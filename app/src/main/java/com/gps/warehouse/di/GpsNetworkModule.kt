@@ -1,23 +1,33 @@
 package com.gps.warehouse.di
 
+import android.content.Context
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import com.gps.warehouse.R
 import com.gps.warehouse.data.remote.GPSApiService
 import com.gps.warehouse.utils.Constants
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
+import java.io.InputStream
 import java.net.CookieManager
 import java.net.CookiePolicy
+import java.security.KeyStore
+import java.security.cert.Certificate
+import java.security.cert.CertificateFactory
 import java.util.concurrent.TimeUnit
 import javax.inject.Named
 import javax.inject.Singleton
+import javax.net.ssl.SSLContext
+import javax.net.ssl.TrustManagerFactory
+import javax.net.ssl.X509TrustManager
 import kotlin.math.log
 
 /**
@@ -40,7 +50,35 @@ object GpsNetworkModule {
     @Provides
     @Singleton
     @Named("gps")
-    fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
+    fun provideOkHttpClient(@ApplicationContext context: Context, authInterceptor: AuthInterceptor): OkHttpClient {
+        // 1. Загружаем сертификат из res/raw/gps_rs_cert.crt
+        val certificateFactory = CertificateFactory.getInstance("X.509")
+        val certificateInputStream: InputStream = context.resources.openRawResource(R.raw.gps_https)
+        val certificate: Certificate = certificateFactory.generateCertificate(certificateInputStream)
+        certificateInputStream.close()
+
+        // 2. Создаем KeyStore и добавляем туда наш сертификат
+        val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
+            load(null, null)
+            setCertificateEntry("ca", certificate)
+        }
+
+        // 3. Создаем TrustManager, который доверяет нашему KeyStore
+        val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply {
+            init(keyStore)
+        }
+        val trustManagers = trustManagerFactory.trustManagers
+        require(trustManagers.size == 1 && trustManagers[0] is X509TrustManager) {
+            "Unexpected default trust managers: ${trustManagers.contentToString()}"
+        }
+        val trustManager = trustManagers[0] as X509TrustManager
+
+        // 4. Создаем SSLContext с нашим TrustManager
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf(trustManager), null)
+        }
+
+
         // Настраиваем интерцептор для логирования всего тела запроса и ответа.
         // Уровень BODY полезен при разработке, но в продакшене лучше использовать NONE или HEADERS.
         val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -51,6 +89,7 @@ object GpsNetworkModule {
         val cookieJar = PersistentCookieJar()
 
         return OkHttpClient.Builder()
+            .sslSocketFactory(sslContext.socketFactory, trustManager)
             .addInterceptor(authInterceptor)                // Перехватывает 401 ошибки
             .addInterceptor(loggingInterceptor)             // Добавляем логгер
             .connectTimeout(300, TimeUnit.SECONDS)   // Тайм-аут на установление соединения
