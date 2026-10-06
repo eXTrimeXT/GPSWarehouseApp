@@ -51,9 +51,10 @@ object GpsNetworkModule {
     @Singleton
     @Named("gps")
     fun provideOkHttpClient(@ApplicationContext context: Context, authInterceptor: AuthInterceptor): OkHttpClient {
-        // 1. Загружаем сертификат из res/raw/gps_rs_cert.crt
+        // 1. Загружаем сертификат из res/raw/gps_https.crt
         val certificateFactory = CertificateFactory.getInstance("X.509")
-        val certificateInputStream: InputStream = context.resources.openRawResource(R.raw.gps_https)
+//        val certificateInputStream: InputStream = context.resources.openRawResource(R.raw.gps_https)
+        val certificateInputStream: InputStream = context.resources.openRawResource(R.raw.hmmr_ru)
         val certificate: Certificate = certificateFactory.generateCertificate(certificateInputStream)
         certificateInputStream.close()
 
@@ -89,7 +90,7 @@ object GpsNetworkModule {
         val cookieJar = PersistentCookieJar()
 
         return OkHttpClient.Builder()
-            .sslSocketFactory(sslContext.socketFactory, trustManager)
+//            .sslSocketFactory(sslContext.socketFactory, trustManager)
             .addInterceptor(authInterceptor)                // Перехватывает 401 ошибки
             .addInterceptor(loggingInterceptor)             // Добавляем логгер
             .connectTimeout(300, TimeUnit.SECONDS)   // Тайм-аут на установление соединения

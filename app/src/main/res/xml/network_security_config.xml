@@ -1,9 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
-    <domain-config>
-        <domain includeSubdomains="true">gps-rs.hmmr.ru</domain>
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
-            <certificates src="@raw/gps_https"/>
+            <!-- Доверяем стандартным системным сертификатам -->
+            <certificates src="system" />
+            <!-- И ДОБАВЛЯЕМ наш кастомный сертификат -->
+            <certificates src="@raw/hmmr_ru" />
         </trust-anchors>
+    </base-config>
+
+
+    <!-- 2. Специфическая конфигурация: РАЗРЕШАЕМ http только для внутреннего IP-адреса сервера активов -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.168.130.86</domain>
     </domain-config>
+
+    <!-- 3. (Опционально) Если тестовый API тоже иногда работает по http, можно добавить и его: -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">gps-test.hmmr.ru</domain>
+    </domain-config>
+
 </network-security-config>

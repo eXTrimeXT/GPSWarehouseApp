@@ -18,7 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.BmListDto
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.ui.components.AppIconDisplay
+import com.gps.warehouse.ui.components.AppIconProd
+import com.gps.warehouse.ui.components.AppIconTest
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.home.HomeTab
@@ -164,7 +165,9 @@ fun SettingsContent(
         ) {
             // Иконка приложения
             if (Constants.BASE_URL_API.contains("gps-rs")) {
-                AppIconDisplay()
+                AppIconProd()
+            } else {
+                AppIconTest()
             }
 
             // ================== НАСТРОЙКА ВКЛАДКИ ПО УМОЛЧАНИЮ ==================

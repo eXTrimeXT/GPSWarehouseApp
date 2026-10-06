@@ -7,15 +7,29 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.gps.warehouse.R
 
 @Composable
-fun AppIconDisplay() {
+fun AppIconProd() {
     Image(
-        painter = painterResource(id = R.mipmap.ic_background_remover),
+        painter = painterResource(id = R.mipmap.ic_background_prod_full_size),
+        contentDescription = "Иконка приложения",
+    )
+}
+
+@Composable
+fun AppIconTest() {
+    Image(
+        painter = painterResource(id = R.mipmap.ic_background_test_full_size),
         contentDescription = "Иконка приложения",
     )
 }
 
 @Preview
 @Composable
-fun PreviewAppIconDisplay(){
-    AppIconDisplay()
+fun PreviewAppIconProd(){
+    AppIconProd()
+}
+
+@Preview
+@Composable
+fun PreviewAppIconTest(){
+    AppIconTest()
 }

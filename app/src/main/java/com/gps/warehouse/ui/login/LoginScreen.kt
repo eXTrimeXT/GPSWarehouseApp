@@ -1,6 +1,5 @@
 package com.gps.warehouse.ui.login
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
@@ -12,15 +11,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.R
-import com.gps.warehouse.ui.components.AppIconDisplay
+import com.gps.warehouse.ui.components.AppIconProd
+import com.gps.warehouse.ui.components.AppIconTest
+import com.gps.warehouse.utils.Constants
 
 // Реальный экран
 @Composable
@@ -76,7 +75,11 @@ fun LoginScreenContent(
         Text(text = "Авторизация GPS RS", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(12.dp))
 
-        AppIconDisplay()
+        if (Constants.BASE_URL_API.contains("gps-rs")) {
+            AppIconProd()
+        } else {
+            AppIconTest()
+        }
 
         OutlinedTextField(
             value = username,
