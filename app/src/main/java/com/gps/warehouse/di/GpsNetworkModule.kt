@@ -51,20 +51,19 @@ object GpsNetworkModule {
     @Singleton
     @Named("gps")
     fun provideOkHttpClient(@ApplicationContext context: Context, authInterceptor: AuthInterceptor): OkHttpClient {
-        // 1. Загружаем сертификат из res/raw/gps_https.crt
+        // Загружаем сертификат из res/raw/gps_https.crt
         val certificateFactory = CertificateFactory.getInstance("X.509")
-//        val certificateInputStream: InputStream = context.resources.openRawResource(R.raw.gps_https)
-        val certificateInputStream: InputStream = context.resources.openRawResource(R.raw.hmmr_ru)
+        val certificateInputStream: InputStream = context.resources.openRawResource(R.raw.gps_https)
         val certificate: Certificate = certificateFactory.generateCertificate(certificateInputStream)
         certificateInputStream.close()
 
-        // 2. Создаем KeyStore и добавляем туда наш сертификат
+        // Создаем KeyStore и добавляем туда наш сертификат
         val keyStore = KeyStore.getInstance(KeyStore.getDefaultType()).apply {
             load(null, null)
             setCertificateEntry("ca", certificate)
         }
 
-        // 3. Создаем TrustManager, который доверяет нашему KeyStore
+        // Создаем TrustManager, который доверяет нашему KeyStore
         val trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()).apply {
             init(keyStore)
         }
@@ -74,7 +73,7 @@ object GpsNetworkModule {
         }
         val trustManager = trustManagers[0] as X509TrustManager
 
-        // 4. Создаем SSLContext с нашим TrustManager
+        // Создаем SSLContext с нашим TrustManager
         val sslContext = SSLContext.getInstance("TLS").apply {
             init(null, arrayOf(trustManager), null)
         }
@@ -90,7 +89,7 @@ object GpsNetworkModule {
         val cookieJar = PersistentCookieJar()
 
         return OkHttpClient.Builder()
-//            .sslSocketFactory(sslContext.socketFactory, trustManager)
+            .sslSocketFactory(sslContext.socketFactory, trustManager)
             .addInterceptor(authInterceptor)                // Перехватывает 401 ошибки
             .addInterceptor(loggingInterceptor)             // Добавляем логгер
             .connectTimeout(300, TimeUnit.SECONDS)   // Тайм-аут на установление соединения

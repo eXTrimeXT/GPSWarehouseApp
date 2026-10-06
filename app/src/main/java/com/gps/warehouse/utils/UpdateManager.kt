@@ -47,7 +47,7 @@ class UpdateManager(private val context: Context) {
         manager.createNotificationChannel(channel)
     }
 
-    // 1. Проверка наличия обновлений на сервере
+    // Проверка наличия обновлений на сервере
     suspend fun checkForUpdates(baseUrl: String): VersionInfo? = withContext(Dispatchers.IO) {
         try {
             val url = URL("$baseUrl/version-info")
@@ -68,6 +68,8 @@ class UpdateManager(private val context: Context) {
             connection.disconnect()
 
             val json = JSONObject(responseBody)
+            Log.i(TAG, json.toString())
+
             VersionInfo(
                 jobId = json.getInt("job_id"),
                 version = json.getInt("version"),
@@ -80,7 +82,7 @@ class UpdateManager(private val context: Context) {
         }
     }
 
-    // 2. Скачивание APK в кэш. АВТОМАТИЧЕСКАЯ УСТАНОВКА ОТКЛЮЧЕНА.
+    // Скачивание APK в кэш. АВТОМАТИЧЕСКАЯ УСТАНОВКА ОТКЛЮЧЕНА.
     suspend fun downloadUpdate(baseUrl: String, onProgress: (Int) -> Unit = {}): Boolean = withContext(Dispatchers.IO) {
         try {
             val apkUrl = "$baseUrl/download/apk"

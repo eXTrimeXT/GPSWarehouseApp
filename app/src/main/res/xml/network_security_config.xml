@@ -5,17 +5,22 @@
             <!-- Доверяем стандартным системным сертификатам -->
             <certificates src="system" />
             <!-- И ДОБАВЛЯЕМ наш кастомный сертификат -->
-            <certificates src="@raw/hmmr_ru" />
+            <certificates src="@raw/gps_https" />
         </trust-anchors>
     </base-config>
 
+    <!-- Специфическая конфигурация: РАЗРЕШАЕМ http только для внутреннего IP-адреса сервера активов -->
+    <!-- TEST -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.168.143.7</domain>
+    </domain-config>
 
-    <!-- 2. Специфическая конфигурация: РАЗРЕШАЕМ http только для внутреннего IP-адреса сервера активов -->
+    <!-- PROD-->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.168.130.86</domain>
     </domain-config>
 
-    <!-- 3. (Опционально) Если тестовый API тоже иногда работает по http, можно добавить и его: -->
+    <!-- Иногда тестовый API тоже иногда работает по http -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">gps-test.hmmr.ru</domain>
     </domain-config>

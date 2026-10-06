@@ -201,12 +201,14 @@ class MainActivity : ComponentActivity() {
                             // NavHost занимает ВСЁ ОСТАВШЕЕСЯ место благодаря weight(1f)
                             NavHost(modifier = Modifier.weight(1f), navController = navController, startDestination = "login") {
                                 composable("login") {
+                                    // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПЕРЕД ВХОДОМ, на случай если сломалась авторизация
+                                    checkForAppUpdate()
+
                                     LoginScreen(
                                         onLoginSuccess = {
                                             navController.navigate("home") {
                                                 popUpTo("login") { inclusive = true }
                                             }
-                                            // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПОСЛЕ ВХОДА
                                             checkForAppUpdate()
                                         },
                                         viewModel = mainViewModel
