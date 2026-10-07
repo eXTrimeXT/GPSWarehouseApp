@@ -24,6 +24,7 @@ import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
+import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionObj
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
@@ -574,10 +575,12 @@ class AssetViewModel @Inject constructor(
                 assetApiService.startInventorizationSession(
                     "Bearer ${getToken()}",
                     InventorizationSessionCreateRequest(
+                        obj = InventorizationSessionObj(
                         assetTypeId = assetTypeId,
                         departmentCode = departmentCode,
                         startDate = startDate,
                         endDate = endDate
+                        )
                     )
                 )
                 loadInventorizationSessions() // Перезагружаем список

@@ -141,8 +141,8 @@ class MainViewModel @Inject constructor(
     val availableWarehouses: StateFlow<List<WarehousePermissionDto>> =
         _availableWarehouses.asStateFlow()
 
-    private val _gpsPermissions = MutableStateFlow<List<GpsPermissionDto>>(emptyList())
-    val gpsPermissions: StateFlow<List<GpsPermissionDto>> = _gpsPermissions.asStateFlow()
+    private val _gpsPermissions = MutableStateFlow<List<PermissionDto>>(emptyList())
+    val gpsPermissions: StateFlow<List<PermissionDto>> = _gpsPermissions.asStateFlow()
 
     private val _userIsAssetsAdmin = MutableStateFlow(true)
     val userIsAssetsAdmin: StateFlow<Boolean> = _userIsAssetsAdmin.asStateFlow()

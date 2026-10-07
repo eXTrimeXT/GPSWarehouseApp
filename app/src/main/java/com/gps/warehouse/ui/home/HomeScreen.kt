@@ -26,7 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.BmListDto
-import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
+import com.gps.warehouse.data.remote.gps_dto.PermissionDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.utils.AppPreferences
@@ -117,7 +117,7 @@ fun HomeScreenContent(
     modifier: Modifier = Modifier,
     selectedTabIndex: Int,
     onNavigate: (String) -> Unit,
-    permissions: List<GpsPermissionDto>,
+    permissions: List<PermissionDto>,
     isUserAssetsAdmin: Boolean,
     bmList: List<BmListDto>,
     notificationCount: Int?
@@ -397,10 +397,10 @@ private fun HomeScreenPreview() {
     var selectedTabIndex by remember { mutableIntStateOf(0) } // 0 = Заказы (по умолчанию)
     val tabs = HomeTab.entries.toTypedArray()
     val permissions = listOf(
-        GpsPermissionDto(nameGroup = "computer", read = false, write = false),
-        GpsPermissionDto(nameGroup = "mes_equipment", read = false, write = true),
-        GpsPermissionDto(nameGroup = "power_adapter", read = false, write = true),
-        GpsPermissionDto(nameGroup = "android_data", read = true, write = true),
+        PermissionDto(nameGroup = "computer", read = false, write = false),
+        PermissionDto(nameGroup = "mes_equipment", read = false, write = true),
+        PermissionDto(nameGroup = "power_adapter", read = false, write = true),
+        PermissionDto(nameGroup = "android_data", read = true, write = true),
     )
     val bmList: List<BmListDto> = emptyList()
 

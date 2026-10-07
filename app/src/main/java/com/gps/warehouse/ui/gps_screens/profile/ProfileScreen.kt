@@ -18,7 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
+import com.gps.warehouse.data.remote.gps_dto.PermissionDepartmentDto
+import com.gps.warehouse.data.remote.gps_dto.PermissionDto
 import com.gps.warehouse.data.remote.gps_dto.UserProfileResponse
 import com.gps.warehouse.data.remote.gps_dto.WarehousePermissionDto
 import com.gps.warehouse.ui.components.ErrorStateView
@@ -394,7 +395,7 @@ fun CollapsibleWarehouseCard(permissions: List<WarehousePermissionDto>) {
 }
 
 @Composable
-fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: List<GpsPermissionDto>?) {
+fun CollapsiblePermissionCard(assetsAdmin: Boolean?, permissions: List<PermissionDto>?) {
     var isExpanded by remember { mutableStateOf(false) }
 
     Card(
@@ -572,9 +573,16 @@ fun ProfilePreviewLoaded() {
         ),
         assetsIsAdmin = false,
         permissions = listOf(
-            GpsPermissionDto(nameGroup = "android_data", read = true, write = false)
+            PermissionDto(nameGroup = "android_data", read = true, write = false)
         ),
-        bmList = null
+        bmList = null,
+        permissionDepartments = listOf(
+            PermissionDepartmentDto(
+                department = "RDC",
+                departmentCode = "RU1050099",
+                nameGroup = "Активы RDC"
+            )
+        )
     )
     MaterialTheme {
         Surface {

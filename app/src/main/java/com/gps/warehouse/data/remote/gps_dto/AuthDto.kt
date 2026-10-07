@@ -40,7 +40,8 @@ data class UserProfileResponse(
     @SerializedName("last_time") val lastTime: String?,     // Время последнего входа
     @SerializedName("last_ip") val lastIp: String?,         // Последний IP
     @SerializedName("warehouse_permissions") val warehousePermissions: List<WarehousePermissionDto>?,   // Права на склады
-    @SerializedName("permission") val permissions: List<GpsPermissionDto>?,
+    @SerializedName("permission") val permissions: List<PermissionDto>?,
+    @SerializedName("permission_departments") val permissionDepartments: List<PermissionDepartmentDto>?,
     @SerializedName("assets_is_admin") val assetsIsAdmin: Boolean? = false,
     @SerializedName("bm_list") val bmList: List<BmListDto>?
 )
@@ -53,7 +54,7 @@ data class WarehousePermissionDto(
     @SerializedName("virtual") val isVirtual: String   // "1" или "0" виртуальные не учитываются в SAP
 )
 
-data class GpsPermissionDto(
+data class PermissionDto(
     @SerializedName("name_group") val nameGroup: String,
     val read: Boolean,
     val write: Boolean
@@ -69,4 +70,12 @@ data class BmListDto(
     @SerializedName("name") val name: String,
     @SerializedName("name1") val name1: String,
     @SerializedName("name_rule") val nameRule: String,
+)
+
+data class PermissionDepartmentDto(
+    @SerializedName("department") val department: String?,
+    @SerializedName("department_code") val departmentCode: String?,
+    @SerializedName("name_group") val nameGroup: String?,
+    val read: Boolean = false,
+    val write: Boolean = false,
 )

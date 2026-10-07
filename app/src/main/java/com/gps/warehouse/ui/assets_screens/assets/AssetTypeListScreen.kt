@@ -18,7 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
-import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
+import com.gps.warehouse.data.remote.gps_dto.PermissionDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScannerDialog
@@ -147,7 +147,7 @@ fun AssetTypeListScreenContent(
     cameraScanEnabled: Boolean,
     onCameraScanClick: () -> Unit,
     assetTypes: List<AssetTypeDto>,
-    gpsPermissions: List<GpsPermissionDto>?,
+    gpsPermissions: List<PermissionDto>?,
     onNavigate: (String) -> Unit,
     onBackClick: () -> Unit,
     onRetry: () -> Unit
@@ -380,10 +380,10 @@ fun AssetTypeListScreenPreview_Loaded() {
                 onCameraScanClick = {},
                 assetTypes = mockAssetTypes,
                 gpsPermissions = listOf(
-                    GpsPermissionDto(nameGroup = "without_type", read = true, write = true),
-                    GpsPermissionDto(nameGroup = "computer", read = true, write = true),
-                    GpsPermissionDto(nameGroup = "data_collection_equipment", read = true, write = false),
-                    GpsPermissionDto(nameGroup = "network_equipment", read = true, write = true)
+                    PermissionDto(nameGroup = "without_type", read = true, write = true),
+                    PermissionDto(nameGroup = "computer", read = true, write = true),
+                    PermissionDto(nameGroup = "data_collection_equipment", read = true, write = false),
+                    PermissionDto(nameGroup = "network_equipment", read = true, write = true)
                 ),
                 onNavigate = {},
                 onBackClick = {},
@@ -415,7 +415,7 @@ fun AssetTypeListScreenPreview_Empty() {
                 onCameraScanClick = {},
                 assetTypes = mockAssetTypes,
                 gpsPermissions = listOf(
-                    GpsPermissionDto(nameGroup = "computer", read = false, write = false)
+                    PermissionDto(nameGroup = "computer", read = false, write = false)
                 ),
                 onNavigate = {},
                 onBackClick = {},

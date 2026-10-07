@@ -22,7 +22,7 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.gps_dto.BmListDto
-import com.gps.warehouse.data.remote.gps_dto.GpsPermissionDto
+import com.gps.warehouse.data.remote.gps_dto.PermissionDto
 import com.gps.warehouse.data.remote.gps_dto.InventoryMaterialDto
 import com.gps.warehouse.data.remote.gps_dto.InventoryOrderDto
 import com.gps.warehouse.data.remote.gps_dto.MaterialDto
@@ -30,14 +30,11 @@ import com.gps.warehouse.data.remote.gps_dto.OrderDto
 import com.gps.warehouse.data.remote.gps_dto.WarehouseMaterialDto
 import com.gps.warehouse.data.remote.gps_dto.WmsItemDto
 import com.gps.warehouse.utils.AppThemeMode
-import com.gps.warehouse.utils.Constants
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import java.io.IOException
-import java.util.prefs.Preferences
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -126,7 +123,7 @@ class LocalStorage @Inject constructor(private val context: Context) {
     // ======================== КЭШ ПРОФИЛЯ ========================
     fun saveProfileCache(
         bmList: List<BmListDto>,
-        permissions: List<GpsPermissionDto>,
+        permissions: List<PermissionDto>,
         isAssetsAdmin: Boolean
     ) {
         cachePrefs.edit()
@@ -141,9 +138,9 @@ class LocalStorage @Inject constructor(private val context: Context) {
         return try { gson.fromJson(json, object : TypeToken<List<BmListDto>>() {}.type) } catch (e: Exception) { emptyList() }
     }
 
-    fun getCachedPermissions(): List<GpsPermissionDto> {
+    fun getCachedPermissions(): List<PermissionDto> {
         val json = cachePrefs.getString("cache_permissions", null) ?: return emptyList()
-        return try { gson.fromJson(json, object : TypeToken<List<GpsPermissionDto>>() {}.type) } catch (e: Exception) { emptyList() }
+        return try { gson.fromJson(json, object : TypeToken<List<PermissionDto>>() {}.type) } catch (e: Exception) { emptyList() }
     }
 
     fun getCachedIsAssetsAdmin(): Boolean {

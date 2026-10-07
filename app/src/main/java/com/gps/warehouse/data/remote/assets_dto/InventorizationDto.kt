@@ -29,15 +29,19 @@ data class InventorizationItemDto(
     @SerializedName("quantity_fact") val quantityFact: Int?,
 )
 
-data class InventorizationSessionCreateRequest(
-    @SerializedName("asset_type_id") val assetTypeId: Int? = null,
-    @SerializedName("department_code") val departmentCode: String? = null,
-    @SerializedName("start_date") val startDate: String? = null,
-    @SerializedName("end_date") val endDate: String? = null
-)
-
 data class CheckItemRequest(
     @SerializedName("asset_id") val assetId: Int? = null,
     @SerializedName("material_id") val materialId: String? = null,
     @SerializedName("quantity_fact") val quantityFact: Int? = null
+)
+
+data class InventorizationSessionCreateRequest(
+    @SerializedName("obj") val obj: InventorizationSessionObj
+)
+
+data class InventorizationSessionObj(
+    @SerializedName("asset_type_id") val assetTypeId: Int? = null,
+    @SerializedName("department_code") val departmentCode: String? = null,
+    @SerializedName("start_date") val startDate: String? = null,
+    @SerializedName("end_date") val endDate: String? = null
 )
