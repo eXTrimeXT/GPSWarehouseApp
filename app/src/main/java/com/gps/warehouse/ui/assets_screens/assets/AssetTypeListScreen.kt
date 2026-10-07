@@ -318,7 +318,7 @@ fun OtherTypesCard(onClick: () -> Unit) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Все типы активов",
+                    text = "Все активы",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -343,6 +343,7 @@ fun OtherTypesCard(onClick: () -> Unit) {
  */
 fun getIconForType(enName: String): ImageVector {
     return when (enName.lowercase()) {
+        "without_type" -> Icons.Default.Dashboard
         "computer" -> Icons.Default.Computer
         "mes_equipment" -> Icons.Default.Memory
         "supplies" -> Icons.Default.Inventory2
@@ -365,6 +366,7 @@ fun getIconForType(enName: String): ImageVector {
 @Composable
 fun AssetTypeListScreenPreview_Loaded() {
     val mockAssetTypes = listOf(
+        AssetTypeDto(assetTypeId = 0, name = "Без типа", enName = "without_type", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null),
         AssetTypeDto(assetTypeId = 1, name = "Компьютер", enName = "computer", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null),
         AssetTypeDto(assetTypeId = 5, name = "Оборудование сбора данных", enName = "data_collection_equipment", createdBy = null, createdAt = "2026-07-06T07:20:23.134850", updatedAt = null),
         AssetTypeDto(assetTypeId = 7, name = "Сетевое оборудование", enName = "network_equipment", createdBy = null, createdAt = "2026-07-06T07:21:39.334371", updatedAt = null)
@@ -378,6 +380,7 @@ fun AssetTypeListScreenPreview_Loaded() {
                 onCameraScanClick = {},
                 assetTypes = mockAssetTypes,
                 gpsPermissions = listOf(
+                    GpsPermissionDto(nameGroup = "without_type", read = true, write = true),
                     GpsPermissionDto(nameGroup = "computer", read = true, write = true),
                     GpsPermissionDto(nameGroup = "data_collection_equipment", read = true, write = false),
                     GpsPermissionDto(nameGroup = "network_equipment", read = true, write = true)
@@ -394,7 +397,14 @@ fun AssetTypeListScreenPreview_Loaded() {
 @Composable
 fun AssetTypeListScreenPreview_Empty() {
     val mockAssetTypes = listOf(
-        AssetTypeDto(assetTypeId = 1, name = "Компьютер", enName = "computer", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null)
+        AssetTypeDto(
+            assetTypeId = 1,
+            name = "Компьютер",
+            enName = "computer",
+            createdBy = null,
+            createdAt = "2026-07-06T07:18:41.873769",
+            updatedAt = null
+        )
     )
 
     MaterialTheme {

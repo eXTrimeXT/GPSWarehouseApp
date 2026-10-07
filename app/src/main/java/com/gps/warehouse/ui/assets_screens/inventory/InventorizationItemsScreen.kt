@@ -75,26 +75,24 @@ fun InventorizationItemsScreen(
         if (scannedValue != null) {
             val currentState = uiState
             if (currentState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
-                // Ищем актив по серийному номеру ИЛИ инвентарному номеру
+                // Ищем по assetId, materialId, serialNumber или inventoryId
                 val foundAsset = currentState.items.find {
-                    it.serialNumber.equals(scannedValue, ignoreCase = true) ||
+                    (it.assetId != null && it.assetId.toString() == scannedValue) ||
+                            (it.materialId != null && it.materialId.equals(scannedValue, ignoreCase = true)) ||
+                            it.serialNumber.equals(scannedValue, ignoreCase = true) ||
                             it.inventoryId.equals(scannedValue, ignoreCase = true)
                 }
 
                 if (foundAsset != null) {
-                    if (selectedAsset?.assetId == foundAsset.assetId) {
+                    if (selectedAsset?.assetId == foundAsset.assetId && selectedAsset?.materialId == foundAsset.materialId) {
                         selectedAsset = null
                         focusManager.clearFocus()
                     } else {
                         selectedAsset = foundAsset
-                        inputQty = ""
+                        inputQty = foundAsset.quantityFact?.toString() ?: ""
                     }
                 } else {
-                    Toast.makeText(
-                        context,
-                        "Актив с номером '$scannedValue' не найден в сессии",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(context, "Актив с номером '$scannedValue' не найден в сессии", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
@@ -160,7 +158,13 @@ fun InventorizationItemsScreen(
             selectedAsset?.let { asset ->
                 val qty = inputQty.toIntOrNull() ?: 0
                 if (qty >= 0) {
-                    assetViewModel.checkInventorizationItem(sessionId, asset.assetId, qty)
+                    // Передаем и assetId, и materialId. Бэкенд сам выберет нужный (валидатор API)
+                    assetViewModel.checkInventorizationItem(
+                        sessionId = sessionId,
+                        assetId = asset.assetId,
+                        materialId = asset.materialId,
+                        quantityFact = qty
+                    )
                     selectedAsset = null
                     focusManager.clearFocus()
                 }
@@ -236,14 +240,18 @@ fun InventorizationItemsContent(
                     trailingIcon = if (searchQuery.isNotEmpty()) {
                         { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, "Очистить") } }
                     } else null,
-                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
                     singleLine = true
                 )
             }
 
             if (isCompleted) {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Text(
@@ -258,7 +266,9 @@ fun InventorizationItemsContent(
 
             when (uiState) {
                 is AssetViewModel.AssetUiState.Loading -> {
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
@@ -270,7 +280,9 @@ fun InventorizationItemsContent(
                     }
 
                     if (filteredItems.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(if (allItems.isEmpty()) "Нет активов в сессии" else "Ничего не найдено")
                                 if (allItems.isNotEmpty() && searchQuery.isNotEmpty()) {
@@ -318,7 +330,9 @@ fun InventorizationItemsContent(
                     ErrorStateView(message = uiState.message, onRetry = onRetry, modifier = Modifier.weight(1f))
                 }
                 else -> {
-                    Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
@@ -379,10 +393,61 @@ fun InventoryItemCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
+//        Column(modifier = Modifier.padding(16.dp)) {
+//            Row(verticalAlignment = Alignment.CenterVertically) {
+//                Text(item.assetName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+//                Spacer(Modifier.width(8.dp))
+//                Icon(
+//                    imageVector = if (item.isChecked) Icons.Default.CheckCircle else Icons.Default.Error,
+//                    contentDescription = if (item.isChecked) "Сверено" else "Не сверено",
+//                    tint = if (item.isChecked) Color(0, 150, 0, 255) else Color.Red,
+//                    modifier = Modifier.size(20.dp)
+//                )
+//            }
+//            Text("Серийный номер: ${item.serialNumber}", style = MaterialTheme.typography.bodyMedium)
+//            Spacer(modifier = Modifier.height(8.dp))
+//
+//            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+//                Text("План: $plan", style = MaterialTheme.typography.bodySmall)
+//                Spacer(modifier = Modifier.width(16.dp))
+//
+//                if (isSelected) {
+//                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+//                        Text("Факт:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+//                        OutlinedTextField(
+//                            value = textFieldValue,
+//                            onValueChange = { newValue -> textFieldValue = newValue; onQtyChange(newValue.text) },
+//                            placeholder = { Text("0", style = MaterialTheme.typography.bodySmall) },
+//                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+//                            keyboardActions = KeyboardActions(onDone = { onConfirmClick() }),
+//                            modifier = Modifier.weight(1f).height(50.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+//                            enabled = !isLoading,
+//                            singleLine = true,
+//                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+//                            colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surface, unfocusedContainerColor = MaterialTheme.colorScheme.surface),
+//                            shape = MaterialTheme.shapes.small
+//                        )
+//                        IconButton(
+//                            onClick = onConfirmClick,
+//                            enabled = textFieldValue.text.toIntOrNull() != null && !isLoading,
+//                            modifier = Modifier.size(32.dp)
+//                        ) {
+//                            Icon(Icons.Default.Check, contentDescription = "Подтвердить", modifier = Modifier.size(18.dp),
+//                                tint = if (textFieldValue.text.toIntOrNull() != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+//                        }
+//                    }
+//                } else {
+//                    Text("Факт: ${fact ?: "–"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+//                }
+//            }
+//        }
+        // Внутри InventoryItemCard:
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(item.assetName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -394,11 +459,21 @@ fun InventoryItemCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
-            Text("Серийный номер: ${item.serialNumber}", style = MaterialTheme.typography.bodyMedium)
+
+            // ✅ Показываем Material ID, если Asset ID отсутствует
+            Text(
+                text = if (item.assetId != null) "Asset ID: ${item.assetId}" else "Material ID: ${item.materialId ?: "Не указан"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            item.serialNumber?.let { Text("Серийный номер: $it", style = MaterialTheme.typography.bodyMedium) }
+            item.inventoryId?.let { Text("Инв. номер: $it", style = MaterialTheme.typography.bodyMedium) }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("План: $plan", style = MaterialTheme.typography.bodySmall)
+                Text("План: ${item.quantity ?: 0}", style = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.width(16.dp))
 
                 if (isSelected) {
@@ -410,7 +485,14 @@ fun InventoryItemCard(
                             placeholder = { Text("0", style = MaterialTheme.typography.bodySmall) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { onConfirmClick() }),
-                            modifier = Modifier.weight(1f).height(50.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp)
+                                .then(
+                                    if (focusRequester != null) Modifier.focusRequester(
+                                        focusRequester
+                                    ) else Modifier
+                                ),
                             enabled = !isLoading,
                             singleLine = true,
                             textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
@@ -427,7 +509,7 @@ fun InventoryItemCard(
                         }
                     }
                 } else {
-                    Text("Факт: ${fact ?: "–"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text("Факт: ${item.quantityFact ?: "–"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
@@ -445,15 +527,59 @@ private fun InventorizationItemsContentPreview() {
                 uiState = AssetViewModel.AssetUiState.InventorizationItemsLoaded(
                     sessionId = 42,
                     items = listOf(
-                        InventorizationItemDto(1, 42, 101, "serial_number", "inv_number", "Компьютер Dell", true, 10, 8),
-                        InventorizationItemDto(2, 42, 102, "serial_number","inv_number","Монитор LG", false, 5, null),
-                        InventorizationItemDto(3, 42, 103, "serial_number","inv_number","Клавиатура", false, 20, null)
+                        InventorizationItemDto(
+                            inventorizationId = 1,
+                            sessionId = 42,
+                            assetId = 101,
+                            materialId = null,
+                            serialNumber = "serial_number",
+                            inventoryId = "inv_number",
+                            assetName = "Компьютер Dell",
+                            isChecked = true,
+                            quantity = 10,
+                            quantityFact = 8
+                        ),
+                        InventorizationItemDto(
+                            inventorizationId = 2,
+                            sessionId = 42,
+                            assetId = 102,
+                            materialId = null,
+                            serialNumber = "serial_number",
+                            inventoryId = "inv_number",
+                            assetName = "Монитор LG",
+                            isChecked = false,
+                            quantity = 5,
+                            quantityFact = null
+                        ),
+                        InventorizationItemDto(
+                            inventorizationId = 3,
+                            sessionId = 42,
+                            assetId = 103,
+                            materialId = null,
+                            serialNumber = "serial_number",
+                            inventoryId = "inv_number",
+                            assetName = "Клавиатура",
+                            isChecked = false,
+                            quantity = 20,
+                            quantityFact = null
+                        )
                     )
                 ),
                 cameraScanEnabled = true,
                 onCameraScanClick = {},
                 isCompleted = false,
-                selectedAsset = InventorizationItemDto(1, 42, 101, "serial_number", "inv_number","Компьютер Dell", true, 10, 8),
+                selectedAsset = InventorizationItemDto(
+                    inventorizationId = 1,
+                    sessionId = 42,
+                    assetId = 101,
+                    materialId = null,
+                    serialNumber = "serial_number",
+                    inventoryId = "inv_number",
+                    assetName = "Компьютер Dell",
+                    isChecked = true,
+                    quantity = 10,
+                    quantityFact = 8
+                ),
                 inputQty = "",
                 showCompleteDialog = false,
                 quantityFocusRequester = FocusRequester.Default,

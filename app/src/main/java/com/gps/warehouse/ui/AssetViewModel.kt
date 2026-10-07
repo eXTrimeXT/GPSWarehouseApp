@@ -563,12 +563,22 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    fun startInventorizationSession(assetTypeId: Int) {
+    fun startInventorizationSession(
+        assetTypeId: Int? = null,
+        departmentCode: String? = null,
+        startDate: String? = null,
+        endDate: String? = null
+    ) {
         viewModelScope.launch {
             try {
                 assetApiService.startInventorizationSession(
                     "Bearer ${getToken()}",
-                    InventorizationSessionCreateRequest(assetTypeId)
+                    InventorizationSessionCreateRequest(
+                        assetTypeId = assetTypeId,
+                        departmentCode = departmentCode,
+                        startDate = startDate,
+                        endDate = endDate
+                    )
                 )
                 loadInventorizationSessions() // Перезагружаем список
             } catch (e: Exception) {
@@ -577,18 +587,24 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    fun checkInventorizationItem(sessionId: Int, assetId: Int, quantityFact: Int?) {
+    fun checkInventorizationItem(
+        sessionId: Int,
+        assetId: Int?,
+        materialId: String?,
+        quantityFact: Int?
+    ) {
         viewModelScope.launch {
             try {
-                val safeQuantity = quantityFact ?: 0
-
                 assetApiService.checkInventorizationItem(
                     token = "Bearer ${getToken()}",
                     sessionId = sessionId,
-                    request = CheckItemRequest(assetId, safeQuantity)
+                    request = CheckItemRequest(
+                        assetId = assetId,
+                        materialId = materialId,
+                        quantityFact = quantityFact
+                    )
                 )
-                // Перезагружаем элементы
-                loadInventorizationItems(sessionId)
+                loadInventorizationItems(sessionId) // Перезагружаем элементы
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка проверки актива")
             }
