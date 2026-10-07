@@ -208,7 +208,10 @@ fun InventorizationItemsContent(
 
     LaunchedEffect(selectedAsset) {
         if (selectedAsset != null && uiState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
-            val index = uiState.items.indexOfFirst { it.assetId == selectedAsset.assetId }
+            val index = uiState.items.indexOfFirst {
+                it.assetId != null &&
+                it.inventorizationId == selectedAsset.inventorizationId
+            }
             if (index != -1) listState.animateScrollToItem(index)
         }
     }
@@ -399,55 +402,6 @@ fun InventoryItemCard(
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
-//        Column(modifier = Modifier.padding(16.dp)) {
-//            Row(verticalAlignment = Alignment.CenterVertically) {
-//                Text(item.assetName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-//                Spacer(Modifier.width(8.dp))
-//                Icon(
-//                    imageVector = if (item.isChecked) Icons.Default.CheckCircle else Icons.Default.Error,
-//                    contentDescription = if (item.isChecked) "Сверено" else "Не сверено",
-//                    tint = if (item.isChecked) Color(0, 150, 0, 255) else Color.Red,
-//                    modifier = Modifier.size(20.dp)
-//                )
-//            }
-//            Text("Серийный номер: ${item.serialNumber}", style = MaterialTheme.typography.bodyMedium)
-//            Spacer(modifier = Modifier.height(8.dp))
-//
-//            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-//                Text("План: $plan", style = MaterialTheme.typography.bodySmall)
-//                Spacer(modifier = Modifier.width(16.dp))
-//
-//                if (isSelected) {
-//                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-//                        Text("Факт:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-//                        OutlinedTextField(
-//                            value = textFieldValue,
-//                            onValueChange = { newValue -> textFieldValue = newValue; onQtyChange(newValue.text) },
-//                            placeholder = { Text("0", style = MaterialTheme.typography.bodySmall) },
-//                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-//                            keyboardActions = KeyboardActions(onDone = { onConfirmClick() }),
-//                            modifier = Modifier.weight(1f).height(50.dp).then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
-//                            enabled = !isLoading,
-//                            singleLine = true,
-//                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-//                            colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surface, unfocusedContainerColor = MaterialTheme.colorScheme.surface),
-//                            shape = MaterialTheme.shapes.small
-//                        )
-//                        IconButton(
-//                            onClick = onConfirmClick,
-//                            enabled = textFieldValue.text.toIntOrNull() != null && !isLoading,
-//                            modifier = Modifier.size(32.dp)
-//                        ) {
-//                            Icon(Icons.Default.Check, contentDescription = "Подтвердить", modifier = Modifier.size(18.dp),
-//                                tint = if (textFieldValue.text.toIntOrNull() != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-//                        }
-//                    }
-//                } else {
-//                    Text("Факт: ${fact ?: "–"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-//                }
-//            }
-//        }
-        // Внутри InventoryItemCard:
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(item.assetName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -530,8 +484,8 @@ private fun InventorizationItemsContentPreview() {
                         InventorizationItemDto(
                             inventorizationId = 1,
                             sessionId = 42,
-                            assetId = 101,
-                            materialId = null,
+                            assetId = null,
+                            materialId = "1",
                             serialNumber = "serial_number",
                             inventoryId = "inv_number",
                             assetName = "Компьютер Dell",
@@ -542,8 +496,8 @@ private fun InventorizationItemsContentPreview() {
                         InventorizationItemDto(
                             inventorizationId = 2,
                             sessionId = 42,
-                            assetId = 102,
-                            materialId = null,
+                            assetId = null,
+                            materialId = "333",
                             serialNumber = "serial_number",
                             inventoryId = "inv_number",
                             assetName = "Монитор LG",
@@ -571,8 +525,8 @@ private fun InventorizationItemsContentPreview() {
                 selectedAsset = InventorizationItemDto(
                     inventorizationId = 1,
                     sessionId = 42,
-                    assetId = 101,
-                    materialId = null,
+                    assetId = null,
+                    materialId = "1",
                     serialNumber = "serial_number",
                     inventoryId = "inv_number",
                     assetName = "Компьютер Dell",

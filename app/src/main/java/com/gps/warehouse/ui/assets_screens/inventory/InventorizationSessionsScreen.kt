@@ -159,12 +159,12 @@ fun InventorizationSessionsContent(
             onSelectedTypeChange = { onSelectedAssetTypeIdChange(it ?: 0) },
             onCreateSession = { assetTypeId, deptCode, start, end ->
 //                assetViewModel.startInventorizationSession(
-//                onCreateSession(
-//                    assetTypeId = assetTypeId,
-//                    departmentCode = deptCode,
-//                    startDate = start,
-//                    endDate = end
-//                )
+                onCreateSession(
+                    assetTypeId,
+                    deptCode,
+                    start,
+                    end
+                )
                 onShowCreateDialogChange(false)
             }
         )
@@ -172,8 +172,6 @@ fun InventorizationSessionsContent(
 }
 
 // ==================== ДИАЛОГ: Отдельный Composable ====================
-// В InventorizationSessionsScreen.kt, замените CreateInventorySessionDialog на этот:
-
 @Composable
 fun CreateInventorySessionDialog(
     assetTypes: List<AssetTypeDto>,
