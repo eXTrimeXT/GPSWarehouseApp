@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.style.styleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -36,6 +37,7 @@ import com.gps.warehouse.ui.components.CameraScanButton
 import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SapBadge
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.InventoryQrParser // Добавляем импорт
 
@@ -146,7 +148,7 @@ fun InventorizationItemsScreen(
         quantityFocusRequester = quantityFocusRequester,
         onQtyChange = { inputQty = it },
         onAssetSelect = { asset ->
-            if (selectedAsset?.assetId == asset.assetId) {
+            if (selectedAsset?.inventorizationId == asset.inventorizationId) {
                 selectedAsset = null
                 focusManager.clearFocus()
             } else {
@@ -209,8 +211,8 @@ fun InventorizationItemsContent(
     LaunchedEffect(selectedAsset) {
         if (selectedAsset != null && uiState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
             val index = uiState.items.indexOfFirst {
-                it.assetId != null &&
-                it.inventorizationId == selectedAsset.inventorizationId
+                it.assetId != null && it.assetId == selectedAsset.assetId ||
+                        it.materialId != null && it.materialId == selectedAsset.materialId
             }
             if (index != -1) listState.animateScrollToItem(index)
         }
@@ -318,12 +320,12 @@ fun InventorizationItemsContent(
                             items(filteredItems) { item ->
                                 InventoryItemCard(
                                     item = item,
-                                    isSelected = selectedAsset?.assetId == item.assetId,
+                                    isSelected = selectedAsset?.inventorizationId == item.inventorizationId,
                                     onClick = { if (!isCompleted) onAssetSelect(item) },
-                                    inputQty = if (selectedAsset?.assetId == item.assetId) inputQty else "",
-                                    onQtyChange = if (selectedAsset?.assetId == item.assetId) onQtyChange else { _ -> },
+                                    inputQty = if (selectedAsset?.inventorizationId == item.inventorizationId) inputQty else "",
+                                    onQtyChange = if (selectedAsset?.inventorizationId == item.inventorizationId) onQtyChange else { _ -> },
                                     onConfirmClick = onConfirmClick,
-                                    focusRequester = if (selectedAsset?.assetId == item.assetId) quantityFocusRequester else null
+                                    focusRequester = if (selectedAsset?.inventorizationId == item.inventorizationId) quantityFocusRequester else null
                                 )
                             }
                         }
@@ -380,8 +382,6 @@ fun InventoryItemCard(
     focusRequester: FocusRequester? = null,
     isLoading: Boolean = false
 ) {
-    val plan = item.quantity
-    val fact = item.quantityFact
     var textFieldValue by remember(inputQty) {
         mutableStateOf(TextFieldValue(text = inputQty, selection = TextRange(inputQty.length)))
     }
@@ -404,17 +404,18 @@ fun InventoryItemCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(item.assetName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(item.assetName, modifier = Modifier.weight(0.75f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
                 Icon(
                     imageVector = if (item.isChecked) Icons.Default.CheckCircle else Icons.Default.Error,
                     contentDescription = if (item.isChecked) "Сверено" else "Не сверено",
                     tint = if (item.isChecked) Color(0, 150, 0, 255) else Color.Red,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp).weight(0.1f)
                 )
+                if (item.assetId == null) SapBadge()
             }
 
-            // ✅ Показываем Material ID, если Asset ID отсутствует
+            // Показываем Material ID, если Asset ID отсутствует
             Text(
                 text = if (item.assetId != null) "Asset ID: ${item.assetId}" else "Material ID: ${item.materialId ?: "Не указан"}",
                 style = MaterialTheme.typography.bodyMedium,
@@ -423,6 +424,7 @@ fun InventoryItemCard(
 
             item.serialNumber?.let { Text("Серийный номер: $it", style = MaterialTheme.typography.bodyMedium) }
             item.inventoryId?.let { Text("Инв. номер: $it", style = MaterialTheme.typography.bodyMedium) }
+            item.checkedByFullName?.let { Text("Отсканировал: $it", style = MaterialTheme.typography.bodyMedium) }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -488,10 +490,11 @@ private fun InventorizationItemsContentPreview() {
                             materialId = "1",
                             serialNumber = "serial_number",
                             inventoryId = "inv_number",
-                            assetName = "Компьютер Dell",
+                            assetName = "Компьютер Dell Компьютер DellКомпьютерDell",
                             isChecked = true,
                             quantity = 10,
-                            quantityFact = 8
+                            quantityFact = 8,
+                            checkedByFullName = "ФИО"
                         ),
                         InventorizationItemDto(
                             inventorizationId = 2,
@@ -503,7 +506,8 @@ private fun InventorizationItemsContentPreview() {
                             assetName = "Монитор LG",
                             isChecked = false,
                             quantity = 5,
-                            quantityFact = null
+                            quantityFact = null,
+                            checkedByFullName = "ФИО"
                         ),
                         InventorizationItemDto(
                             inventorizationId = 3,
@@ -515,7 +519,8 @@ private fun InventorizationItemsContentPreview() {
                             assetName = "Клавиатура",
                             isChecked = false,
                             quantity = 20,
-                            quantityFact = null
+                            quantityFact = null,
+                            checkedByFullName = "ФИО"
                         )
                     )
                 ),
@@ -532,7 +537,8 @@ private fun InventorizationItemsContentPreview() {
                     assetName = "Компьютер Dell",
                     isChecked = true,
                     quantity = 10,
-                    quantityFact = 8
+                    quantityFact = 8,
+                    checkedByFullName = "ФИО"
                 ),
                 inputQty = "",
                 showCompleteDialog = false,

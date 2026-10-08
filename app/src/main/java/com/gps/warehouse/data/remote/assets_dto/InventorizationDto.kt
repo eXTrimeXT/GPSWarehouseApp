@@ -27,6 +27,7 @@ data class InventorizationItemDto(
     @SerializedName("is_checked") val isChecked: Boolean,
     @SerializedName("quantity") val quantity: Int?,
     @SerializedName("quantity_fact") val quantityFact: Int?,
+    @SerializedName("checked_by_full_name") val checkedByFullName: String?
 )
 
 data class CheckItemRequest(

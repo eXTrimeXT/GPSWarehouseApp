@@ -498,16 +498,14 @@ class MainActivity : ComponentActivity() {
                                 composable("inventorization_sessions") {
                                     InventorizationSessionsScreen(
                                         navController = navController,
-                                        assetViewModel = assetViewModel
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel
                                     )
                                 }
 
                                 composable("inventorization_items/{sessionId}/{isCompleted}") { backStackEntry ->
-                                    val sessionId = backStackEntry.arguments?.getString("sessionId")
-                                        ?.toIntOrNull() ?: 0
-                                    val isCompleted =
-                                        backStackEntry.arguments?.getString("isCompleted")
-                                            ?.toBoolean() ?: false
+                                    val sessionId = backStackEntry.arguments?.getString("sessionId")?.toIntOrNull() ?: 0
+                                    val isCompleted = backStackEntry.arguments?.getString("isCompleted")?.toBoolean() ?: false
 
                                     InventorizationItemsScreen(
                                         sessionId = sessionId,

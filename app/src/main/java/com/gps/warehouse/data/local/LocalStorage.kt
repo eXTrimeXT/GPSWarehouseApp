@@ -27,6 +27,7 @@ import com.gps.warehouse.data.remote.gps_dto.InventoryMaterialDto
 import com.gps.warehouse.data.remote.gps_dto.InventoryOrderDto
 import com.gps.warehouse.data.remote.gps_dto.MaterialDto
 import com.gps.warehouse.data.remote.gps_dto.OrderDto
+import com.gps.warehouse.data.remote.gps_dto.PermissionDepartmentDto
 import com.gps.warehouse.data.remote.gps_dto.WarehouseMaterialDto
 import com.gps.warehouse.data.remote.gps_dto.WmsItemDto
 import com.gps.warehouse.utils.AppThemeMode
@@ -124,11 +125,13 @@ class LocalStorage @Inject constructor(private val context: Context) {
     fun saveProfileCache(
         bmList: List<BmListDto>,
         permissions: List<PermissionDto>,
+        permissionDepartments: List<PermissionDepartmentDto>,
         isAssetsAdmin: Boolean
     ) {
         cachePrefs.edit()
             .putString("cache_bm_list", gson.toJson(bmList))
             .putString("cache_permissions", gson.toJson(permissions))
+            .putString("cache_permission_departments", gson.toJson(permissionDepartments))
             .putBoolean("cache_is_assets_admin", isAssetsAdmin)
             .apply()
     }
@@ -141,6 +144,11 @@ class LocalStorage @Inject constructor(private val context: Context) {
     fun getCachedPermissions(): List<PermissionDto> {
         val json = cachePrefs.getString("cache_permissions", null) ?: return emptyList()
         return try { gson.fromJson(json, object : TypeToken<List<PermissionDto>>() {}.type) } catch (e: Exception) { emptyList() }
+    }
+
+    fun getCachedPermissionDepartments(): List<PermissionDepartmentDto> {
+        val json = cachePrefs.getString("cache_permission_departments", null) ?: return emptyList()
+        return try { gson.fromJson(json, object : TypeToken<List<PermissionDepartmentDto>>() {}.type) } catch (e: Exception) { emptyList() }
     }
 
     fun getCachedIsAssetsAdmin(): Boolean {

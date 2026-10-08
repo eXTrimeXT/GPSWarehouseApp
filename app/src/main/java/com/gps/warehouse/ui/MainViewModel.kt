@@ -138,11 +138,13 @@ class MainViewModel @Inject constructor(
     private var currentHideZeroQty: Boolean = false
 
     private val _availableWarehouses = MutableStateFlow<List<WarehousePermissionDto>>(emptyList())
-    val availableWarehouses: StateFlow<List<WarehousePermissionDto>> =
-        _availableWarehouses.asStateFlow()
+    val availableWarehouses = _availableWarehouses.asStateFlow()
 
     private val _gpsPermissions = MutableStateFlow<List<PermissionDto>>(emptyList())
     val gpsPermissions: StateFlow<List<PermissionDto>> = _gpsPermissions.asStateFlow()
+
+    private val _permissionDepartments = MutableStateFlow<List<PermissionDepartmentDto>>(emptyList())
+    val permissionDepartments = _permissionDepartments.asStateFlow()
 
     private val _userIsAssetsAdmin = MutableStateFlow(true)
     val userIsAssetsAdmin: StateFlow<Boolean> = _userIsAssetsAdmin.asStateFlow()
@@ -191,6 +193,7 @@ class MainViewModel @Inject constructor(
         // Мгновенная инициализация из кэша
         _bmList.value = localStorage.getCachedBmList()
         _gpsPermissions.value = localStorage.getCachedPermissions()
+        _permissionDepartments.value = localStorage.getCachedPermissionDepartments()
         _userIsAssetsAdmin.value = localStorage.getCachedIsAssetsAdmin()
     }
 
@@ -380,15 +383,22 @@ class MainViewModel @Inject constructor(
                 val storages = gpsProfile.warehousePermissions
                 val isAssetsAdmin = gpsProfile.assetsIsAdmin ?: false
                 val permissions = gpsProfile.permissions ?: emptyList()
+                val permissionDepartments = gpsProfile.permissionDepartments ?: emptyList()
                 val bmList = gpsProfile.bmList ?: emptyList()
 
                 if (storages != null) _availableWarehouses.value = storages
                 _userIsAssetsAdmin.value = isAssetsAdmin
                 _gpsPermissions.value = permissions
+                _permissionDepartments.value = permissionDepartments
                 _bmList.value = bmList
 
-                // === ИСПРАВЛЕНИЕ: Сохраняем свежие данные в кэш ===
-                localStorage.saveProfileCache(bmList, permissions, isAssetsAdmin)
+                // === Сохраняем свежие данные в кэш ===
+                localStorage.saveProfileCache(
+                    bmList = bmList,
+                    permissions = permissions,
+                    permissionDepartments = permissionDepartments,
+                    isAssetsAdmin = isAssetsAdmin
+                )
 
                 _uiState.value = UiState.ProfileLoaded(gpsProfile)
             } catch (e: Exception) {
@@ -416,16 +426,28 @@ class MainViewModel @Inject constructor(
         }
     }
 
+    fun loadPermissionDepartments() {
+        viewModelScope.launch {
+            try {
+                val token = getTokenOrThrow()
+                val profile = apiService.getUserProfile(GetUserProfileRequest(token))
+                val permissionDepartments = profile.permissionDepartments ?: emptyList()
+                _permissionDepartments.value = permissionDepartments.map { it }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Ошибка загрузки прав департаментов", e)
+            }
+        }
+    }
+
     fun loadPermissions() {
         viewModelScope.launch {
             try {
                 val token = getTokenOrThrow()
-                // Загружаем через GPS API из профиля
                 val profile = apiService.getUserProfile(GetUserProfileRequest(token))
                 val permissions = profile.permissions ?: emptyList()
                 _gpsPermissions.value = permissions.map { it }
             } catch (e: Exception) {
-                Log.e("MainViewModel", "Ошибка загрузки складов", e)
+                Log.e("MainViewModel", "Ошибка загрузки прав", e)
             }
         }
     }
@@ -1464,7 +1486,6 @@ class MainViewModel @Inject constructor(
     }
     fun clearPackToWarehouseDraft() { _packToWarehouseDraft.value = PackToWarehouseDraft() }
 
-
     // Списание (WmsWriteOff)
     private val _writeOffItems = MutableStateFlow<List<WmsWriteOffItem>>(emptyList())
     val writeOffItems: StateFlow<List<WmsWriteOffItem>> = _writeOffItems.asStateFlow()
@@ -1516,6 +1537,7 @@ class MainViewModel @Inject constructor(
     }
 
     fun setActiveReceiveOrder(order: String) { _activeReceiveOrder.value = order }
+
     fun clearReceiveItems() {
         _receiveItems.value = emptyList()
         _activeReceiveOrder.value = ""
