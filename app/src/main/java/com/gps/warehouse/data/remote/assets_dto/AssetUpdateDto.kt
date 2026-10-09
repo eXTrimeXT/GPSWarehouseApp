@@ -66,5 +66,15 @@ data class AssetUpdate(
     @SerializedName("current_user_full_name") val currentUserFullName: String? = null,
 
     // Родительский актив
-    @SerializedName("parent") val parent: AssetParentResponseDto? = null
+    @SerializedName("parent") val parent: AssetParentResponseDto? = null,
+
+    // MVZ
+    // MVZ ответственного
+    @SerializedName("cost_center_code_from") val costCenterCodeFrom: String?,
+    @SerializedName("cost_center_name_from") val costCenterNameFrom: String?,
+    @SerializedName("cost_center_shortname_from") val costCenterShortnameFrom: String?,
+    // MVZ владельца
+    @SerializedName("cost_center_code") val costCenterCode: String?,
+    @SerializedName("cost_center_name") val costCenterName: String?,
+    @SerializedName("cost_center_shortname") val costCenterShortname: String?,
 )
