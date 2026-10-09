@@ -17,8 +17,6 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 import java.io.InputStream
-import java.net.CookieManager
-import java.net.CookiePolicy
 import java.security.KeyStore
 import java.security.cert.Certificate
 import java.security.cert.CertificateFactory
@@ -28,7 +26,6 @@ import javax.inject.Singleton
 import javax.net.ssl.SSLContext
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
-import kotlin.math.log
 
 /**
  * Модуль Hilt для предоставления зависимостей, связанных с сетью.
@@ -89,7 +86,7 @@ object GpsNetworkModule {
         val cookieJar = PersistentCookieJar()
 
         return OkHttpClient.Builder()
-            .sslSocketFactory(sslContext.socketFactory, trustManager)
+//            .sslSocketFactory(sslContext.socketFactory, trustManager)
             .addInterceptor(authInterceptor)                // Перехватывает 401 ошибки
             .addInterceptor(loggingInterceptor)             // Добавляем логгер
             .connectTimeout(300, TimeUnit.SECONDS)   // Тайм-аут на установление соединения

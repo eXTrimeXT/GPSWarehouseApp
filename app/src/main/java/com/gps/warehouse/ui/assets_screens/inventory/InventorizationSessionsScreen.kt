@@ -426,7 +426,7 @@ fun CreateInventorySessionDialog(
     var selectedDepartmentCodes by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     // Состояние активной вкладки (0 = Тип актива, 1 = Департаменты)
-    var selectedTabIndex by remember { mutableIntStateOf(1) }
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
     val tabs = listOf("Тип актива", "Департаменты")
 
     // Состояния для даты и времени
