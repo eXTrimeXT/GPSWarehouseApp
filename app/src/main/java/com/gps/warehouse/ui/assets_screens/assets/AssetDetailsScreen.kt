@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -1323,8 +1324,14 @@ fun DepartmentFromCard(
 ) {
     InfoSectionCard(icon = Icons.Default.Business, title = "Ответственное МВЗ") {
         if (!isEditing) {
-            InfoRow(label = "Наименование", value = name)
-            InfoRow(label = "Код МВЗ", value = code)
+            if (name?.startsWith("#") ?: false) {
+                Text("Удален", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            } else {
+                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall)
+                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall)
+            }
         } else {
             var expanded by remember { mutableStateOf(false) }
             val currentCode = editState?.costCenterCodeFrom ?: code
@@ -1387,8 +1394,14 @@ fun DepartmentToCard(
 ) {
     InfoSectionCard(icon = Icons.Default.AccountTree, title = "МВЗ Пользователь") {
         if (!isEditing) {
-            InfoRow(label = "Наименование", value = name)
-            InfoRow(label = "Код МВЗ", value = code)
+            if (name?.startsWith("#") ?: false) {
+                Text("Удален", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            } else {
+                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall)
+                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall)
+            }
         } else {
             var expanded by remember { mutableStateOf(false) }
             val currentCode = editState?.costCenterCode ?: code
@@ -2792,10 +2805,12 @@ fun getSampleAsset(): AssetResponseDto {
         parent = null,
 
         costCenterCodeFrom = "RU01050007",
-        costCenterNameFrom = "Отдел поддержки базовых сервисов",
+        costCenterNameFrom = "#Отдел поддержки базовых сервисов",
         costCenterShortnameFrom = "BSSS",
-        costCenterCode = "RU01860089",
-        costCenterName = "Департамент производ систем трансмис TM",
+//        costCenterCode = "RU01860089",
+//        costCenterName = "Департамент производ систем трансмис TM",
+        costCenterCode = null,
+        costCenterName = null,
         costCenterShortname = "TM",
     )
 }
