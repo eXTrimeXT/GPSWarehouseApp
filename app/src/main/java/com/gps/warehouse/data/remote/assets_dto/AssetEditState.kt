@@ -27,7 +27,16 @@ data class AssetEditState(
     // Храним полный текущий список пользователей для отправки на сервер
     val currentUsers: List<AssetUserFullResponse> = emptyList(),
     val currentResponsibleUsers: List<AssetUserFullResponse> = emptyList(),
-    val currentServingUsers: List<AssetUserFullResponse> = emptyList()
+    val currentServingUsers: List<AssetUserFullResponse> = emptyList(),
+
+    // MVZ
+    val costCenterCodeFrom: String?,
+    val costCenterNameFrom: String?,
+    val costCenterShortnameFrom: String?,
+
+    val costCenterCode: String?,
+    val costCenterName: String?,
+    val costCenterShortname: String?
 ) {
     companion object {
         /** Создаёт состояние из существующего актива */
@@ -55,7 +64,15 @@ data class AssetEditState(
 
                 currentUsers = asset.users ?: emptyList(),
                 currentResponsibleUsers = asset.responsibleUsers ?: emptyList(),
-                currentServingUsers = asset.servingUsers ?: emptyList()
+                currentServingUsers = asset.servingUsers ?: emptyList(),
+
+                // MVZ
+                costCenterCodeFrom = asset.costCenterCodeFrom ?: "",
+                costCenterNameFrom = asset.costCenterNameFrom ?: "",
+                costCenterShortnameFrom = asset.costCenterShortnameFrom ?: "",
+                costCenterCode = asset.costCenterCode ?: "",
+                costCenterName = asset.costCenterName ?: "",
+                costCenterShortname = asset.costCenterShortname ?: "",
             )
         }
     }
@@ -84,7 +101,15 @@ data class AssetEditState(
             // Отправляем полные списки пользователей, если они изменились
             users = currentUsers,
             responsibleUsers = currentResponsibleUsers,
-            servingUsers = currentServingUsers
+            servingUsers = currentServingUsers,
+
+            // MVZ
+            costCenterCodeFrom = costCenterCodeFrom.takeIf { it != original.costCenterCodeFrom },
+            costCenterNameFrom = costCenterNameFrom.takeIf { it != original.costCenterNameFrom},
+            costCenterShortnameFrom = costCenterShortnameFrom.takeIf { it != original.costCenterShortnameFrom},
+            costCenterCode = costCenterCode.takeIf { it != original.costCenterCode},
+            costCenterName = costCenterName.takeIf { it != original.costCenterName},
+            costCenterShortname = costCenterShortname.takeIf { it != original.costCenterShortname},
         )
     }
 

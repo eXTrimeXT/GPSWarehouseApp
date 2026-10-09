@@ -68,6 +68,8 @@ fun AssetDetailsScreen(
 
     // Получаем список цехов
     val workshops by assetViewModel.workshops.collectAsState()
+    // Получаем список MVZ
+    val mvzDepartments by assetViewModel.mvzDepartments.collectAsState()
 
     var isEditing by remember { mutableStateOf(false) }
     var showNextServiceDatePicker by remember { mutableStateOf(false) }
@@ -448,6 +450,7 @@ fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?)
     viewModel.loadAssetTypes()
     viewModel.getEmployeeMe()
     viewModel.loadWorkshops()
+    viewModel.loadMvzDepartments()
 }
 
 // ==================== CONTENT: UI + TABS ====================

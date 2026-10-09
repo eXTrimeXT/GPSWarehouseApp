@@ -25,6 +25,8 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionObj
+import com.gps.warehouse.data.remote.assets_dto.MvzDepartments
+import com.gps.warehouse.data.remote.assets_dto.MvzListResponseDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
@@ -178,6 +180,9 @@ class AssetViewModel @Inject constructor(
     private val _workshops = MutableStateFlow<List<Workshop>>(emptyList())
     val workshops = _workshops.asStateFlow()
 
+    private val _mvzDepartments = MutableStateFlow<List<MvzDepartments>>(emptyList())
+    val mvzDepartments = _mvzDepartments.asStateFlow()
+
     private val _employees = MutableStateFlow<PaginatedResponse<EmployeeShortResponse>?>(null)
     val employees = _employees.asStateFlow()
 
@@ -308,6 +313,17 @@ class AssetViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 _workshops.value = assetApiService.getWorkshops("Bearer ${getToken()}")
+            } catch (e: Exception) {
+                // TODO: Дописать логику ошибок для цехов
+            }
+        }
+    }
+
+    fun loadMvzDepartments(){
+        viewModelScope.launch {
+            try {
+                val response = assetApiService.getMvzList("Bearer ${getToken()}")
+                _mvzDepartments.value = response.response.data
             } catch (e: Exception) {
                 // TODO: Дописать логику ошибок для цехов
             }

@@ -17,6 +17,7 @@ import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
+import com.gps.warehouse.data.remote.assets_dto.MvzListResponseDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
@@ -217,8 +218,6 @@ interface AssetApiService {
         @Body request: AssetTransferRequestDto
     ): AssetTransferResponseDto
 
-    // В файле AssetApiService.kt добавь:
-
     // ==================== Проверка передачи ====================
     @POST("assets/transfers/check-request")
     suspend fun checkTransferExists(
@@ -251,4 +250,9 @@ interface AssetApiService {
         @Query("initiator_id") initiatorId: String? = null,
         @Query("target_employee_id") targetEmployeeId: String? = null
     ): AssetTransferListResponseDto
+
+    @GET("sap/departments")
+    suspend fun getMvzList(
+        @Header("Authorization") token: String
+    ): MvzListResponseDto
 }

@@ -3,19 +3,6 @@ package com.gps.warehouse.data.remote.assets_dto
 import com.google.gson.annotations.SerializedName
 
 /**
- * Запрос на создание SAP актива (для передачи актива из SAP)
- */
-data class SapAssetCreateRequestDto(
-    @SerializedName("inventory_id") val inventoryId: String,
-    @SerializedName("name") val name: String,
-    @SerializedName("serial_number") val serialNumber: String? = null,
-    @SerializedName("asset_type_id") val assetTypeId: Int,
-    @SerializedName("model_id") val modelId: Int? = null,
-    @SerializedName("asset_status_id") val assetStatusId: Int? = 9,  // "На складе"
-    @SerializedName("quantity") val quantity: Int = 1
-)
-
-/**
  * Запрос на передачу актива другому пользователю
  */
 data class AssetTransferRequestDto(
