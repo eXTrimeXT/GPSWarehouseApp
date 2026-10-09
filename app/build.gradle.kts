@@ -27,8 +27,8 @@ android {
         applicationId = "com.gps.warehouse"
         minSdk = 30
         targetSdk = 36
-        versionCode = 20        // 20 (текущая на сервере) -> 21 // - Обновление приложения происходит по этому параметру!
-        versionName = "1.2.0"   // TEST v1.2.0 (текущая) -> v1.2.1
+        versionCode = 21        // 20 (текущая на сервере) -> 21 // - Обновление приложения происходит по этому параметру!
+        versionName = "1.2.1"   // TEST v1.2.1 (текущая) -> v1.2.2
 //        versionName = "1.0.6"   // PROD v1.0.5 (текущая) -> v1.0.6
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
