@@ -384,6 +384,7 @@ fun AssetDetailsScreen(
     AssetDetailsContent(
         uiState = uiState,
         assetStatuses = assetStatuses,
+        mvzDepartments = mvzDepartments,
         assetTypes = assetTypes,
         assetHistory = assetHistory,
         isEditing = isEditing,
@@ -459,6 +460,7 @@ fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?)
 fun AssetDetailsContent(
     uiState: AssetViewModel.AssetUiState,
     assetStatuses: List<AssetStatusDto>,
+    mvzDepartments: List<MvzDepartments>,
     assetTypes: List<AssetTypeDto>,
     assetHistory: List<AssetHistoryDto>,
     workshops: List<Workshop>,
@@ -570,6 +572,7 @@ fun AssetDetailsContent(
                                 asset = asset,
                                 assetTypes = assetTypes,
                                 assetStatuses = assetStatuses,
+                                mvzDepartments = mvzDepartments,
                                 workshops = workshops,
                                 isEditing = isEditing,
                                 editState = editState,
@@ -786,6 +789,7 @@ fun MainInfoTab(
     asset: AssetResponseDto,
     assetTypes: List<AssetTypeDto>,
     assetStatuses: List<AssetStatusDto>,
+    mvzDepartments: List<MvzDepartments>,
     workshops: List<Workshop>,
     isEditing: Boolean,
     editState: AssetEditState?,
@@ -825,7 +829,24 @@ fun MainInfoTab(
             }
         }
         item {
-            DepartmentCard(asset = asset)
+            DepartmentFromCard(
+                code = asset.costCenterCodeFrom,
+                name = asset.costCenterNameFrom,
+                isEditing = isEditing,
+                mvzDepartments = mvzDepartments,
+                editState = editState,
+                onEditStateChange = onEditStateChange
+            )
+        }
+        item {
+            DepartmentToCard(
+                code = asset.costCenterCode,
+                name = asset.costCenterName,
+                isEditing = isEditing,
+                mvzDepartments = mvzDepartments,
+                editState = editState,
+                onEditStateChange = onEditStateChange
+            )
         }
         item {
             LocationCard(
@@ -1292,13 +1313,129 @@ fun EditableInfoSection(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DepartmentCard(asset: AssetResponseDto){
-    InfoSectionCard(icon = Icons.Default.Business, title = "МВЗ") {
-        InfoRow(label = "Имя ответственного", value = asset.costCenterNameFrom)
-        InfoRow(label = "Код ответственного", value = asset.costCenterCodeFrom)
+fun DepartmentFromCard(
+    code: String?,
+    name: String?,
+    isEditing: Boolean,
+    mvzDepartments: List<MvzDepartments>,
+    editState: AssetEditState?,
+    onEditStateChange: (AssetEditState) -> Unit
+) {
+    InfoSectionCard(icon = Icons.Default.Business, title = "Ответственное МВЗ") {
+        if (!isEditing) {
+            InfoRow(label = "Наименование", value = name)
+            InfoRow(label = "Код МВЗ", value = code)
+        } else {
+            var expanded by remember { mutableStateOf(false) }
+            val currentCode = editState?.costCenterCodeFrom ?: code
+            val displayText = mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
+                ?: (if (currentCode.isNullOrEmpty()) "Выберите МВЗ" else "Неизвестный МВЗ ($currentCode)")
 
-        InfoRow(label = "Имя владельца", value = asset.costCenterName)
-        InfoRow(label = "Код владельца", value = asset.costCenterCode)
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = displayText,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("МВЗ (Откуда)") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    singleLine = true
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    mvzDepartments.forEach { dept ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(dept.departmentName ?: "", style = MaterialTheme.typography.bodyMedium)
+                                    Text(dept.departmentCode ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            },
+                            onClick = {
+                                editState?.let { state ->
+                                    onEditStateChange(
+                                        state.copy(
+                                            costCenterCodeFrom = dept.departmentCode,
+                                            costCenterNameFrom = dept.departmentName
+                                        )
+                                    )
+                                }
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DepartmentToCard(
+    code: String?,
+    name: String?,
+    isEditing: Boolean,
+    mvzDepartments: List<MvzDepartments>,
+    editState: AssetEditState?,
+    onEditStateChange: (AssetEditState) -> Unit
+) {
+    InfoSectionCard(icon = Icons.Default.AccountTree, title = "МВЗ Пользователь") {
+        if (!isEditing) {
+            InfoRow(label = "Наименование", value = name)
+            InfoRow(label = "Код МВЗ", value = code)
+        } else {
+            var expanded by remember { mutableStateOf(false) }
+            val currentCode = editState?.costCenterCode ?: code
+            val displayText = mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
+                ?: (if (currentCode.isNullOrEmpty()) "Выберите МВЗ" else "Неизвестный МВЗ ($currentCode)")
+
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = displayText,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("МВЗ (Куда)") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    singleLine = true
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    mvzDepartments.forEach { dept ->
+                        DropdownMenuItem(
+                            text = {
+                                Column {
+                                    Text(dept.departmentName ?: "", style = MaterialTheme.typography.bodyMedium)
+                                    Text(dept.departmentCode ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            },
+                            onClick = {
+                                editState?.let { state ->
+                                    onEditStateChange(
+                                        state.copy(
+                                            costCenterCode = dept.departmentCode,
+                                            costCenterName = dept.departmentName
+                                        )
+                                    )
+                                }
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -2264,6 +2401,7 @@ private fun AssetDetailsPreview_MainTab() {
                 uiState = AssetViewModel.AssetUiState.AssetDetailsLoaded(getSampleAsset()),
                 assetStatuses = emptyList(),
                 assetTypes = emptyList(),
+                mvzDepartments = emptyList(),
                 assetHistory = emptyList(),
                 isEditing = false,
                 editState = AssetEditState.fromAsset(getSampleAsset()),
@@ -2319,6 +2457,7 @@ private fun AssetDetailsPreview_UserTab() {
             AssetDetailsContent(
                 uiState = AssetViewModel.AssetUiState.AssetDetailsLoaded(getSampleAsset()),
                 assetStatuses = emptyList(),
+                mvzDepartments = emptyList(),
                 assetTypes = emptyList(),
                 assetHistory = emptyList(),
                 isEditing = false,
@@ -2387,6 +2526,7 @@ private fun AssetDetailsPreview_HistoryTab() {
             AssetDetailsContent(
                 uiState = AssetViewModel.AssetUiState.AssetDetailsLoaded(getSampleAsset()),
                 assetStatuses = emptyList(),
+                mvzDepartments = emptyList(),
                 assetTypes = emptyList(),
                 assetHistory = sampleHistory,
                 isEditing = false,
