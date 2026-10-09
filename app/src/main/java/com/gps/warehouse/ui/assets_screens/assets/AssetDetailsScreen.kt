@@ -31,11 +31,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.work.workDataOf
 import com.gps.warehouse.data.remote.assets_dto.*
+import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import com.gps.warehouse.ui.AssetViewModel
-import com.gps.warehouse.ui.assets_screens.mobile.InfoRow
 import com.gps.warehouse.ui.components.EmployeeSearchDialog
 import com.gps.warehouse.ui.components.ErrorStateView
+import com.gps.warehouse.ui.components.InfoRow
+import com.gps.warehouse.ui.components.InfoRowSmall
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.formatIsoToReadable
 import java.time.Instant
@@ -62,6 +65,9 @@ fun AssetDetailsScreen(
     val employeeMe by assetViewModel.employeeMe.collectAsState()
 
     val assetTransfers by assetViewModel.assetTransfers.collectAsState()
+
+    // Получаем список цехов
+    val workshops by assetViewModel.workshops.collectAsState()
 
     var isEditing by remember { mutableStateOf(false) }
     var showNextServiceDatePicker by remember { mutableStateOf(false) }
@@ -104,7 +110,8 @@ fun AssetDetailsScreen(
     // Инициализируем editState когда всё загружено
     LaunchedEffect(uiState, assetStatuses, assetTypes) {
         if (uiState is AssetViewModel.AssetUiState.AssetDetailsLoaded &&
-            assetStatuses.isNotEmpty() && assetTypes.isNotEmpty()) {
+            assetStatuses.isNotEmpty() && assetTypes.isNotEmpty()
+        ) {
 
             (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
                 editState = AssetEditState.fromAsset(original)
@@ -133,8 +140,10 @@ fun AssetDetailsScreen(
                 showEmployeeSearchDialog = null
             },
             onSearch = { employeeId, searchDepartment, page ->
-                assetViewModel.loadEmployees(page = page, pageSize = 20,
-                    employeeId = employeeId, searchDepartment = searchDepartment)
+                assetViewModel.loadEmployees(
+                    page = page, pageSize = 20,
+                    employeeId = employeeId, searchDepartment = searchDepartment
+                )
             },
             paginatedEmployees = employees,
             isLoading = employees == null,
@@ -164,7 +173,11 @@ fun AssetDetailsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) { Text("Удалить") }
             },
-            dismissButton = { TextButton(onClick = { userPendingRemoval = null }) { Text("Отмена") } }
+            dismissButton = {
+                TextButton(onClick = {
+                    userPendingRemoval = null
+                }) { Text("Отмена") }
+            }
         )
     }
 
@@ -186,7 +199,11 @@ fun AssetDetailsScreen(
                     showNextServiceDatePicker = false
                 }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { showNextServiceDatePicker = false }) { Text("Отмена") } }
+            dismissButton = {
+                TextButton(onClick = {
+                    showNextServiceDatePicker = false
+                }) { Text("Отмена") }
+            }
         ) { DatePicker(state = datePickerState) }
     }
 
@@ -200,8 +217,10 @@ fun AssetDetailsScreen(
                 showTransferDialog = true
             },
             onSearch = { employeeId, searchDepartment, page ->
-                assetViewModel.loadEmployees(page = page, pageSize = 20,
-                    employeeId = employeeId, searchDepartment = searchDepartment)
+                assetViewModel.loadEmployees(
+                    page = page, pageSize = 20,
+                    employeeId = employeeId, searchDepartment = searchDepartment
+                )
             },
             paginatedEmployees = employees,
             isLoading = employees == null,
@@ -372,6 +391,7 @@ fun AssetDetailsScreen(
         onTabSelected = { selectedTab = it },
         onEditStateChange = { newState -> editState = newState },
         onToggleEdit = { isEditing = !isEditing },
+        workshops = workshops,
         onSave = {
             editState?.let { state ->
                 (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
@@ -393,7 +413,13 @@ fun AssetDetailsScreen(
         onBackClick = { navController.popBackStack() },
         onNavigateToNotifications = { assetId -> navController.navigate("asset_notifications/asset/$assetId") },
         onNavigateToParent = { parentId -> navController.navigate("asset_details/$parentId") },
-        onRetryClick = { firstLoadData(viewModel = assetViewModel, assetId = assetId, materialId = materialId) },
+        onRetryClick = {
+            firstLoadData(
+                viewModel = assetViewModel,
+                assetId = assetId,
+                materialId = materialId
+            )
+        },
         onAddUser = { userType ->
             showEmployeeSearchDialog = userType
             assetViewModel.loadEmployees(page = 1, pageSize = 20)
@@ -421,6 +447,7 @@ fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?)
     viewModel.loadAssetStatuses()
     viewModel.loadAssetTypes()
     viewModel.getEmployeeMe()
+    viewModel.loadWorkshops()
 }
 
 // ==================== CONTENT: UI + TABS ====================
@@ -431,6 +458,7 @@ fun AssetDetailsContent(
     assetStatuses: List<AssetStatusDto>,
     assetTypes: List<AssetTypeDto>,
     assetHistory: List<AssetHistoryDto>,
+    workshops: List<Workshop>,
     isEditing: Boolean,
     editState: AssetEditState?,
     selectedTab: Int,
@@ -460,6 +488,7 @@ fun AssetDetailsContent(
                     CircularProgressIndicator()
                 }
             }
+
             is AssetViewModel.AssetUiState.Error -> {
                 MyCustomActionBar(
                     text = "Загрузка актива...",
@@ -471,6 +500,7 @@ fun AssetDetailsContent(
                     modifier = Modifier.fillMaxSize()
                 )
             }
+
             is AssetViewModel.AssetUiState.AssetDetailsLoaded -> {
                 val asset = uiState.asset
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -482,17 +512,23 @@ fun AssetDetailsContent(
                             Row {
                                 if (isEditing) {
                                     IconButton(onClick = onSave) {
-                                        Icon(Icons.Default.Save, "Сохранить",
-                                            tint = MaterialTheme.colorScheme.primary)
+                                        Icon(
+                                            Icons.Default.Save, "Сохранить",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
                                     }
                                     IconButton(onClick = onCancelEdit) {
-                                        Icon(Icons.Default.Close, "Отмена",
-                                            tint = MaterialTheme.colorScheme.error)
+                                        Icon(
+                                            Icons.Default.Close, "Отмена",
+                                            tint = MaterialTheme.colorScheme.error
+                                        )
                                     }
                                 } else {
                                     IconButton(onClick = onToggleEdit) {
-                                        Icon(Icons.Default.Edit, "Редактировать",
-                                            tint = MaterialTheme.colorScheme.primary)
+                                        Icon(
+                                            Icons.Default.Edit, "Редактировать",
+                                            tint = MaterialTheme.colorScheme.primary
+                                        )
                                     }
                                 }
                             }
@@ -531,12 +567,14 @@ fun AssetDetailsContent(
                                 asset = asset,
                                 assetTypes = assetTypes,
                                 assetStatuses = assetStatuses,
+                                workshops = workshops,
                                 isEditing = isEditing,
                                 editState = editState,
                                 onEditStateChange = onEditStateChange,
                                 onNavigateToParent = onNavigateToParent,
                                 onNextServiceClick = onNextServiceClick
                             )
+
                             1 -> UsersTab(
                                 asset = asset,
                                 isEditing = isEditing,
@@ -549,6 +587,7 @@ fun AssetDetailsContent(
                                 currentEmployeeId = currentEmployeeId,
                                 onRespondTransfer = onRespondTransfer,
                             )
+
                             2 -> HistoryTab(
                                 asset = asset,
                                 history = assetHistory,
@@ -558,6 +597,7 @@ fun AssetDetailsContent(
                     }
                 }
             }
+
             else -> {}
         }
     }
@@ -580,14 +620,22 @@ fun AssetHeaderCard(
         ?: asset.assetStatus ?: "Не указан"
 
     val statusColor = when (statusText.lowercase()) {
-        "приемка", "отремонтирован", "на складе", "в работе", "в эксплуатации" -> Color(0, 150, 0, 170)
+        "приемка", "отремонтирован", "на складе", "в работе", "в эксплуатации" -> Color(
+            0,
+            150,
+            0,
+            170
+        )
+
         "удален", "списан" -> Color(220, 0, 0, 170)
         "на обслуживании", "ожидает зч", "требует проверки", "в ремонте" -> Color(255, 193, 7, 170)
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.15f)),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -616,7 +664,8 @@ fun AssetHeaderCard(
                 Column(modifier = Modifier.weight(1f)) {
                     if (isEditing) {
                         var expanded by remember { mutableStateOf(false) }
-                        ExposedDropdownMenuBox(expanded = expanded,
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
                             onExpandedChange = { expanded = !expanded }) {
                             OutlinedTextField(
                                 value = statusText,
@@ -624,14 +673,17 @@ fun AssetHeaderCard(
                                 readOnly = true,
                                 label = { Text("Статус") },
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
                                 singleLine = true,
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                                     unfocusedContainerColor = MaterialTheme.colorScheme.surface
                                 )
                             )
-                            ExposedDropdownMenu(expanded = expanded,
+                            ExposedDropdownMenu(
+                                expanded = expanded,
                                 onDismissRequest = { expanded = false }) {
                                 assetStatuses.forEach { statusDto ->
                                     DropdownMenuItem(
@@ -642,7 +694,11 @@ fun AssetHeaderCard(
                                         },
                                         leadingIcon = {
                                             if (statusDto.id == currentStatusId) {
-                                                Icon(Icons.Default.Check, null, Modifier.size(16.dp))
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    null,
+                                                    Modifier.size(16.dp)
+                                                )
                                             }
                                         }
                                     )
@@ -650,11 +706,15 @@ fun AssetHeaderCard(
                             }
                         }
                     } else {
-                        Text("Статус", style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(statusText,
+                        Text(
+                            "Статус", style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            statusText,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold)
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }
@@ -699,15 +759,21 @@ private fun CompactIdRow(icon: ImageVector, label: String, value: String) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
     ) {
-        Icon(icon, null, Modifier.size(14.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(
+            icon, null, Modifier.size(14.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(Modifier.width(4.dp))
-        Text("$label: ", style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.labelMedium,
+        Text(
+            "$label: ", style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            value, style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false))
+            modifier = Modifier.weight(1f, fill = false)
+        )
     }
 }
 
@@ -717,6 +783,7 @@ fun MainInfoTab(
     asset: AssetResponseDto,
     assetTypes: List<AssetTypeDto>,
     assetStatuses: List<AssetStatusDto>,
+    workshops: List<Workshop>,
     isEditing: Boolean,
     editState: AssetEditState?,
     onEditStateChange: (AssetEditState) -> Unit,
@@ -754,7 +821,18 @@ fun MainInfoTab(
                 ReadOnlyInfoSection(asset = asset, onNavigateToParent = onNavigateToParent)
             }
         }
-        item { LocationCard(location = asset.location, isEditing = isEditing) }
+        item {
+            DepartmentCard(asset = asset)
+        }
+        item {
+            LocationCard(
+                location = asset.location,
+                workshops = workshops,
+                isEditing = isEditing,
+                editState = editState,
+                onEditStateChange = onEditStateChange
+            )
+        }
         item {
             ServiceCard(
                 asset = asset,
@@ -797,7 +875,9 @@ fun UsersTab(
                 Spacer(Modifier.height(8.dp))
                 Button(
                     onClick = onTransferClick,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
@@ -820,7 +900,9 @@ fun UsersTab(
                 icon = Icons.Default.Person,
                 color = MaterialTheme.colorScheme.surfaceVariant,
                 isEditing = isEditing,
-                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.USER) } } else null,
+                onAddUser = if (isEditing) {
+                    { onAddUser?.invoke(UserType.USER) }
+                } else null,
                 onRemoveUser = onRemoveUser
             )
         }
@@ -833,7 +915,9 @@ fun UsersTab(
                 icon = Icons.Default.Build,
                 color = MaterialTheme.colorScheme.tertiaryContainer,
                 isEditing = isEditing,
-                onAddUser = if (isEditing) { { onAddUser?.invoke(UserType.SERVING) } } else null,
+                onAddUser = if (isEditing) {
+                    { onAddUser?.invoke(UserType.SERVING) }
+                } else null,
                 onRemoveUser = onRemoveUser
             )
         }
@@ -876,7 +960,9 @@ fun HistoryTab(
                     )
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Surface(
@@ -885,23 +971,31 @@ fun HistoryTab(
                             modifier = Modifier.size(44.dp)
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.NotificationsActive, null,
+                                Icon(
+                                    Icons.Default.NotificationsActive, null,
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(22.dp))
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
                         }
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Уведомления по активу",
+                            Text(
+                                "Уведомления по активу",
                                 style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold)
-                            Text("Все связанные уведомления и действия",
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "Все связанные уведомления и действия",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        Icon(Icons.AutoMirrored.Filled.OpenInNew, null,
+                        Icon(
+                            Icons.AutoMirrored.Filled.OpenInNew, null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp))
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -920,17 +1014,23 @@ fun HistoryTab(
         if (history.isEmpty()) {
             item {
                 Box(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(Icons.Outlined.History, null,
+                        Icon(
+                            Icons.Outlined.History, null,
                             Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
                         Spacer(Modifier.height(8.dp))
-                        Text("История изменений пока пуста",
+                        Text(
+                            "История изменений пока пуста",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
@@ -946,7 +1046,11 @@ fun HistoryTab(
 private fun HistoryItemCard(entry: AssetHistoryDto) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(
+                alpha = 0.5f
+            )
+        )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -991,11 +1095,15 @@ private fun HistoryItemCard(entry: AssetHistoryDto) {
                         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
-                            Text("Было", style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.error)
-                            Text(entry.oldValue ?: "—",
+                            Text(
+                                "Было", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                entry.oldValue ?: "—",
                                 style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium)
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                     // Стало
@@ -1005,11 +1113,15 @@ private fun HistoryItemCard(entry: AssetHistoryDto) {
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
                     ) {
                         Column(modifier = Modifier.padding(8.dp)) {
-                            Text("Стало", style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary)
-                            Text(entry.newValue ?: "—",
+                            Text(
+                                "Стало", style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                entry.newValue ?: "—",
                                 style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium)
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
@@ -1032,58 +1144,60 @@ fun InfoSectionCard(icon: ImageVector, title: String, content: @Composable Colum
 }
 
 @Composable
-fun InfoRow(label: String, value: String?, copyable: Boolean = false) {
-    if (value.isNullOrEmpty()) return
-    Row(
-        modifier = Modifier.fillMaxWidth()
-            .then(if (copyable) Modifier.clickable { } else Modifier)
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
 fun ReadOnlyInfoSection(asset: AssetResponseDto, onNavigateToParent: (Int) -> Unit) {
     InfoSectionCard(icon = Icons.Default.Info, title = "Основная информация") {
         InfoRow(label = "Название", value = asset.name)
-        InfoRow(label = "Инв. номер", value = asset.inventoryId, copyable = true)
-        InfoRow(label = "Серийный номер", value = asset.serialNumber, copyable = true)
+        InfoRow(label = "Инв. номер", value = asset.inventoryId)
+        InfoRow(label = "Серийный номер", value = asset.serialNumber)
         InfoRow(label = "Тип", value = asset.assetTypeName)
         InfoRow(label = "Модель", value = asset.modelName)
         InfoRow(label = "Количество", value = asset.quantity?.toString())
         InfoRow(label = "Производитель", value = asset.manufacturerName)
         InfoRow(label = "Поставщик", value = asset.vendorName)
         InfoRow(label = "ОС", value = asset.osName)
-
         asset.parentName?.let { parentName ->
             Row(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
                     .clickable { asset.parentId?.let(onNavigateToParent) }
                     .padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Родительский актив", style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    "Родительский актив: ", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(parentName, style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary)
-                    Icon(Icons.AutoMirrored.Filled.OpenInNew, null,
+                    Text(
+                        parentName, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Icon(
+                        Icons.AutoMirrored.Filled.OpenInNew, null,
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary)
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
+            HorizontalDivider(
+                modifier = Modifier,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            )
         }
         asset.comment?.let { comment ->
             Spacer(Modifier.height(8.dp))
-            Text("Комментарий", style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(comment, style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(top = 4.dp))
+            Text(
+                "Комментарий: ", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                comment, style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            HorizontalDivider(
+                modifier = Modifier,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            )
         }
     }
 }
@@ -1123,18 +1237,23 @@ fun EditableInfoSection(
         Spacer(Modifier.height(8.dp))
 
         var expanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(expanded = expanded,
+        ExposedDropdownMenuBox(
+            expanded = expanded,
             onExpandedChange = { expanded = !expanded }) {
             OutlinedTextField(
-                value = assetTypes.find { it.assetTypeId == editState.assetTypeId }?.name ?: "Выберите тип",
+                value = assetTypes.find { it.assetTypeId == editState.assetTypeId }?.name
+                    ?: "Выберите тип",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Тип актива") },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                modifier = Modifier.fillMaxWidth().menuAnchor(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
                 singleLine = true
             )
-            ExposedDropdownMenu(expanded = expanded,
+            ExposedDropdownMenu(
+                expanded = expanded,
                 onDismissRequest = { expanded = false }) {
                 assetTypes.forEach { type ->
                     DropdownMenuItem(
@@ -1168,27 +1287,143 @@ fun EditableInfoSection(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LocationCard(location: AssetLocationResponse?, isEditing: Boolean) {
-    if (location == null) return
+fun DepartmentCard(asset: AssetResponseDto){
+    InfoSectionCard(icon = Icons.Default.Business, title = "МВЗ") {
+        InfoRow(label = "Имя ответственного", value = asset.costCenterNameFrom)
+        InfoRow(label = "Код ответственного", value = asset.costCenterCodeFrom)
+
+        InfoRow(label = "Имя владельца", value = asset.costCenterName)
+        InfoRow(label = "Код владельца", value = asset.costCenterCode)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LocationCard(
+    location: AssetLocationResponse?,
+    workshops: List<Workshop>,
+    isEditing: Boolean,
+    editState: AssetEditState?,
+    onEditStateChange: (AssetEditState) -> Unit
+) {
+    // Если локации нет, вообще не показываем карточку
+    if (location == null && !isEditing) return
+
     InfoSectionCard(icon = Icons.Default.LocationOn, title = "Локация") {
         if (!isEditing) {
-            InfoRow(label = "Цех", value = location.workshopName)
-            InfoRow(label = "Место", value = location.place)
-            InfoRow(label = "Этаж", value = location.level?.toString())
+            // Режим просмотра
+            InfoRow(label = "Цех", value = location?.workshopName ?: "")
+            InfoRow(label = "Место", value = location?.place ?: "")
+            InfoRow(label = "Этаж", value = location?.level?.toString() ?: "")
         } else {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.LocationOn, null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("Редактирование локации доступно на карте",
-                    style = MaterialTheme.typography.bodyMedium)
+            // Режим редактирования
+            // Берем текущее состояние локации, или создаем его из оригинальной, если его еще нет
+            val currentLocation = editState?.location ?: location.let {
+                AssetLocationUpdate(
+                    workshopId = it?.workshopId,
+                    place = it?.place,
+                    level = it?.level,
+                    x = it?.x,
+                    y = it?.y
+                )
             }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = { }, modifier = Modifier.fillMaxWidth()) {
-                Text("Открыть карту")
+
+
+            if (currentLocation != null) {
+                var expanded by remember { mutableStateOf(false) }
+
+                // Находим имя цеха по ID для отображения в текстовом поле
+                val selectedWorkshopName = workshops.find { it.workshopId == currentLocation.workshopId }?.name
+                    ?: "Выберите цех"
+
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedWorkshopName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Цех") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        singleLine = true
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        workshops.forEach { workshop ->
+                            DropdownMenuItem(
+                                text = { Text(workshop.name) },
+                                onClick = {
+                                    editState?.let { state ->
+                                        onEditStateChange(
+                                            state.copy(
+                                                // Обновляем только workshopId, имя подтянется из справочника
+                                                location = currentLocation.copy(workshopId = workshop.workshopId)
+                                            )
+                                        )
+                                    }
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = currentLocation.place ?: "",
+                    onValueChange = { newValue ->
+                        editState?.let { state ->
+                            onEditStateChange(
+                                state.copy(
+                                    location = currentLocation.copy(place = newValue)
+                                )
+                            )
+                        }
+                    },
+                    label = { Text("Место") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                Spacer(Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = currentLocation.level?.toString() ?: "",
+                    onValueChange = { newValue ->
+                        editState?.let { state ->
+                            onEditStateChange(
+                                state.copy(
+                                    location = currentLocation.copy(level = newValue.toIntOrNull())
+                                )
+                            )
+                        }
+                    },
+                    label = { Text("Этаж") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
             }
+        }
+
+        // Кнопка "Открыть карту" (оставляем как заглушку)
+        Spacer(Modifier.height(12.dp))
+        val ctx = LocalContext.current
+        OutlinedButton(
+            onClick = {
+                Toast.makeText(ctx, "В разработке...", Toast.LENGTH_LONG).show()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Открыть карту")
         }
     }
 }
@@ -1203,18 +1438,30 @@ fun ServiceCard(
 ) {
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
-            InfoRow(label = "Еженедельная проверка",
-                value = if ((editState?.everyWeekCheck ?: asset.everyWeekCheck) == true) "Да" else "Нет")
-            InfoRow(label = "След. обслуживание",
-                value = asset.nextService?.formatIsoToReadable())
-            InfoRow(label = "Период (дни)",
-                value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString())
+            InfoRow(
+                label = "Еженедельная проверка",
+                value = if ((editState?.everyWeekCheck
+                        ?: asset.everyWeekCheck) == true
+                ) "Да" else "Нет"
+            )
+            InfoRow(
+                label = "След. обслуживание",
+                value = asset.nextService?.formatIsoToReadable()
+            )
+            InfoRow(
+                label = "Период (дни)",
+                value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString()
+            )
         } else {
-            Row(modifier = Modifier.fillMaxWidth(),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Text("Еженедельная проверка",
-                    style = MaterialTheme.typography.labelMedium)
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Еженедельная проверка",
+                    style = MaterialTheme.typography.labelMedium
+                )
                 val currentCheck = editState?.everyWeekCheck ?: asset.everyWeekCheck ?: false
                 Switch(
                     checked = currentCheck,
@@ -1230,7 +1477,9 @@ fun ServiceCard(
                 value = editState?.nextService ?: asset.nextService ?: "",
                 onValueChange = { },
                 label = { Text("След. обслуживание") },
-                modifier = Modifier.fillMaxWidth().clickable { onNextServiceClick?.invoke() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNextServiceClick?.invoke() },
                 readOnly = true,
                 placeholder = { Text("ДД.ММ.ГГГГ") },
                 trailingIcon = {
@@ -1254,7 +1503,9 @@ fun ServiceCard(
                 },
                 label = { Text("Период (дни)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth().widthIn(min = 60.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(min = 60.dp),
                 singleLine = true
             )
         }
@@ -1317,42 +1568,61 @@ private fun ExpandableUserCard(
     var expanded by rememberSaveable(user.guid) { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
             .clickable { expanded = !expanded },
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(12.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
                 .animateContentSize(animationSpec = spring())
         ) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = RoundedCornerShape(50), color = color,
-                    modifier = Modifier.size(36.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50), color = color,
+                    modifier = Modifier.size(36.dp)
+                ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Icon(icon, null,
+                        Icon(
+                            icon, null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(18.dp))
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(user.fullNameRu,
+                    Text(
+                        user.fullNameRu,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        maxLines = 1, overflow = TextOverflow.Ellipsis
+                    )
                     user.position?.name?.let { position ->
-                        Text(position,
+                        Text(
+                            position,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            maxLines = 1, overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
                 if (onRemoveUser != null && isEditing) {
-                    IconButton(onClick = { onRemoveUser(user) },
-                        modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Default.Close, "Удалить",
+                    IconButton(
+                        onClick = { onRemoveUser(user) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close, "Удалить",
                             tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp))
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
                 }
                 Icon(
@@ -1362,7 +1632,7 @@ private fun ExpandableUserCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
-            if (expanded) {
+            if (!expanded) {
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
@@ -1384,27 +1654,18 @@ private fun ExpandableUserCard(
                         )
                     }
                     user.assignmentType?.let { type ->
-                        InfoRowSmall(label = "Тип",
+                        InfoRowSmall(
+                            label = "Тип",
                             value = when (type) {
                                 "user" -> "Пользователь"
                                 "serving" -> "Обслуживающий"
                                 else -> type
-                            })
+                            }
+                        )
                     }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun InfoRowSmall(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(text = "$label:", style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text = value, style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium, maxLines = 1,
-            overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -1691,21 +1952,25 @@ private fun transferStatusInfo(status: String): TransferStatusInfo {
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer
         )
+
         "ACCEPTED" -> TransferStatusInfo(
             label = "Принята",
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
+
         "DECLINED" -> TransferStatusInfo(
             label = "Отклонена",
             containerColor = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer
         )
+
         "CANCELLED" -> TransferStatusInfo(
             label = "Отменена",
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
         else -> TransferStatusInfo(
             label = status,
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -1729,34 +1994,46 @@ fun AssetTransferDialog(
     AlertDialog(
         onDismissRequest = { if (!isLoading) onDismiss() },
         icon = {
-            Icon(Icons.Default.Send, null,
+            Icon(
+                Icons.Default.Send, null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp))
+                modifier = Modifier.size(32.dp)
+            )
         },
         title = {
-            Text("Передать актив",
+            Text(
+                "Передать актив",
                 style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold)
+                fontWeight = FontWeight.Bold
+            )
         },
         text = {
-            Column(modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 Surface(
                     shape = MaterialTheme.shapes.medium,
                     color = MaterialTheme.colorScheme.surfaceVariant,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(asset.name,
+                        Text(
+                            asset.name,
                             style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold)
-                        Text("Инв. №: ${asset.inventoryId}",
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "Инв. №: ${asset.inventoryId}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                         asset.serialNumber?.let { serial ->
-                            Text("Серийный №: $serial",
+                            Text(
+                                "Серийный №: $serial",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -1766,19 +2043,24 @@ fun AssetTransferDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("Получатель",
+                        Text(
+                            "Получатель",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                         Spacer(Modifier.height(4.dp))
                         Text(
                             targetEmployee.fullNameRu ?: targetEmployee.employeeId,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
                         targetEmployee.position?.name?.let { position ->
-                            Text(position,
+                            Text(
+                                position,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            )
                         }
                     }
                 }
@@ -1964,7 +2246,12 @@ fun TransferActionDialog(
 }
 
 // ==================== PREVIEWS ====================
-@Preview(showBackground = true, showSystemUi = true, name = "Вкладка Основное", device = "spec:width=380dp,height=1000dp")
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    name = "Вкладка Основное",
+    device = "spec:width=380dp,height=1350dp"
+)
 @Composable
 private fun AssetDetailsPreview_MainTab() {
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
@@ -1979,6 +2266,7 @@ private fun AssetDetailsPreview_MainTab() {
                 editState = AssetEditState.fromAsset(getSampleAsset()),
                 selectedTab = 0,
                 pagerState = pagerState,
+                workshops = emptyList(),
                 onTabSelected = {},
                 onEditStateChange = {},
                 onToggleEdit = {},
@@ -2014,7 +2302,12 @@ private fun AssetDetailsPreview_MainTab() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Вкладка Люди", device = "spec:width=380dp,height=700dp")
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    name = "Вкладка Люди",
+    device = "spec:width=380dp,height=1150dp"
+)
 @Composable
 private fun AssetDetailsPreview_UserTab() {
     val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
@@ -2029,6 +2322,7 @@ private fun AssetDetailsPreview_UserTab() {
                 editState = AssetEditState.fromAsset(getSampleAsset()),
                 selectedTab = 1,  // ← ИСПРАВЛЕНО: было 2
                 pagerState = pagerState,
+                workshops = emptyList(),
                 onTabSelected = {},
                 onEditStateChange = {},
                 onToggleEdit = {},
@@ -2064,7 +2358,12 @@ private fun AssetDetailsPreview_UserTab() {
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true, name = "Вкладка История", device = "spec:width=380dp,height=600dp")
+@Preview(
+    showBackground = true,
+    showSystemUi = true,
+    name = "Вкладка История",
+    device = "spec:width=380dp,height=600dp"
+)
 @Composable
 private fun AssetDetailsPreview_HistoryTab() {
     val pagerState = rememberPagerState(initialPage = 2, pageCount = { 3 })
@@ -2091,6 +2390,7 @@ private fun AssetDetailsPreview_HistoryTab() {
                 editState = AssetEditState.fromAsset(getSampleAsset()),
                 selectedTab = 2,
                 pagerState = pagerState,
+                workshops = emptyList(),
                 onTabSelected = {},
                 onEditStateChange = {},
                 onToggleEdit = {},
@@ -2148,7 +2448,7 @@ fun getSampleAsset(): AssetResponseDto {
         checkedBy = null,
         parentName = "чего то там",
         manufacturerName = "китай",
-        vendorName = "Z",
+        vendorName = null,
         osName = "окнО",
         everyWeekCheck = false,
         nextService = "2026-09-08",
@@ -2158,7 +2458,14 @@ fun getSampleAsset(): AssetResponseDto {
         createdAt = "2026-07-14T19:23:04.784110",
         updatedAt = "2026-09-03T09:26:16.840853",
         assetTypeName = "Оборудование M&U",
-        location = AssetLocationResponse(workshopId = 6, workshopName = "Логистика", place = "mesto213111111111111", level = 4, x = 237, y = 415),
+        location = AssetLocationResponse(
+            workshopId = 6,
+            workshopName = "Департамент производства систем трасмиссии",
+            place = "mesto213111111111111",
+            level = 4,
+            x = 237,
+            y = 415
+        ),
         users = listOf(
             AssetUserFullResponse(
                 guid = "974f470d-a7cd-11ef-a3b2-000c290ca5c4",
@@ -2179,7 +2486,10 @@ fun getSampleAsset(): AssetResponseDto {
                 department = null,
                 division = null,
                 group = null,
-                position = PositionResponse(name = "Младший инженер по внедрению информационных систем 2 категории", nameEn = null),
+                position = PositionResponse(
+                    name = "Младший инженер по внедрению информационных систем 2 категории",
+                    nameEn = null
+                ),
                 startDate = "2026-08-24",
                 endDate = null,
                 assignmentType = "user"
@@ -2199,11 +2509,46 @@ fun getSampleAsset(): AssetResponseDto {
                 updatedAt = "2026-09-03T02:00:11.229864",
                 fullNameRu = "Малышев Тимур Максимович",
                 fullNameEn = "Malyshev Timur Maksimovich",
-                society = WorkplaceResponse(guid = "295dd391-1099-11e7-80ca-6c0b843fb628", name = "ХАВЕЙЛ", nameEn = "", shortName = "SOCIETY", creationDate = "2019-08-01", closureDate = null, parentGuid = "00000000-0000-0000-0000-000000000000"),
-                department = WorkplaceResponse(guid = "295dd391-1099-11e7-80ca-6c0b843fb628", name = "ХАВЕЙЛ", nameEn = "", shortName = "DEPARTMENT", creationDate = "2019-08-01", closureDate = null, parentGuid = "00000000-0000-0000-0000-000000000000"),
-                division = WorkplaceResponse(guid = "295dd391-1099-11e7-80ca-6c0b843fb628", name = "ХАВЕЙЛ", nameEn = "", shortName = "DIVISION", creationDate = "2019-08-01", closureDate = null, parentGuid = "00000000-0000-0000-0000-000000000000"),
-                group = WorkplaceResponse(guid = "295dd391-1099-11e7-80ca-6c0b843fb628", name = "ХАВЕЙЛ", nameEn = "", shortName = "GROUP", creationDate = "2019-08-01", closureDate = null, parentGuid = "00000000-0000-0000-0000-000000000000"),
-                position = PositionResponse(name = "Разработчик Программного Обеспечения", nameEn = null),
+                society = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "SOCIETY",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                department = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "DEPARTMENT",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                division = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "DIVISION",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                group = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "GROUP",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                position = PositionResponse(
+                    name = "Разработчик Программного Обеспечения",
+                    nameEn = null
+                ),
                 startDate = "2026-08-26",
                 endDate = null,
                 assignmentType = "user"
@@ -2229,7 +2574,10 @@ fun getSampleAsset(): AssetResponseDto {
                 department = null,
                 division = null,
                 group = null,
-                position = PositionResponse(name = "Разработчик Программного Обеспечения", nameEn = null),
+                position = PositionResponse(
+                    name = "Разработчик Программного Обеспечения",
+                    nameEn = null
+                ),
                 startDate = "2026-08-26",
                 endDate = null,
                 assignmentType = "responsible"
@@ -2251,11 +2599,46 @@ fun getSampleAsset(): AssetResponseDto {
                 updatedAt = "2026-09-03T02:00:11.229864",
                 fullNameRu = "Фещенко Олег Игоревич",
                 fullNameEn = "Feshchenko Oleg Igorevich",
-                society = WorkplaceResponse(guid = "295dd391-1099-11e7-80ca-6c0b843fb628", name = "ХАВЕЙЛ", nameEn = "", shortName = "SOCIETY", creationDate = "2019-08-01", closureDate = null, parentGuid = "00000000-0000-0000-0000-000000000000"),
-                department = WorkplaceResponse(guid = "295dd391-1099-11e7-80ca-6c0b843fb628", name = "ХАВЕЙЛ", nameEn = "", shortName = "DEPARTMENT", creationDate = "2019-08-01", closureDate = null, parentGuid = "00000000-0000-0000-0000-000000000000"),
-                division = WorkplaceResponse(guid = "295dd391-1099-11e7-80ca-6c0b843fb628", name = "ХАВЕЙЛ", nameEn = "", shortName = "DIVISION", creationDate = "2019-08-01", closureDate = null, parentGuid = "00000000-0000-0000-0000-000000000000"),
-                group = WorkplaceResponse(guid = "295dd391-1099-11e7-80ca-6c0b843fb628", name = "ХАВЕЙЛ", nameEn = "", shortName = "GROUP", creationDate = "2019-08-01", closureDate = null, parentGuid = "00000000-0000-0000-0000-000000000000"),
-                position = PositionResponse(name = "Младший инженер по внедрению информационных систем 2 категории", nameEn = null),
+                society = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "SOCIETY",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                department = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "DEPARTMENT",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                division = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "DIVISION",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                group = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "GROUP",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                position = PositionResponse(
+                    name = "Младший инженер по внедрению информационных систем 2 категории",
+                    nameEn = null
+                ),
                 startDate = "2026-09-02",
                 endDate = null,
                 assignmentType = "serving"
@@ -2263,6 +2646,13 @@ fun getSampleAsset(): AssetResponseDto {
         ),
         currentUser = "0000012657",
         currentUserFullName = "Евсиков Константин Александрович",
-        parent = null
+        parent = null,
+
+        costCenterCodeFrom = "RU01050007",
+        costCenterNameFrom = "Отдел поддержки базовых сервисов",
+        costCenterShortnameFrom = "BSSS",
+        costCenterCode = "RU01860089",
+        costCenterName = "Департамент производ систем трансмис TM",
+        costCenterShortname = "TM",
     )
 }

@@ -1,6 +1,5 @@
 package com.gps.warehouse.ui.assets_screens.mobile
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -41,6 +40,7 @@ import com.gps.warehouse.ui.viewmodels.UiState
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
+import com.gps.warehouse.ui.components.InfoRow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -203,24 +203,6 @@ fun InfoSection(title: String, icon: ImageVector, content: @Composable ColumnSco
         }
     }
 }
-
-@Composable
-fun InfoRow(label: String, value: String?) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(text = value ?: "N/A", style = MaterialTheme.typography.bodyMedium)
-    }
-}
-
 
 // PREVIEW
 @Preview(showBackground = true, name = "Детали устройства", device = "spec:width=380dp,height=1200dp")

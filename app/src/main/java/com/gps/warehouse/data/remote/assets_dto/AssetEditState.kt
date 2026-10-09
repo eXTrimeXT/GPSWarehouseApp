@@ -50,7 +50,7 @@ data class AssetEditState(
                 servicePeriod = asset.servicePeriod,
                 currentUser = asset.currentUser,
                 location = asset.location?.let {
-                    AssetLocationUpdate(it.workshopId, it.place, it.level, it.x ?: 0, it.y ?: 0)
+                    AssetLocationUpdate(it.workshopId, it.workshopName, it.place, it.level, it.x ?: 0, it.y ?: 0)
                 },
 
                 currentUsers = asset.users ?: emptyList(),

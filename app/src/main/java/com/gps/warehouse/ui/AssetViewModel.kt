@@ -29,6 +29,7 @@ import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
+import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import com.gps.warehouse.utils.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -174,6 +175,9 @@ class AssetViewModel @Inject constructor(
     private val _assetHistory = MutableStateFlow<List<AssetHistoryDto>>(emptyList())
     val assetHistory = _assetHistory.asStateFlow()
 
+    private val _workshops = MutableStateFlow<List<Workshop>>(emptyList())
+    val workshops = _workshops.asStateFlow()
+
     private val _employees = MutableStateFlow<PaginatedResponse<EmployeeShortResponse>?>(null)
     val employees = _employees.asStateFlow()
 
@@ -295,6 +299,17 @@ class AssetViewModel @Inject constructor(
                 _assetHistory.value = history
             } catch (e: Exception) {
                 // Логируем, но не показываем пользователю
+            }
+        }
+    }
+
+    // Загружаем данные о цехах
+    fun loadWorkshops(){
+        viewModelScope.launch {
+            try {
+                _workshops.value = assetApiService.getWorkshops("Bearer ${getToken()}")
+            } catch (e: Exception) {
+                // TODO: Дописать логику ошибок для цехов
             }
         }
     }

@@ -7,11 +7,12 @@ data class AssetUserUpdate(
 )
 
 data class AssetLocationUpdate(
-    @SerializedName("workshop_id") val workshopId: Int,
+    @SerializedName("workshop_id") val workshopId: Int?,
+    @SerializedName("workshop_name") val workshopName: String? = null,
     @SerializedName("place") val place: String? = null,
     @SerializedName("level") val level: Int? = null,
-    @SerializedName("x") val x: Int,
-    @SerializedName("y") val y: Int,
+    @SerializedName("x") val x: Int? = null,
+    @SerializedName("y") val y: Int? = null,
 )
 
 
