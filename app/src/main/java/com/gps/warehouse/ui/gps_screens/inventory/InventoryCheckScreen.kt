@@ -506,7 +506,7 @@ fun InventoryMaterialCard(
                 Text("План: ${material.count}", style = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // ✅ Факт — текст или инлайн-редактор
+                // Факт — текст или инлайн-редактор
                 if (isSelected) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
