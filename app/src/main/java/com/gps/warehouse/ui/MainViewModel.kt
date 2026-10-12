@@ -513,9 +513,7 @@ class MainViewModel @Inject constructor(
      */
     fun updateWmsItem(
         item: WmsItemDto,
-//        newPosition: String,
         newPosition: List<String>,
-//        newPositionId: Int?,
         newPositionId: List<Int>,
         newMin: Int,
         newMax: Int,

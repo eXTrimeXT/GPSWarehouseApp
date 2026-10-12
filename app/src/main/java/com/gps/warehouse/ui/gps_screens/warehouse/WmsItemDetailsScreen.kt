@@ -2,7 +2,9 @@ package com.gps.warehouse.ui.gps_screens.warehouse
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,9 +47,7 @@ private const val TAG = "WmsItemDetails"
 // ====================== Внутреннее состояние редактирования ======================
 data class WmsEditState(
     val material: String,
-//    val position: String,
     val position: List<String>,
-//    val positionId: Int?,
     val positionId: List<Int>,
     val qty: String,
     val min: String,
@@ -93,6 +93,9 @@ fun WmsItemDetailsScreen(
     var showChangeTopologyDialog by remember { mutableStateOf(false) }
     var showCameraForTopology by remember { mutableStateOf(false) }
 
+    // Временное состояние для диалога выбора топологий
+    var dialogSelectedTopologies by remember { mutableStateOf<List<TopologyDto>>(emptyList()) }
+
     // === Сканер ===
     val scannerManager = remember { ScannerManager(context) }
 
@@ -100,52 +103,6 @@ fun WmsItemDetailsScreen(
     val currentItem: WmsItemDto? = remember(uiState, material, storageId) {
         (uiState as? MainViewModel.UiState.WmsLoaded)?.items?.find {
             it.material == material && it.storageId.toString() == storageId
-        }
-    }
-
-    // Сканирование топологии и склада
-    LaunchedEffect(Unit) {
-        scannerManager.barcodeFlow.collect { scannedData ->
-            if (scannedData.isEmpty()) return@collect
-            val scannedCode = scannedData.trim()
-
-            when {
-                // === Режим 1: открыт диалог перемещения → сканируем ЦЕЛЕВОЙ СКЛАД ===
-                showMoveDialog -> {
-                    Log.d(TAG, "Move scan: $scannedCode")
-                    targetStorage = scannedCode
-                    moveError = null
-                    Toast.makeText(context, "Склад: $scannedCode", Toast.LENGTH_SHORT).show()
-                }
-
-                // === Режим 2: открыт диалог смены топологии → сканируем ТОПОЛОГИЮ ===
-                showChangeTopologyDialog -> {
-                    val current = currentItem ?: return@collect
-                    val matched = topologies.find {
-                        it.positionScan.equals(scannedCode, ignoreCase = true)
-                    }
-                    Log.d(TAG, "Topology scan: $scannedCode, matched=${matched?.position}")
-
-                    if (matched != null) {
-                        saveTopologyChange(
-                            item = current,
-                            topology = matched,
-                            context = context,
-                            mainViewModel = mainViewModel,
-                            onSuccess = {
-                                showChangeTopologyDialog = false
-                                Toast.makeText(context, "Топология изменена на ${matched.position}", Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    } else {
-                        Toast.makeText(
-                            context,
-                            "Позиция '$scannedCode' не найдена на этом складе",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-            }
         }
     }
 
@@ -157,6 +114,271 @@ fun WmsItemDetailsScreen(
         }
     }
     val item: WmsItemDto? = currentItem ?: lastFoundItem
+
+    // === НОВОЕ: Локальное состояние для хранения актуальных топологий,
+    // чтобы избежать потери данных при быстром сканировании до обновления ViewModel ===
+    var activeItemPositions by remember(item?.material, item?.storageId) {
+        mutableStateOf(item?.position ?: emptyList())
+    }
+
+    // Синхронизируем с реальным item, когда приходят свежие данные с сервера
+    LaunchedEffect(item?.position) {
+        item?.position?.let { activeItemPositions = it }
+    }
+
+
+    // Сканирование топологии и склада
+//    LaunchedEffect(Unit) {
+//        scannerManager.barcodeFlow.collect { scannedData ->
+//            if (scannedData.isEmpty()) return@collect
+//            val scannedCode = scannedData.trim()
+//
+//            when {
+//                showMoveDialog -> {
+//                    Log.d(TAG, "Move scan: $scannedCode")
+//                    targetStorage = scannedCode
+//                    moveError = null
+//                    Toast.makeText(context, "Склад: $scannedCode", Toast.LENGTH_SHORT).show()
+//                }
+//
+//                showChangeTopologyDialog -> {
+//                    val matched = topologies.find {
+//                        it.positionScan.equals(scannedCode, ignoreCase = true)
+//                    }
+//                    Log.d(TAG, "Topology scan: $scannedCode, matched=${matched?.position}")
+//
+//                    if (matched != null) {
+//                        if (dialogSelectedTopologies.any { it.id == matched.id }) {
+//                            dialogSelectedTopologies = dialogSelectedTopologies.filter { it.id != matched.id }
+//                            Toast.makeText(context, "Топология ${matched.position} удалена", Toast.LENGTH_SHORT).show()
+//                        } else {
+//                            dialogSelectedTopologies = dialogSelectedTopologies + matched
+//                            Toast.makeText(context, "Топология ${matched.position} добавлена", Toast.LENGTH_SHORT).show()
+//                        }
+//                    } else {
+//                        Toast.makeText(context, "Позиция '$scannedCode' не найдена на этом складе", Toast.LENGTH_LONG).show()
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+    // Сканирование топологии и склада
+//    LaunchedEffect(Unit) {
+//        scannerManager.barcodeFlow.collect { scannedData ->
+//            if (scannedData.isEmpty()) return@collect
+//            val scannedCode = scannedData.trim()
+//
+//            when {
+//                showMoveDialog -> {
+//                    Log.d(TAG, "Move scan: $scannedCode")
+//                    targetStorage = scannedCode
+//                    moveError = null
+//                    Toast.makeText(context, "Склад: $scannedCode", Toast.LENGTH_SHORT).show()
+//                }
+//
+//                showChangeTopologyDialog -> {
+//                    val matched = topologies.find {
+//                        it.positionScan.equals(scannedCode, ignoreCase = true)
+//                    }
+//                    Log.d(TAG, "Topology scan (dialog): $scannedCode, matched=${matched?.position}")
+//
+//                    if (matched != null) {
+//                        if (dialogSelectedTopologies.any { it.id == matched.id }) {
+//                            dialogSelectedTopologies = dialogSelectedTopologies.filter { it.id != matched.id }
+//                            Toast.makeText(context, "Топология ${matched.position} удалена", Toast.LENGTH_SHORT).show()
+//                        } else {
+//                            dialogSelectedTopologies = dialogSelectedTopologies + matched
+//                            Toast.makeText(context, "Топология ${matched.position} добавлена", Toast.LENGTH_SHORT).show()
+//                        }
+//                    } else {
+//                        Toast.makeText(context, "Позиция '$scannedCode' не найдена на этом складе", Toast.LENGTH_LONG).show()
+//                    }
+//                }
+//
+//                else -> {
+//                    // Сканирование топологии без открытого диалога (быстрое обновление)
+//                    val matched = topologies.find {
+//                        it.positionScan.equals(scannedCode, ignoreCase = true)
+//                    }
+//                    Log.d(TAG, "Topology scan (no dialog): $scannedCode, matched=${matched?.position}")
+//
+//                    if (matched != null) {
+//                        val currentPositions = (if (isEditing) editState?.position else item?.position) ?: emptyList()
+//                        val isAlreadyAssigned = currentPositions.contains(matched.position)
+//
+//                        if (isEditing) {
+//                            // Если включен режим редактирования, обновляем локальное состояние editState
+//                            val currentIds = editState?.positionId ?: emptyList()
+//                            val newPositions = if (isAlreadyAssigned) {
+//                                currentPositions.filter { it != matched.position }
+//                            } else {
+//                                currentPositions + matched.position
+//                            }
+//                            val newIds = if (isAlreadyAssigned) {
+//                                currentIds.filter { it != (matched.id.toIntOrNull() ?: 0) }
+//                            } else {
+//                                currentIds + (matched.id.toIntOrNull() ?: 0)
+//                            }
+//
+//                            // Логично, что материала без имени быть не может
+//                            if (item?.material != null)
+//                            editState = editState?.copy(
+//                                position = newPositions,
+//                                positionId = newIds
+//                            ) ?: WmsEditState(
+//                                material = item.material,
+//                                position = newPositions,
+//                                positionId = newIds,
+//                                qty = item.qty.toInt().toString(),
+//                                min = item.min.toString(),
+//                                max = item.max.toString()
+//                            )
+//
+//                            Toast.makeText(context, "Топология ${matched.position} ${if (isAlreadyAssigned) "удалена" else "добавлена"} (нажмите 'Сохранить')", Toast.LENGTH_SHORT).show()
+//                        } else {
+//                            // Если режим редактирования выключен, сразу отправляем запрос на обновление через API
+//                            val currentTopologies = topologies.filter { currentPositions.contains(it.position) }
+//                            val newSelectedTopologies = if (isAlreadyAssigned) {
+//                                currentTopologies.filter { it.id != matched.id }
+//                            } else {
+//                                currentTopologies + matched
+//                            }
+//
+//                            if (item != null) {
+//                                saveTopologyChange(
+//                                    item = item,
+//                                    selectedTopologies = newSelectedTopologies,
+//                                    context = context,
+//                                    mainViewModel = mainViewModel,
+//                                    onSuccess = {
+//                                        Toast.makeText(
+//                                            context,
+//                                            "Топология ${matched.position} ${if (isAlreadyAssigned) "удалена" else "добавлена"}",
+//                                            Toast.LENGTH_SHORT
+//                                        ).show()
+//                                    }
+//                                )
+//                            }
+//                        }
+//                    } else {
+//                        Toast.makeText(context, "Позиция '$scannedCode' не найдена на этом складе", Toast.LENGTH_LONG).show()
+//                    }
+//                }
+//            }
+//        }
+//    }
+
+    // Сканирование топологии и склада
+    LaunchedEffect(Unit) {
+        scannerManager.barcodeFlow.collect { scannedData ->
+            if (scannedData.isEmpty()) return@collect
+            val scannedCode = scannedData.trim()
+
+            when {
+                showMoveDialog -> {
+                    Log.d(TAG, "Move scan: $scannedCode")
+                    targetStorage = scannedCode
+                    moveError = null
+                    Toast.makeText(context, "Склад: $scannedCode", Toast.LENGTH_SHORT).show()
+                }
+
+                showChangeTopologyDialog -> {
+                    val matched = topologies.find {
+                        it.positionScan.equals(scannedCode, ignoreCase = true)
+                    }
+                    Log.d(TAG, "Topology scan (dialog): $scannedCode, matched=${matched?.position}")
+
+                    if (matched != null) {
+                        if (dialogSelectedTopologies.any { it.id == matched.id }) {
+                            dialogSelectedTopologies = dialogSelectedTopologies.filter { it.id != matched.id }
+                            Toast.makeText(context, "Топология ${matched.position} удалена", Toast.LENGTH_SHORT).show()
+                        } else {
+                            dialogSelectedTopologies = dialogSelectedTopologies + matched
+                            Toast.makeText(context, "Топология ${matched.position} добавлена", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(context, "Позиция '$scannedCode' не найдена на этом складе", Toast.LENGTH_LONG).show()
+                    }
+                }
+
+                else -> {
+                    // Сканирование топологии без открытого диалога (быстрое обновление)
+                    val matched = topologies.find {
+                        it.positionScan.equals(scannedCode, ignoreCase = true)
+                    }
+                    Log.d(TAG, "Topology scan (no dialog): $scannedCode, matched=${matched?.position}")
+
+                    if (matched != null) {
+                        // ИСПОЛЬЗУЕМ activeItemPositions вместо item.position, чтобы не терять данные при быстром сканировании
+                        val currentPositions = if (isEditing) {
+                            editState?.position ?: emptyList()
+                        } else {
+                            activeItemPositions
+                        }
+                        val isAlreadyAssigned = currentPositions.contains(matched.position)
+
+                        if (isEditing) {
+                            val currentIds = editState?.positionId ?: emptyList()
+                            val newPositions = if (isAlreadyAssigned) {
+                                currentPositions.filter { it != matched.position }
+                            } else {
+                                currentPositions + matched.position
+                            }
+                            val newIds = if (isAlreadyAssigned) {
+                                currentIds.filter { it != (matched.id.toIntOrNull() ?: 0) }
+                            } else {
+                                currentIds + (matched.id.toIntOrNull() ?: 0)
+                            }
+
+                            if (item?.material != null) {
+                                editState = editState?.copy(
+                                    position = newPositions,
+                                    positionId = newIds
+                                ) ?: WmsEditState(
+                                    material = item.material,
+                                    position = newPositions,
+                                    positionId = newIds,
+                                    qty = item.qty.toInt().toString(),
+                                    min = item.min.toString(),
+                                    max = item.max.toString()
+                                )
+                            }
+                            Toast.makeText(context, "Топология ${matched.position} ${if (isAlreadyAssigned) "удалена" else "добавлена"} (нажмите 'Сохранить')", Toast.LENGTH_SHORT).show()
+                        } else {
+                            val currentTopologies = topologies.filter { currentPositions.contains(it.position) }
+                            val newSelectedTopologies = if (isAlreadyAssigned) {
+                                currentTopologies.filter { it.id != matched.id }
+                            } else {
+                                currentTopologies + matched
+                            }
+
+                            if (item != null) {
+                                // МГНОВЕННО обновляем локальное состояние, чтобы следующее сканирование видело актуальный список
+                                activeItemPositions = newSelectedTopologies.map { it.position }
+
+                                saveTopologyChange(
+                                    item = item,
+                                    selectedTopologies = newSelectedTopologies,
+                                    context = context,
+                                    mainViewModel = mainViewModel,
+                                    onSuccess = {
+                                        Toast.makeText(
+                                            context,
+                                            "Топология ${matched.position} ${if (isAlreadyAssigned) "удалена" else "добавлена"}",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                )
+                            }
+                        }
+                    } else {
+                        Toast.makeText(context, "Позиция '$scannedCode' не найдена на этом складе", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        }
+    }
 
     // Загрузка топологий при открытии экрана
     LaunchedEffect(storageId) {
@@ -184,26 +406,17 @@ fun WmsItemDetailsScreen(
             onDismiss = { showCameraForTopology = false },
             onBarcodeDetected = { scannedCode ->
                 showCameraForTopology = false
-                val matched = topologies.find {
-                    it.positionScan.equals(scannedCode, ignoreCase = true)
-                }
+                val matched = topologies.find { it.positionScan.equals(scannedCode, ignoreCase = true) }
                 if (matched != null) {
-                    saveTopologyChange(
-                        item = item!!,
-                        topology = matched,
-                        context = context,
-                        mainViewModel = mainViewModel,
-                        onSuccess = {
-                            showChangeTopologyDialog = false
-                            Toast.makeText(context, "Топология изменена на ${matched.position}", Toast.LENGTH_SHORT).show()
-                        }
-                    )
+                    if (dialogSelectedTopologies.any { it.id == matched.id }) {
+                        dialogSelectedTopologies = dialogSelectedTopologies.filter { it.id != matched.id }
+                        Toast.makeText(context, "Топология ${matched.position} удалена", Toast.LENGTH_SHORT).show()
+                    } else {
+                        dialogSelectedTopologies = dialogSelectedTopologies + matched
+                        Toast.makeText(context, "Топология ${matched.position} добавлена", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
-                    Toast.makeText(
-                        context,
-                        "Позиция '$scannedCode' не найдена на этом складе",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(context, "Позиция '$scannedCode' не найдена", Toast.LENGTH_LONG).show()
                 }
             }
         )
@@ -244,7 +457,6 @@ fun WmsItemDetailsScreen(
         isEditing = isEditing,
         editState = editState,
         onEditStateChange = { editState = it },
-//        onToggleEdit = { isEditing = !isEditing },
         onToggleEdit = {
             editState = if (!isEditing) {
                 WmsEditState.fromItem(item)
@@ -253,7 +465,15 @@ fun WmsItemDetailsScreen(
             }
             isEditing = !isEditing
         },
-        onBackClick = { navController.popBackStack() },
+        // Переходим назад, только если мы не в редактировании
+        onBackClick = {
+            if (!isEditing) {
+                navController.popBackStack()
+            }
+            else {
+                isEditing = false
+            }
+        },
         onMoveClick = {
             moveQty = if (item.qty > 0) item.qty.toInt().toString() else ""
             targetStorage = ""
@@ -291,7 +511,6 @@ fun WmsItemDetailsScreen(
                 newQty = if (item.sapA == 0) qtyInt else null,
                 onSuccess = {
                     isEditing = false
-//                    editState = WmsEditState.fromItem(item)
                     editState = null
                     mainViewModel.loadWmsData()
                     Toast.makeText(context, "Сохранено", Toast.LENGTH_SHORT).show()
@@ -303,10 +522,19 @@ fun WmsItemDetailsScreen(
         },
         onCancelEdit = {
             isEditing = false
-//            editState = WmsEditState.fromItem(item)
             editState = null
         },
         onChangeTopologyClick = {
+            // Берем самые свежие данные: либо из режима редактирования, либо из нашего "живого" кэша
+            val currentPositions = if (isEditing) {
+                editState?.position ?: emptyList()
+            } else {
+                activeItemPositions
+            }
+
+            dialogSelectedTopologies = topologies.filter { topo ->
+                currentPositions.contains(topo.position)
+            }
             showChangeTopologyDialog = true
         }
     )
@@ -349,22 +577,37 @@ fun WmsItemDetailsScreen(
     // === ДИАЛОГ ИЗМЕНЕНИЯ ТОПОЛОГИИ ===
     if (showChangeTopologyDialog) {
         ChangeTopologyDialog(
-            currentPosition = item.position[0],
-            topologies = topologies,
+            selectedTopologies = dialogSelectedTopologies,
+            allTopologies = topologies,
             currentMaterial = item.material,
             onDismiss = { showChangeTopologyDialog = false },
-            onTopologySelected = { topology ->
-                // Автосохранение при выборе из dropdown
-                saveTopologyChange(
-                    item = item,
-                    topology = topology,
-                    context = context,
-                    mainViewModel = mainViewModel,
-                    onSuccess = {
-                        showChangeTopologyDialog = false
-                        Toast.makeText(context, "Топология изменена на ${topology.position}", Toast.LENGTH_SHORT).show()
-                    }
-                )
+            onToggleTopology = { topology ->
+                dialogSelectedTopologies = if (dialogSelectedTopologies.any { it.id == topology.id }) {
+                    dialogSelectedTopologies.filter { it.id != topology.id }
+                } else {
+                    dialogSelectedTopologies + topology
+                }
+            },
+            onConfirm = {
+                if (isEditing) {
+                    editState = editState?.copy(
+                        position = dialogSelectedTopologies.map { it.position },
+                        positionId = dialogSelectedTopologies.map { it.id.toInt() }
+                    )
+                    showChangeTopologyDialog = false
+                    Toast.makeText(context, "Топологии обновлены. Нажмите 'Сохранить'", Toast.LENGTH_SHORT).show()
+                } else {
+                    saveTopologyChange(
+                        item = item,
+                        selectedTopologies = dialogSelectedTopologies,
+                        context = context,
+                        mainViewModel = mainViewModel,
+                        onSuccess = {
+                            showChangeTopologyDialog = false
+                            Toast.makeText(context, "Топологии сохранены", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
             },
             onCameraScanClick = { showCameraForTopology = true }
         )
@@ -377,15 +620,15 @@ fun WmsItemDetailsScreen(
  */
 private fun saveTopologyChange(
     item: WmsItemDto,
-    topology: TopologyDto,
+    selectedTopologies: List<TopologyDto>,
     context: android.content.Context,
     mainViewModel: MainViewModel,
     onSuccess: () -> Unit
 ) {
     mainViewModel.updateWmsItem(
         item = item,
-        newPosition = listOf(topology.position),
-        newPositionId = listOf(topology.positionScan.toInt()),
+        newPosition = selectedTopologies.map { it.position },
+        newPositionId = selectedTopologies.map { it.id.toInt() },
         newMin = item.min,
         newMax = item.max,
         newMaterial = null,
@@ -475,10 +718,11 @@ fun WmsItemDetailsContent(
                 ) {
                     WmsLocationCard(
                         item = item,
-                        topologies = topologies,
+                        allTopologies = topologies,
                         isEditing = isEditing,
                         editState = editState,
                         onEditStateChange = onEditStateChange,
+                        onChangeTopologyClick = onChangeTopologyClick,
                         modifier = Modifier.weight(1f)
                     )
                     WmsLimitsCard(
@@ -490,9 +734,6 @@ fun WmsItemDetailsContent(
                     )
                 }
             }
-
-            // Компактная карточка с деталями
-//            item { WmsDetailsCard(item) }
         }
 
         // === Кнопки действий внизу (только если НЕ в режиме редактирования) ===
@@ -637,155 +878,155 @@ private fun WmsHeaderCard(
 }
 
 // ====================== КАРТОЧКА МЕСТОПОЛОЖЕНИЯ ======================
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WmsLocationCard(
     item: WmsItemDto,
-    topologies: List<TopologyDto>,
+    allTopologies: List<TopologyDto>, // <-- Новый параметр
     isEditing: Boolean,
     editState: WmsEditState?,
     onEditStateChange: (WmsEditState) -> Unit,
+    onChangeTopologyClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     OutlinedCard(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Outlined.LocationOn,
-                    null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                Icon(Icons.Outlined.LocationOn, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(6.dp))
-                Text(
-                    "Местоположение",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text("Местоположение", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-            )
+            HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             Spacer(Modifier.height(10.dp))
 
-            // Склад
-            CompactInfoRow(
-                icon = Icons.Outlined.Warehouse,
-                label = "Склад",
-                value = item.storage.ifBlank { "—" }
-            )
-
+            CompactInfoRow(icon = Icons.Outlined.Warehouse, label = "Склад", value = item.storage.ifBlank { "—" })
             Spacer(Modifier.height(8.dp))
 
-            // Топология
-            if (isEditing) {
-                // Dropdown для выбора топологии
-                var expanded by remember { mutableStateOf(true) }
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
-                ) {
-                    OutlinedTextField(
-                        value = editState?.position[0] ?: item.position[0],
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Топология") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        singleLine = true
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Outlined.Place, "Топологии", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        "Топологии",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (!isEditing) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                        fontWeight = if (isEditing) FontWeight.Medium else FontWeight.Normal
                     )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        if (topologies.isEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("Нет доступных позиций") },
-                                onClick = { expanded = false },
-                                enabled = false
-                            )
-                        } else {
-                            topologies.forEach { topology ->
-                                DropdownMenuItem(
-                                    text = { Text(topology.position) },
-                                    onClick = {
-                                        editState?.let { state ->
-                                            onEditStateChange(
-                                                state.copy(
-                                                    position = listOf(topology.position),
-                                                    positionId = listOf(topology.id.toInt())
-                                                )
-                                            )
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            if (isEditing) {
+                // === РЕЖИМ РЕДАКТИРОВАНИЯ: Список с чекбоксами ===
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 250.dp) // Ограничиваем высоту, чтобы не занимать весь экран
+                        .verticalScroll(rememberScrollState())
+                        .padding(vertical = 4.dp)
+                ) {
+                    if (allTopologies.isEmpty()) {
+                        Text("Нет доступных позиций", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 8.dp))
+                    } else {
+                        allTopologies.forEach { topology ->
+                            val isSelected = editState?.position?.contains(topology.position) == true
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val currentPositions = editState?.position ?: emptyList()
+                                        val currentIds = editState?.positionId ?: emptyList()
+
+                                        val newPositions = if (isSelected) {
+                                            currentPositions - topology.position
+                                        } else {
+                                            currentPositions + topology.position
                                         }
-                                        expanded = false
-                                    },
-                                    leadingIcon = {
-                                        if (topology.position.equals(editState?.positionId)) {
-                                            Icon(
-                                                Icons.Default.Check,
-                                                null,
-                                                modifier = Modifier.size(16.dp)
-                                            )
+
+                                        val newIds = if (isSelected) {
+                                            currentIds - (topology.id.toIntOrNull() ?: 0)
+                                        } else {
+                                            currentIds + (topology.id.toIntOrNull() ?: 0)
                                         }
+
+                                        onEditStateChange(
+                                            (editState ?: WmsEditState.fromItem(item)).copy(
+                                                position = newPositions,
+                                                positionId = newIds
+                                            )
+                                        )
                                     }
+                                    .padding(vertical = 6.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isSelected,
+                                    onCheckedChange = null // Обработчик находится на Row
                                 )
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(
+                                        text = topology.position,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                    )
+                                }
                             }
+                            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                         }
                     }
                 }
-            } else {
-                // Обычный режим: бейдж с топологией
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+
+                // Кнопка для быстрого добавления через сканер прямо из режима редактирования
+                TextButton(
+                    onClick = onChangeTopologyClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        Icon(
-                            Icons.Outlined.Place,
-                            "Топология",
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "Топология",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Clip
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer
-                    ) {
-                        Text(
-                            text = item.position[0],
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
+                    Icon(Icons.Default.QrCodeScanner, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Сканировать")
+                }
+
+            } else {
+                // === ОБЫЧНЫЙ РЕЖИМ: Чипсы (FlowRow) ===
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val positionsToShow = item.position
+                    if (positionsToShow.isEmpty()) {
+                        Text("Не выбрано", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                    } else {
+                        positionsToShow.forEach { pos ->
+                            Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                Text(
+                                    text = pos,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
+
 
 // ====================== КАРТОЧКА ЛИМИТОВ ======================
 @Composable
@@ -936,7 +1177,7 @@ private fun WmsDetailsCard(item: WmsItemDto) {
 
             Spacer(Modifier.height(8.dp))
 
-            if (item.positionId != null) {
+            if (item.positionId.isNotEmpty()) {
                 CompactInfoRow(
                     icon = Icons.Outlined.PinDrop,
                     label = "ID позиции",
@@ -1063,14 +1304,14 @@ fun MoveMaterialDialog(
     AlertDialog(
         onDismissRequest = if (isLoading || isSuccess) { {} } else { onDismissRequest },
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-//        icon = {
-//            Icon(
-//                imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.SwapHoriz,
-//                contentDescription = null,
-//                tint = MaterialTheme.colorScheme.primary,
-//                modifier = Modifier.size(if (isSuccess) 48.dp else 32.dp)
-//            )
-//        },
+        icon = {
+            Icon(
+                imageVector = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.SwapHoriz,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(if (isSuccess) 48.dp else 32.dp)
+            )
+        },
         title = {
             Text(
                 if (isSuccess) "Успешно!" else "Перемещение",
@@ -1218,17 +1459,6 @@ private fun ItemInfoCard(item: WmsItemDto) {
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-//                Surface(
-//                    shape = MaterialTheme.shapes.small,
-//                    color = MaterialTheme.colorScheme.secondaryContainer
-//                ) {
-//                    Text(
-//                        text = item.position,
-//                        style = MaterialTheme.typography.labelMedium,
-//                        fontWeight = FontWeight.Medium,
-//                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-//                    )
-//                }
                 if (item.sapA == 1) { SapBadge() }
             }
             Spacer(modifier = Modifier.height(2.dp))
@@ -1241,8 +1471,15 @@ private fun ItemInfoCard(item: WmsItemDto) {
             )
             Spacer(modifier = Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Outlined.Warehouse,
+                    "Склад",
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Склад: ${item.storage}",
+                    text = item.storage,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -1254,16 +1491,34 @@ private fun ItemInfoCard(item: WmsItemDto) {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                Surface(
-                    shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.secondaryContainer
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = "Топология: ${item.position}",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    Icon(
+                        Icons.Outlined.LocationOn,
+                        "Позиция",
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
+
+                    val positionsToShow = item.position
+
+                    if (positionsToShow.isEmpty()) {
+                        Text("Не выбрано", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                    } else {
+                        positionsToShow.forEach { pos ->
+                            Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                Text(
+                                    text = pos,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -1319,7 +1574,7 @@ fun WmsItemDetailsContentPreview() {
                     max = 111,
                     min = 10,
                     positionId = emptyList(),
-                    position = listOf("2-10-3"),
+                    position = listOf("BUFF", "A-01", "A-02"),
                     price = 150.5,
                     qty = 42.0,
                     sapA = 1,
@@ -1327,8 +1582,9 @@ fun WmsItemDetailsContentPreview() {
                     storageId = 1
                 ),
                 topologies = listOf(
-                    TopologyDto(id = "1", position = "BUFF", positionScan = "BUFF"),
-                    TopologyDto(id = "2", position = "A-01", positionScan = "A1")
+                    TopologyDto("0", "BUFF", "BUFF"),
+                    TopologyDto("1", "A-1", "A1"),
+                    TopologyDto("2", "A-2", "A2"),
                 ),
                 isEditing = false,
                 editState = WmsEditState.fromItem(
@@ -1363,7 +1619,7 @@ fun WmsItemDetailsContentPreview_Editing() {
                     max = 111,
                     min = 10,
                     positionId = listOf(1),
-                    position = listOf("BUFF"),
+                    position = listOf("BUFF", "A-01", "A-02"),
                     price = 150.5,
                     qty = 42.0,
                     sapA = 0,
@@ -1371,15 +1627,15 @@ fun WmsItemDetailsContentPreview_Editing() {
                     storageId = 1
                 ),
                 topologies = listOf(
-                    TopologyDto(id = "1", position = "BUFF", positionScan = "BUFF"),
-                    TopologyDto(id = "2", position = "A-01", positionScan = "A1"),
-                    TopologyDto(id = "3", position = "C-12", positionScan = "C12")
+                    TopologyDto("0", "BUFF", "BUFF"),
+                    TopologyDto("1", "A-1", "A1"),
+                    TopologyDto("2", "A-2", "A2"),
                 ),
                 isEditing = true,
                 editState = WmsEditState(
                     material = "LA0602600443",
-                    position = listOf("A-01"),
-                    positionId = listOf(2),
+                    position = listOf("BUFF", "A-01", "A-02"),
+                    positionId = listOf(0, 1, 2),
                     qty = "42",
                     min = "10",
                     max = "111"

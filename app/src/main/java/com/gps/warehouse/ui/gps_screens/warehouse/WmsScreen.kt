@@ -466,27 +466,56 @@ fun WmsItemCard(item: WmsItemDto, onClick: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
                     Icon(
                         Icons.Outlined.LocationOn,
                         "Позиция",
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh
-                    ) {
-                        Text(
-                            text = item.position.toString(),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                        )
+
+                    val positionsToShow = item.position
+
+                    if (positionsToShow.isEmpty()) {
+                        Text("Не выбрано", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp))
+                    } else {
+                        positionsToShow.forEach { pos ->
+                            Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                                Text(
+                                    text = pos,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
                 }
+//                Row(verticalAlignment = Alignment.CenterVertically) {
+//                    Icon(
+//                        Icons.Outlined.LocationOn,
+//                        "Позиция",
+//                        modifier = Modifier.size(16.dp),
+//                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+//                    )
+//                    Spacer(modifier = Modifier.width(6.dp))
+//                    Surface(
+//                        shape = RoundedCornerShape(6.dp),
+//                        color = MaterialTheme.colorScheme.surfaceContainerHigh
+//                    ) {
+//                        Text(
+//                            text = item.position.toString(),
+//                            style = MaterialTheme.typography.labelSmall,
+//                            fontWeight = FontWeight.Medium,
+//                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+//                        )
+//                    }
+//                }
             }
         }
     }
@@ -504,7 +533,7 @@ fun WmsPreviewLoaded() {
         ),
         WmsItemDto(
             id = 67, material = "LA0713000190", max = 5, min = 1,
-            positionId = emptyList(), position = listOf("A-01"), price = 1200.0, qty = 10.0,
+            positionId = listOf(0, 1), position = listOf("BUFF", "A-01"), price = 1200.0, qty = 10.0,
             sapA = 1, storage = "4007", storageId = 2, name = "Станция зарядки"
         )
     )
