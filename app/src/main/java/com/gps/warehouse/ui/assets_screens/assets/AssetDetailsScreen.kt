@@ -2475,7 +2475,7 @@ private fun AssetDetailsPreview_UserTab() {
                 assetHistory = emptyList(),
                 isEditing = false,
                 editState = AssetEditState.fromAsset(getSampleAsset()),
-                selectedTab = 1,  // ← ИСПРАВЛЕНО: было 2
+                selectedTab = 1,
                 pagerState = pagerState,
                 workshops = emptyList(),
                 onTabSelected = {},
@@ -2491,19 +2491,19 @@ private fun AssetDetailsPreview_UserTab() {
                 onRemoveUser = { _, _ -> },
                 onTransferClick = {},
                 assetTransfers = listOf(
-                    AssetTransferDto(
-                        transferId = 1,
-                        assetId = 48,
-                        initiator = EmployeeInfoDto("0000010680", "Малых Андрей Владимирович"),
-                        targetEmployee = EmployeeInfoDto("0000015370", "Малышев Тимур Максимович"),
-                        assignmentType = "user",
-                        assignmentTypeRu = "Пользователь",
-                        status = "ACCEPTED",
-                        initiatorComment = "Передаю коллеге",
-                        responderComment = null,
-                        createdAt = "2026-09-22T12:11:50.200708Z",
-                        respondedAt = "2026-09-25T09:35:55.606425Z"
-                    )
+//                    AssetTransferDto(
+//                        transferId = 1,
+//                        assetId = 48,
+//                        initiator = EmployeeInfoDto("0000010680", "Малых Андрей Владимирович"),
+//                        targetEmployee = EmployeeInfoDto("0000015370", "Малышев Тимур Максимович"),
+//                        assignmentType = "user",
+//                        assignmentTypeRu = "Пользователь",
+//                        status = "ACCEPTED",
+//                        initiatorComment = "Передаю коллеге",
+//                        responderComment = null,
+//                        createdAt = "2026-09-22T12:11:50.200708Z",
+//                        respondedAt = "2026-09-25T09:35:55.606425Z"
+//                    )
                 ),
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
@@ -2623,92 +2623,92 @@ fun getSampleAsset(): AssetResponseDto {
             y = 415
         ),
         users = listOf(
-            AssetUserFullResponse(
-                guid = "974f470d-a7cd-11ef-a3b2-000c290ca5c4",
-                employeeId = "0000010680",
-                birthDate = "1994-12-30",
-                employmentDate = "2024-11-21",
-                dismissalDate = null,
-                phone = "+79805882104",
-                email = "Andrey.Malykh@hmmr.ru",
-                comment = null,
-                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
-                departmentGuid = "80911547-78ee-11f0-a3c1-000c290ca5c4",
-                createdAt = "2026-07-08T14:17:34.650680",
-                updatedAt = "2026-09-03T02:00:11.229864",
-                fullNameRu = "Малых Андрей Владимирович",
-                fullNameEn = "Malykh Andrey Vladimirovich",
-                society = null,
-                department = null,
-                division = null,
-                group = null,
-                position = PositionResponse(
-                    name = "Младший инженер по внедрению информационных систем 2 категории",
-                    nameEn = null
-                ),
-                startDate = "2026-08-24",
-                endDate = null,
-                assignmentType = "user"
-            ),
-            AssetUserFullResponse(
-                guid = "14ba77ab-2d91-11f1-a3cb-000c290ca5c4",
-                employeeId = "0000015370",
-                birthDate = "2002-09-06",
-                employmentDate = "2026-04-01",
-                dismissalDate = null,
-                phone = "+79190809746",
-                email = "Timur.Malyshev@hmmr.ru",
-                comment = "Проверка",
-                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
-                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
-                createdAt = "2026-07-08T14:17:44.545594",
-                updatedAt = "2026-09-03T02:00:11.229864",
-                fullNameRu = "Малышев Тимур Максимович",
-                fullNameEn = "Malyshev Timur Maksimovich",
-                society = WorkplaceResponse(
-                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-                    name = "ХАВЕЙЛ",
-                    nameEn = "",
-                    shortName = "SOCIETY",
-                    creationDate = "2019-08-01",
-                    closureDate = null,
-                    parentGuid = "00000000-0000-0000-0000-000000000000"
-                ),
-                department = WorkplaceResponse(
-                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-                    name = "ХАВЕЙЛ",
-                    nameEn = "",
-                    shortName = "DEPARTMENT",
-                    creationDate = "2019-08-01",
-                    closureDate = null,
-                    parentGuid = "00000000-0000-0000-0000-000000000000"
-                ),
-                division = WorkplaceResponse(
-                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-                    name = "ХАВЕЙЛ",
-                    nameEn = "",
-                    shortName = "DIVISION",
-                    creationDate = "2019-08-01",
-                    closureDate = null,
-                    parentGuid = "00000000-0000-0000-0000-000000000000"
-                ),
-                group = WorkplaceResponse(
-                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-                    name = "ХАВЕЙЛ",
-                    nameEn = "",
-                    shortName = "GROUP",
-                    creationDate = "2019-08-01",
-                    closureDate = null,
-                    parentGuid = "00000000-0000-0000-0000-000000000000"
-                ),
-                position = PositionResponse(
-                    name = "Разработчик Программного Обеспечения",
-                    nameEn = null
-                ),
-                startDate = "2026-08-26",
-                endDate = null,
-                assignmentType = "user"
-            )
+//            AssetUserFullResponse(
+//                guid = "974f470d-a7cd-11ef-a3b2-000c290ca5c4",
+//                employeeId = "0000010680",
+//                birthDate = "1994-12-30",
+//                employmentDate = "2024-11-21",
+//                dismissalDate = null,
+//                phone = "+79805882104",
+//                email = "Andrey.Malykh@hmmr.ru",
+//                comment = null,
+//                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+//                departmentGuid = "80911547-78ee-11f0-a3c1-000c290ca5c4",
+//                createdAt = "2026-07-08T14:17:34.650680",
+//                updatedAt = "2026-09-03T02:00:11.229864",
+//                fullNameRu = "Малых Андрей Владимирович",
+//                fullNameEn = "Malykh Andrey Vladimirovich",
+//                society = null,
+//                department = null,
+//                division = null,
+//                group = null,
+//                position = PositionResponse(
+//                    name = "Младший инженер по внедрению информационных систем 2 категории",
+//                    nameEn = null
+//                ),
+//                startDate = "2026-08-24",
+//                endDate = null,
+//                assignmentType = "user"
+//            ),
+//            AssetUserFullResponse(
+//                guid = "14ba77ab-2d91-11f1-a3cb-000c290ca5c4",
+//                employeeId = "0000015370",
+//                birthDate = "2002-09-06",
+//                employmentDate = "2026-04-01",
+//                dismissalDate = null,
+//                phone = "+79190809746",
+//                email = "Timur.Malyshev@hmmr.ru",
+//                comment = "Проверка",
+//                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+//                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
+//                createdAt = "2026-07-08T14:17:44.545594",
+//                updatedAt = "2026-09-03T02:00:11.229864",
+//                fullNameRu = "Малышев Тимур Максимович",
+//                fullNameEn = "Malyshev Timur Maksimovich",
+//                society = WorkplaceResponse(
+//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+//                    name = "ХАВЕЙЛ",
+//                    nameEn = "",
+//                    shortName = "SOCIETY",
+//                    creationDate = "2019-08-01",
+//                    closureDate = null,
+//                    parentGuid = "00000000-0000-0000-0000-000000000000"
+//                ),
+//                department = WorkplaceResponse(
+//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+//                    name = "ХАВЕЙЛ",
+//                    nameEn = "",
+//                    shortName = "DEPARTMENT",
+//                    creationDate = "2019-08-01",
+//                    closureDate = null,
+//                    parentGuid = "00000000-0000-0000-0000-000000000000"
+//                ),
+//                division = WorkplaceResponse(
+//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+//                    name = "ХАВЕЙЛ",
+//                    nameEn = "",
+//                    shortName = "DIVISION",
+//                    creationDate = "2019-08-01",
+//                    closureDate = null,
+//                    parentGuid = "00000000-0000-0000-0000-000000000000"
+//                ),
+//                group = WorkplaceResponse(
+//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+//                    name = "ХАВЕЙЛ",
+//                    nameEn = "",
+//                    shortName = "GROUP",
+//                    creationDate = "2019-08-01",
+//                    closureDate = null,
+//                    parentGuid = "00000000-0000-0000-0000-000000000000"
+//                ),
+//                position = PositionResponse(
+//                    name = "Разработчик Программного Обеспечения",
+//                    nameEn = null
+//                ),
+//                startDate = "2026-08-26",
+//                endDate = null,
+//                assignmentType = "user"
+//            )
         ),
         responsibleUsers = listOf(
             AssetUserFullResponse(
@@ -2740,65 +2740,65 @@ fun getSampleAsset(): AssetResponseDto {
             )
         ),
         servingUsers = listOf(
-            AssetUserFullResponse(
-                guid = "c0ed588f-1c4a-11f1-a3ca-000c290ca5c4",
-                employeeId = "0000014942",
-                birthDate = "2003-04-19",
-                employmentDate = "2026-03-10",
-                dismissalDate = null,
-                phone = "+79805882044",
-                email = "Oleg.Feshchenko@hmmr.ru",
-                comment = null,
-                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
-                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
-                createdAt = "2026-07-08T14:17:43.360340",
-                updatedAt = "2026-09-03T02:00:11.229864",
-                fullNameRu = "Фещенко Олег Игоревич",
-                fullNameEn = "Feshchenko Oleg Igorevich",
-                society = WorkplaceResponse(
-                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-                    name = "ХАВЕЙЛ",
-                    nameEn = "",
-                    shortName = "SOCIETY",
-                    creationDate = "2019-08-01",
-                    closureDate = null,
-                    parentGuid = "00000000-0000-0000-0000-000000000000"
-                ),
-                department = WorkplaceResponse(
-                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-                    name = "ХАВЕЙЛ",
-                    nameEn = "",
-                    shortName = "DEPARTMENT",
-                    creationDate = "2019-08-01",
-                    closureDate = null,
-                    parentGuid = "00000000-0000-0000-0000-000000000000"
-                ),
-                division = WorkplaceResponse(
-                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-                    name = "ХАВЕЙЛ",
-                    nameEn = "",
-                    shortName = "DIVISION",
-                    creationDate = "2019-08-01",
-                    closureDate = null,
-                    parentGuid = "00000000-0000-0000-0000-000000000000"
-                ),
-                group = WorkplaceResponse(
-                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-                    name = "ХАВЕЙЛ",
-                    nameEn = "",
-                    shortName = "GROUP",
-                    creationDate = "2019-08-01",
-                    closureDate = null,
-                    parentGuid = "00000000-0000-0000-0000-000000000000"
-                ),
-                position = PositionResponse(
-                    name = "Младший инженер по внедрению информационных систем 2 категории",
-                    nameEn = null
-                ),
-                startDate = "2026-09-02",
-                endDate = null,
-                assignmentType = "serving"
-            )
+//            AssetUserFullResponse(
+//                guid = "c0ed588f-1c4a-11f1-a3ca-000c290ca5c4",
+//                employeeId = "0000014942",
+//                birthDate = "2003-04-19",
+//                employmentDate = "2026-03-10",
+//                dismissalDate = null,
+//                phone = "+79805882044",
+//                email = "Oleg.Feshchenko@hmmr.ru",
+//                comment = null,
+//                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+//                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
+//                createdAt = "2026-07-08T14:17:43.360340",
+//                updatedAt = "2026-09-03T02:00:11.229864",
+//                fullNameRu = "Фещенко Олег Игоревич",
+//                fullNameEn = "Feshchenko Oleg Igorevich",
+//                society = WorkplaceResponse(
+//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+//                    name = "ХАВЕЙЛ",
+//                    nameEn = "",
+//                    shortName = "SOCIETY",
+//                    creationDate = "2019-08-01",
+//                    closureDate = null,
+//                    parentGuid = "00000000-0000-0000-0000-000000000000"
+//                ),
+//                department = WorkplaceResponse(
+//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+//                    name = "ХАВЕЙЛ",
+//                    nameEn = "",
+//                    shortName = "DEPARTMENT",
+//                    creationDate = "2019-08-01",
+//                    closureDate = null,
+//                    parentGuid = "00000000-0000-0000-0000-000000000000"
+//                ),
+//                division = WorkplaceResponse(
+//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+//                    name = "ХАВЕЙЛ",
+//                    nameEn = "",
+//                    shortName = "DIVISION",
+//                    creationDate = "2019-08-01",
+//                    closureDate = null,
+//                    parentGuid = "00000000-0000-0000-0000-000000000000"
+//                ),
+//                group = WorkplaceResponse(
+//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+//                    name = "ХАВЕЙЛ",
+//                    nameEn = "",
+//                    shortName = "GROUP",
+//                    creationDate = "2019-08-01",
+//                    closureDate = null,
+//                    parentGuid = "00000000-0000-0000-0000-000000000000"
+//                ),
+//                position = PositionResponse(
+//                    name = "Младший инженер по внедрению информационных систем 2 категории",
+//                    nameEn = null
+//                ),
+//                startDate = "2026-09-02",
+//                endDate = null,
+//                assignmentType = "serving"
+//            )
         ),
         currentUser = "0000012657",
         currentUserFullName = "Евсиков Константин Александрович",

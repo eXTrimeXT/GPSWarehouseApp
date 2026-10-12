@@ -162,7 +162,7 @@ class MainActivity : ComponentActivity() {
                     // Внешний Box нужен только для того, чтобы UpdateDialog был поверх ВСЕГО (и баннера, и контента)
                     Box(modifier = Modifier.fillMaxSize()) {
 
-                        // === НОВОЕ: Column выстраивает баннер и NavHost друг под другом ===
+                        // === Column выстраивает баннер и NavHost друг под другом ===
                         Column(modifier = Modifier.fillMaxSize()) {
 
                             val navController = rememberNavController()
@@ -178,16 +178,58 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
+//                            LaunchedEffect(Unit) {
+//                                mainViewModel.uiState.collect { state ->
+//                                    if (state is MainViewModel.UiState.SessionExpired) {
+//                                        val currentRoute =
+//                                            navController.currentBackStackEntry?.destination?.route
+//                                        if (currentRoute != "login") {
+//                                            navController.navigate("login") {
+//                                                popUpTo(0) { inclusive = true }
+//                                                launchSingleTop = true
+//                                            }
+//                                        }
+//                                    }
+//                                }
+//                            }
+
                             LaunchedEffect(Unit) {
-                                mainViewModel.uiState.collect { state ->
-                                    if (state is MainViewModel.UiState.SessionExpired) {
-                                        val currentRoute =
-                                            navController.currentBackStackEntry?.destination?.route
-                                        if (currentRoute != "login") {
-                                            navController.navigate("login") {
-                                                popUpTo(0) { inclusive = true }
-                                                launchSingleTop = true
+                                var lastRoute = navController.currentDestination?.route
+
+                                // 1. Отслеживаем смену экранов для очистки глобальных ошибок (см. Проблему 2)
+                                launch {
+                                    navController.currentBackStackEntryFlow.collect { entry ->
+                                        val newRoute = entry.destination.route
+                                        if (newRoute != lastRoute) {
+                                            mainViewModel.clearGlobalError()
+                                            lastRoute = newRoute
+                                        }
+                                    }
+                                }
+
+                                // 2. Отслеживаем состояние авторизации для мгновенной навигации
+                                launch {
+                                    mainViewModel.uiState.collect { state ->
+                                        when (state) {
+                                            is MainViewModel.UiState.LoggedIn -> {
+                                                val currentRoute = navController.currentDestination?.route
+                                                if (currentRoute == "login") {
+                                                    navController.navigate("home") {
+                                                        popUpTo("login") { inclusive = true }
+                                                        launchSingleTop = true
+                                                    }
+                                                }
                                             }
+                                            is MainViewModel.UiState.SessionExpired -> {
+                                                val currentRoute = navController.currentBackStackEntry?.destination?.route
+                                                if (currentRoute != "login" && currentRoute != null) {
+                                                    navController.navigate("login") {
+                                                        popUpTo(0) { inclusive = true }
+                                                        launchSingleTop = true
+                                                    }
+                                                }
+                                            }
+                                            else -> {}
                                         }
                                     }
                                 }

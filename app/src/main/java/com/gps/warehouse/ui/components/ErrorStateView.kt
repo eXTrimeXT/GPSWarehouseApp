@@ -25,7 +25,7 @@ import kotlinx.coroutines.delay
 fun ErrorStateView(
     message: String,
     onRetry: (() -> Unit)? = null,
-    autoRetry: Boolean = true, // флаг автоматического вызова onRetry
+    autoRetry: Boolean = false, // флаг автоматического вызова onRetry
     @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     // Количество секунд для повтора
@@ -33,21 +33,16 @@ fun ErrorStateView(
     // Состояние для обратного отсчета
     var secondsLeft by remember { mutableIntStateOf(secondsDelay) }
 
-    // Единый эффект для управления таймером и авто-повтором
-    LaunchedEffect(message) {
-        // Сбрасываем таймер при каждом новом сообщении об ошибке
-        secondsLeft = secondsDelay
+    // Оптимизация: запускаем таймер ТОЛЬКО если включен autoRetry
+    LaunchedEffect(message, autoRetry, onRetry) {
+        if (!autoRetry || onRetry == null) return@LaunchedEffect
 
-        // Отсчет времени (каждые 10 сек)
+        secondsLeft = secondsDelay
         while (secondsLeft > 0) {
             delay(1000L)
             secondsLeft--
         }
-
-        // Если включен авто-повтор и время вышло, выполняем действие
-        if (autoRetry && onRetry != null) {
-            onRetry()
-        }
+        onRetry()
     }
 
 

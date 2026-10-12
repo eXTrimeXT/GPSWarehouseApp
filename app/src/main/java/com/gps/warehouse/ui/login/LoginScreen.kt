@@ -37,18 +37,26 @@ fun LoginScreen(
         }
     }
 
-    LoginScreenContent(
-        username = username,
-        onUsernameChange = { username = it },
-        password = password,
-        onPasswordChange = { password = it },
-        uiState = uiState,
-        onLoginClick = {
-            if (username.isNotBlank() && password.isNotBlank()) {
-                viewModel.login(username, password)
-            }
+    // Если пользователь уже авторизован, показываем спиннер вместо формы.
+    // Это предотвращает "мигание" полей ввода при холодном старте приложения.
+    if (uiState is MainViewModel.UiState.LoggedIn) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
         }
-    )
+    } else {
+        LoginScreenContent(
+            username = username,
+            onUsernameChange = { username = it },
+            password = password,
+            onPasswordChange = { password = it },
+            uiState = uiState,
+            onLoginClick = {
+                if (username.isNotBlank() && password.isNotBlank()) {
+                    viewModel.login(username, password)
+                }
+            }
+        )
+    }
 }
 
 // Чистый UI компонент. Принимает только данные и коллбэки

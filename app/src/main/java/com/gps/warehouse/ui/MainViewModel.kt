@@ -308,6 +308,17 @@ class MainViewModel @Inject constructor(
     }
 
     /**
+     * Метод очистки от глобальных ошибок
+     */
+    fun clearGlobalError() {
+        if (_uiState.value is UiState.Error) {
+            // Сбрасываем в Idle. Экраны при этом либо покажут загрузку,
+            // либо их собственные LaunchedEffect мгновенно перезапустят загрузку данных.
+            resetStateToIdle()
+        }
+    }
+
+    /**
      * Метод для сброса состояния (например, при уходе с экрана)
      */
     fun resetStateToIdle() {
@@ -319,7 +330,7 @@ class MainViewModel @Inject constructor(
      */
     fun resetWriteOffState() {
         if (_uiState.value is UiState.WmsWriteOffSuccess) {
-            _uiState.value = UiState.Idle
+            resetStateToIdle()
         }
     }
 

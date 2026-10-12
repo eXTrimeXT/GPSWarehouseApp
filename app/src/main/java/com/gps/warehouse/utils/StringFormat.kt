@@ -1,11 +1,9 @@
 package com.gps.warehouse.utils
 
-import android.util.Log
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
-import java.time.Instant
 
 /**
  * Проверяет, что переданная дата-время отличается от текущего времени устройства менее чем на 1 минуту.
