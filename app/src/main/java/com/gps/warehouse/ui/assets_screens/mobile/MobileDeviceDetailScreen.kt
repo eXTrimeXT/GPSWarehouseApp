@@ -38,9 +38,9 @@ import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import com.gps.warehouse.ui.viewmodels.MobileDevicesViewModel
 import com.gps.warehouse.ui.viewmodels.UiState
 import com.gps.warehouse.ui.components.MyCustomActionBar
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.InfoRow
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +57,7 @@ fun MobileDeviceDetailScreen(
 
     when (val state = uiState) {
         is UiState.Loading -> {
-            CustomLoadingView()
+            SplashLoadingScreen()
         }
 
         is UiState.Error -> {

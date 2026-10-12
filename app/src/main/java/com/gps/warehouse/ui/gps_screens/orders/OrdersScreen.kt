@@ -17,8 +17,8 @@ import com.gps.warehouse.data.remote.gps_dto.OrderDto
 import com.gps.warehouse.data.remote.gps_dto.Rules
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import kotlin.collections.filter
 
 // Список доступных статусов для фильтрации (простой список пар)
@@ -133,7 +133,9 @@ fun OrdersContent(
         }
 
         when (uiState) {
-            is MainViewModel.UiState.Loading -> { CustomLoadingView() }
+            is MainViewModel.UiState.Loading -> {
+                SplashLoadingScreen()
+            }
 
             is MainViewModel.UiState.OrdersLoaded -> {
                 // Убираем статус Done и Dispute, потому что они должны быть в архиве
@@ -209,7 +211,9 @@ fun OrdersContent(
                 )
             }
 
-            else -> { CustomLoadingView() }
+            else -> {
+                SplashLoadingScreen()
+            }
         }
     }
 }

@@ -29,8 +29,8 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScanButton
 import com.gps.warehouse.ui.components.CameraScannerDialog
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannerManager
 
@@ -314,7 +314,7 @@ fun PackagingScreenContent(
             // Основной контент через when
             when (uiState) {
                 is MainViewModel.UiState.Loading -> {
-                    CustomLoadingView()
+                    SplashLoadingScreen()
                 }
 
                 is MainViewModel.UiState.Error -> {

@@ -108,7 +108,8 @@ class MainViewModel @Inject constructor(
         // ========================================================================
     }
 
-    val _uiState = MutableStateFlow<UiState>(UiState.Idle)
+//    val _uiState = MutableStateFlow<UiState>(UiState.Idle)
+    val _uiState = MutableStateFlow<UiState>(UiState.Loading)
     val uiState = _uiState.asStateFlow()
 
     // Свойство для фонового мониторинга сессии
@@ -247,7 +248,7 @@ class MainViewModel @Inject constructor(
         if (token.isNullOrEmpty()) {
             currentToken = null
             if (_uiState.value !is UiState.SessionExpired) {
-                _uiState.value = UiState.Idle
+                resetStateToIdle()
             }
             return false
         }
@@ -287,8 +288,7 @@ class MainViewModel @Inject constructor(
                 if (gpsResponse.status == "success" && gpsResponse.data != null) {
 //                if (true) {
                     val gpsToken = gpsResponse.data.token
-//                    val gpsToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3OTAzMjY3MzYsImV4cCI6MTc5MDMyNjg1NiwibG9naW4iOiJndzA3MDE1MzcwIiwibGFzdF9pcCI6IjEwLjE2OC4xNTQuNDIiLCJsYXN0X3RpbWUiOiIxMjo0Nzo1MiAyMS4wNy4yMDI2IiwiZGVwYXJ0bWVudCI6IlJEQyIsInBlcm1pc3Npb25zIjpbeyJuYW1lX2dyb3VwIjoiY29tcHV0ZXIiLCJyZWFkIjp0cnVlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6Im1lc19lcXVpcG1lbnQiLCJyZWFkIjpmYWxzZSwid3JpdGUiOmZhbHNlfSx7Im5hbWVfZ3JvdXAiOiJzdXBwbGllcyIsInJlYWQiOmZhbHNlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6InBvd2VyX2FkYXB0ZXIiLCJyZWFkIjpmYWxzZSwid3JpdGUiOmZhbHNlfSx7Im5hbWVfZ3JvdXAiOiJkYXRhX2NvbGxlY3Rpb25fZXF1aXBtZW50IiwicmVhZCI6ZmFsc2UsIndyaXRlIjpmYWxzZX0seyJuYW1lX2dyb3VwIjoiQWNjZXNzb3JpZXMiLCJyZWFkIjpmYWxzZSwid3JpdGUiOmZhbHNlfSx7Im5hbWVfZ3JvdXAiOiJuZXR3b3JrX2VxdWlwbWVudCIsInJlYWQiOmZhbHNlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6InByaW50aW5nX2VxdWlwbWVudCIsInJlYWQiOmZhbHNlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6InNlcnZlcl9oYXJkd2FyZSIsInJlYWQiOmZhbHNlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6InVzZXJzIiwicmVhZCI6ZmFsc2UsIndyaXRlIjpmYWxzZX0seyJuYW1lX2dyb3VwIjoiQXNzZXRzTVUiLCJyZWFkIjpmYWxzZSwid3JpdGUiOmZhbHNlfV0sImFzc2V0c19hZG1pbiI6dHJ1ZSwidXNlcl9kYXRhIjp7ImVtYWlsIjoiVGltdXIuTWFseXNoZXZAaG1tci5ydSIsImZ1bGxuYW1lIjoiVGltdXIgTWFseXNoZXYiLCJkZXBhcnRtZW50IjoiU0RHIiwiZGlzdGluZ3Vpc2hlZE5hbWUiOiJDTj1UaW11ciBNYWx5c2hldixPVT1TT0ZUV0FSRSBERVZFTE9QTUVOVCBHUk9VUCAoU0RHKSxPVT1JTkZPUk1BVElPTiBTWVNURU1TIFNVUFBPUlQgU0VDVElPTiAoSVNTUyksT1U9UnVzc2lhbiBEaWdpdGFsIENlbnRlciAoUkRDKSxPVT1Vc2VycyxPVT1ITU1SLERDPWxvY2FsLERDPWhtbXIsREM9cnUiLCJncm91cHMiOltdfX0.Fe72RgeeJlvb2UfhVLwcmcFLwvZC-ZrIAKXEJ8yx-2c"
-
+//                    val gpsToken = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3OTE3ODMyMDAsImV4cCI6MTc5MTgyNjQwMCwibG9naW4iOiJndzA3MDE1MzcwIiwibGFzdF9pcCI6IjEwLjE2OC4xMzUuMzAiLCJsYXN0X3RpbWUiOiIwNToyNjo1MSAxMi4xMC4yMDI2IiwiZGVwYXJ0bWVudCI6IlJEQyIsInBlcm1pc3Npb25zIjpbeyJuYW1lX2dyb3VwIjoiY29tcHV0ZXIiLCJyZWFkIjp0cnVlLCJ3cml0ZSI6dHJ1ZX0seyJuYW1lX2dyb3VwIjoibWVzX2VxdWlwbWVudCIsInJlYWQiOnRydWUsIndyaXRlIjp0cnVlfSx7Im5hbWVfZ3JvdXAiOiJzdXBwbGllcyIsInJlYWQiOnRydWUsIndyaXRlIjp0cnVlfSx7Im5hbWVfZ3JvdXAiOiJwb3dlcl9hZGFwdGVyIiwicmVhZCI6dHJ1ZSwid3JpdGUiOnRydWV9LHsibmFtZV9ncm91cCI6ImRhdGFfY29sbGVjdGlvbl9lcXVpcG1lbnQiLCJyZWFkIjp0cnVlLCJ3cml0ZSI6dHJ1ZX0seyJuYW1lX2dyb3VwIjoiQWNjZXNzb3JpZXMiLCJyZWFkIjp0cnVlLCJ3cml0ZSI6dHJ1ZX0seyJuYW1lX2dyb3VwIjoibmV0d29ya19lcXVpcG1lbnQiLCJyZWFkIjp0cnVlLCJ3cml0ZSI6dHJ1ZX0seyJuYW1lX2dyb3VwIjoicHJpbnRpbmdfZXF1aXBtZW50IiwicmVhZCI6dHJ1ZSwid3JpdGUiOnRydWV9LHsibmFtZV9ncm91cCI6InNlcnZlcl9oYXJkd2FyZSIsInJlYWQiOnRydWUsIndyaXRlIjp0cnVlfSx7Im5hbWVfZ3JvdXAiOiJ1c2VycyIsInJlYWQiOnRydWUsIndyaXRlIjp0cnVlfSx7Im5hbWVfZ3JvdXAiOiJBc3NldHNNVSIsInJlYWQiOnRydWUsIndyaXRlIjp0cnVlfSx7Im5hbWVfZ3JvdXAiOiJhbmRyb2lkX2RhdGEiLCJyZWFkIjp0cnVlLCJ3cml0ZSI6ZmFsc2V9LHsibmFtZV9ncm91cCI6IndpdGhvdXRfdHlwZSIsInJlYWQiOnRydWUsIndyaXRlIjp0cnVlfSx7Im5hbWVfZ3JvdXAiOiJyZWFkX2FsbF9kZXBhcnRtZW50IiwicmVhZCI6dHJ1ZSwid3JpdGUiOnRydWV9XSwicGVybWlzc2lvbl9kZXBhcnRtZW50cyI6W3sibmFtZV9ncm91cCI6Ilx1MDQxMFx1MDQzYVx1MDQ0Mlx1MDQzOFx1MDQzMlx1MDQ0YiBSREMiLCJyZWFkIjp0cnVlLCJ3cml0ZSI6dHJ1ZSwiZGVwYXJ0bWVudCI6IlJEQyIsImRlcGFydG1lbnRfY29kZSI6IlJVMDEwNTAwOTkifSx7Im5hbWVfZ3JvdXAiOiJcdTA0MTBcdTA0M2FcdTA0NDJcdTA0MzhcdTA0MzJcdTA0NGIgTVNHIiwicmVhZCI6dHJ1ZSwid3JpdGUiOnRydWUsImRlcGFydG1lbnQiOiJNU0ciLCJkZXBhcnRtZW50X2NvZGUiOiJSVTAxMDUwMDIwIn0seyJuYW1lX2dyb3VwIjoiXHUwNDEwXHUwNDNhXHUwNDQyXHUwNDM4XHUwNDMyXHUwNDRiICIsInJlYWQiOnRydWUsIndyaXRlIjp0cnVlLCJkZXBhcnRtZW50IjpudWxsLCJkZXBhcnRtZW50X2NvZGUiOiJSVTAxMDAwMDk4In1dLCJhc3NldHNfaXNfYWRtaW4iOnRydWUsInVzZXJfZGF0YSI6eyJlbWFpbCI6IlRpbXVyLk1hbHlzaGV2QGhtbXIucnUiLCJmdWxsbmFtZSI6IlRpbXVyIE1hbHlzaGV2IiwiZGVwYXJ0bWVudCI6IlJEQyIsImRpc3Rpbmd1aXNoZWROYW1lIjoiQ049VGltdXIgTWFseXNoZXYsT1U9U09GVFdBUkUgREVWRUxPUE1FTlQgR1JPVVAgKFNERyksT1U9SU5GT1JNQVRJT04gU1lTVEVNUyBTVVBQT1JUIFNFQ1RJT04gKElTU1MpLE9VPVJ1c3NpYW4gRGlnaXRhbCBDZW50ZXIgKFJEQyksT1U9VXNlcnMsT1U9SE1NUixEQz1sb2NhbCxEQz1obW1yLERDPXJ1IiwiZ3JvdXBzIjpbXX19.aDoNQYPagZGRfwOSnffyp3iv0BvWlGfaqAds9mDeUo8"
                     // 4. Сохраняем токен
                     localStorage.saveToken(gpsToken)
                     currentToken = gpsToken
@@ -297,7 +297,7 @@ class MainViewModel @Inject constructor(
                     _uiState.value = UiState.LoggedIn(gpsToken)
                     startGlobalNotifications()
                 } else {
-                    // Ошибка авторизации - показываем сообщение от сервера
+//                     Ошибка авторизации - показываем сообщение от сервера
                     _uiState.value = UiState.Error(gpsResponse.msg.ifEmpty { "Ошибка авторизации" })
                 }
             } catch (e: Exception) {
@@ -339,7 +339,7 @@ class MainViewModel @Inject constructor(
      */
     fun resetReceiveState() {
         if (_uiState.value is UiState.WmsReceiveSuccess) {
-            _uiState.value = UiState.Idle
+            resetStateToIdle()
         }
     }
 
@@ -674,7 +674,7 @@ class MainViewModel @Inject constructor(
         if (_uiState.value is UiState.WmsRequestCancelled ||
             _uiState.value is UiState.WmsRequestAccepted
         ) {
-            _uiState.value = UiState.Idle
+            resetStateToIdle()
         }
     }
 

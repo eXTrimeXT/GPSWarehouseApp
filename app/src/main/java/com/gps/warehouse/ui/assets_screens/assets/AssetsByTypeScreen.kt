@@ -247,7 +247,19 @@ fun AssetsByTypeScreen(
         },
         onRetry = {
             Log.d(TAG, "Retry requested")
-            currentPage = 1
+            assetViewModel.loadAssetsByFilters(
+                page = currentPage,
+                pageSize = 50,
+                name = searchQuery.takeIf { it.isNotBlank() },
+                inventoryId = inventoryId.takeIf { it.isNotBlank() },
+                serialNumber = serialNumber.takeIf { it.isNotBlank() },
+                assetStatus = assetStatus,
+                modelId = modelId.toIntOrNull(),
+                assetTypeId = assetTypeId,
+                parentId = parentId.toIntOrNull(),
+                locationId = locationId.toIntOrNull(),
+                onlyMy = onlyMy
+            )
         },
         onLoadMore = {
             val state = uiState as? AssetViewModel.AssetUiState.AssetsLoadedPaginated

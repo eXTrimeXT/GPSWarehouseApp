@@ -31,11 +31,11 @@ import com.gps.warehouse.data.remote.gps_dto.WmsItemDto
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScanButton
 import com.gps.warehouse.ui.components.CameraScannerDialog
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SapBadge
 import com.gps.warehouse.ui.components.SearchAndFilterBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannedData
 import com.gps.warehouse.utils.ScannerManager
@@ -263,7 +263,9 @@ fun WmsContent(
         }
 
         when (uiState) {
-            is MainViewModel.UiState.Loading -> CustomLoadingView()
+            is MainViewModel.UiState.Loading -> {
+                SplashLoadingScreen()
+            }
 
             is MainViewModel.UiState.WmsLoaded -> {
                 val allItems = uiState.items
@@ -538,7 +540,7 @@ fun WmsPreviewLoaded() {
 }
 
 
-@Preview(showBackground = true, name = "WMS Screen - Loaded")
+@Preview(showBackground = true, name = "WMS Screen - Error")
 @Composable
 fun WmsPreviewError() {
     MaterialTheme {
@@ -564,6 +566,37 @@ fun WmsPreviewError() {
                     WarehousePermissionDto(id = "1", name = "3051", isLeader = "1", isVirtual = "0"),
                     WarehousePermissionDto(id = "2", name = "4007", isLeader = "0", isVirtual = "0")
                 ),
+                isLoadingMore = false,
+                hasMore = false,
+                onLoadMore = {}
+            )
+        }
+    }
+}
+
+@Preview(showBackground = true, name = "WMS Screen - Loaded")
+@Composable
+fun WmsPreviewLoading() {
+    MaterialTheme {
+        Surface {
+            WmsContent(
+                uiState = MainViewModel.UiState.Loading,
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
+                searchQuery = "",
+                onSearchQueryChange = {},
+                selectedStorageFilterId = null,
+                onStorageFilterSelected = {},
+                isFiltersExpanded = false,
+                onToggleFilters = {},
+                onBackClick = {},
+                onNavigateToRequests = {},
+                onRetryClick = {},
+                onItemClick = {},
+                showOnlyNonZeroQty = false,
+                onShowOnlyNonZeroQtyChange = {},
+                onResetFilters = {},
+                availableWarehouses = emptyList(),
                 isLoadingMore = false,
                 hasMore = false,
                 onLoadMore = {}

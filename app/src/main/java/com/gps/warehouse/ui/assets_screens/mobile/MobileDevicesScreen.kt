@@ -28,9 +28,9 @@ import com.gps.warehouse.data.remote.assets_dto.NetworkInfo
 import com.gps.warehouse.data.remote.assets_dto.SystemInfo
 import com.gps.warehouse.ui.viewmodels.MobileDevicesViewModel
 import com.gps.warehouse.ui.viewmodels.UiState
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.isRecentWithinOneMinute
 import kotlinx.coroutines.delay
 
@@ -114,7 +114,7 @@ fun MobileDevicesContent(
 
         when (uiState) {
             is UiState.Loading -> {
-                CustomLoadingView()
+                SplashLoadingScreen()
             }
             is UiState.Error -> {
                 ErrorStateView(

@@ -15,9 +15,9 @@ import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.InventoryOrderDto
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SearchAndFilterBar // Импортируем компонент
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 
 @Composable
 fun InventoryListScreen(
@@ -142,7 +142,9 @@ fun InventoryListContent(
         }
 
         when (uiState) {
-            is MainViewModel.UiState.Loading -> { CustomLoadingView() }
+            is MainViewModel.UiState.Loading -> {
+                SplashLoadingScreen()
+            }
 
             is MainViewModel.UiState.InventoryOrdersLoaded -> {
                 val allOrders = uiState.orders
@@ -220,7 +222,9 @@ fun InventoryListContent(
                 )
             }
 
-            else -> { CustomLoadingView() }
+            else -> {
+                SplashLoadingScreen()
+            }
         }
     }
 }

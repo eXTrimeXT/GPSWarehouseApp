@@ -31,9 +31,9 @@ import com.gps.warehouse.data.remote.gps_dto.WmsReceiveItem
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScanButton
 import com.gps.warehouse.ui.components.CameraScannerDialog
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.decodeWmsReceiveScreen
 import com.gps.warehouse.utils.isBase64EncodedJson
@@ -559,7 +559,9 @@ fun WmsReceiveScreenContent(
             }
 
             when (uiState) {
-                is MainViewModel.UiState.Loading -> CustomLoadingView()
+                is MainViewModel.UiState.Loading -> {
+                    SplashLoadingScreen()
+                }
                 is MainViewModel.UiState.Error -> ErrorStateView(
                     message = uiState.message,
                     onRetry = onRetryClick,

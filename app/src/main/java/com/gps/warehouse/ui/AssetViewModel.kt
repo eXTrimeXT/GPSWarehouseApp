@@ -357,20 +357,6 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    // Получить мои активы
-    fun loadMyAssets() {
-        viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
-            try {
-                val assets = assetApiService.getMyAssignedAssets("Bearer ${getToken()}")
-                _myAssetsList.value = assets  // Сохраняем список
-                _uiState.value = AssetUiState.MyAssetsLoaded(assets)
-            } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
-            }
-        }
-    }
-
     // Метод загрузки списка активов с фильтрами:
     fun loadAssetsByFilters(
         page: Int,
@@ -394,7 +380,7 @@ class AssetViewModel @Inject constructor(
             }
 
             // ИСПРАВЛЕНИЕ: Передаем фильтры в функцию получения кэша!
-            if (page == 1 && oldAssets.isEmpty()) {
+            if (page == 1) {
                 val cachedAssets = localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy)
                 if (cachedAssets.isNotEmpty()) {
                     _uiState.value = AssetUiState.AssetsLoadedPaginated(
@@ -405,7 +391,7 @@ class AssetViewModel @Inject constructor(
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
-                if (page == 1 && oldAssets.isEmpty() && localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy).isEmpty()) {
+                if (page == 1 && localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy).isEmpty()) {
                     _uiState.value = AssetUiState.Error("Нет подключения к сети")
                 }
                 return@launch

@@ -3,6 +3,7 @@ package com.gps.warehouse.ui.login
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -11,6 +12,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -19,6 +23,7 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.AppIconProd
 import com.gps.warehouse.ui.components.AppIconTest
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.Constants
 
 // Реальный экран
@@ -37,13 +42,18 @@ fun LoginScreen(
         }
     }
 
-    // Если пользователь уже авторизован, показываем спиннер вместо формы.
-    // Это предотвращает "мигание" полей ввода при холодном старте приложения.
-    if (uiState is MainViewModel.UiState.LoggedIn) {
+    // ГЛАВНОЕ ИСПРАВЛЕНИЕ МИГАНИЯ:
+    // Если состояние Loading И поля пустые (значит это первоначальная проверка токена при старте),
+    // показываем полноэкранный индикатор вместо формы ввода.
+    if (uiState is MainViewModel.UiState.Loading && username.isEmpty() && password.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+            }
         }
     } else {
+        // Если пользователь уже начал вводить данные, или проверка завершилась ошибкой/успехом,
+        // показываем обычную форму (внутри которой кнопка сама превратится в спиннер при нажатии "Войти")
         LoginScreenContent(
             username = username,
             onUsernameChange = { username = it },
@@ -103,14 +113,24 @@ fun LoginScreenContent(
             onValueChange = onPasswordChange,
             label = { Text("Пароль") },
             modifier = Modifier.fillMaxWidth(),
+
             // Если пароль виден - показываем текст, иначе скрываем
             visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+
+            // Запрет на сохранение в словарь и автокоррекцию
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Unspecified,
+                autoCorrectEnabled = false,
+                keyboardType = KeyboardType.Password,
+                imeAction = ImeAction.Unspecified,
+                platformImeOptions = null,
+                showKeyboardOnFocus = null,hintLocales = null
+            ),
+
             // Иконка глаза справа
             trailingIcon = {
-                val image = if (isPasswordVisible)
-                    Icons.Filled.Visibility
-                else
-                    Icons.Filled.VisibilityOff
+                val image = if (isPasswordVisible) Icons.Filled.Visibility
+                else Icons.Filled.VisibilityOff
 
                 IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
                     Icon(imageVector = image, contentDescription = if (isPasswordVisible) "Скрыть пароль" else "Показать пароль")
@@ -133,6 +153,10 @@ fun LoginScreenContent(
             } else {
                 Text("Войти")
             }
+        }
+
+        if (uiState is MainViewModel.UiState.Loading) {
+            SplashLoadingScreen()
         }
 
         if (uiState is MainViewModel.UiState.Error) {

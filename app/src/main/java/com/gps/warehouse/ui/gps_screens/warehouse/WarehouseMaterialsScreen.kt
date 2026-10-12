@@ -18,9 +18,9 @@ import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.gps_dto.WarehouseMaterialDto
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SearchAndFilterBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannerManager
 import java.text.SimpleDateFormat
@@ -169,7 +169,9 @@ fun WarehouseMaterialsContent(
 
         // Основной контент (список материалов)
         when (uiState) {
-            is MainViewModel.UiState.Loading -> { CustomLoadingView() }
+            is MainViewModel.UiState.Loading -> {
+                SplashLoadingScreen()
+            }
             is MainViewModel.UiState.WarehouseMaterialsLoaded -> {
                 val allMaterials = uiState.materials
 
@@ -274,7 +276,7 @@ fun WarehouseMaterialsContent(
                     modifier = Modifier.weight(1f)
                 )
             }
-            else -> { CustomLoadingView() }
+            else -> { SplashLoadingScreen() }
         }
     }
 }

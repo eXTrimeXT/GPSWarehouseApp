@@ -41,6 +41,7 @@ import com.gps.warehouse.ui.assets_screens.inventory.InventorizationSessionsScre
 import com.gps.warehouse.ui.assets_screens.inventory.InventorizationItemsScreen
 import com.gps.warehouse.ui.assets_screens.map.AssetMapWebViewScreen
 import com.gps.warehouse.ui.components.OfflineBannerOverlay
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.gps_screens.archive.ArchiveScreen
 import com.gps.warehouse.ui.home.HomeScreen
@@ -178,25 +179,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-//                            LaunchedEffect(Unit) {
-//                                mainViewModel.uiState.collect { state ->
-//                                    if (state is MainViewModel.UiState.SessionExpired) {
-//                                        val currentRoute =
-//                                            navController.currentBackStackEntry?.destination?.route
-//                                        if (currentRoute != "login") {
-//                                            navController.navigate("login") {
-//                                                popUpTo(0) { inclusive = true }
-//                                                launchSingleTop = true
-//                                            }
-//                                        }
-//                                    }
-//                                }
-//                            }
-
                             LaunchedEffect(Unit) {
                                 var lastRoute = navController.currentDestination?.route
 
-                                // 1. Отслеживаем смену экранов для очистки глобальных ошибок (см. Проблему 2)
+                                // 1. Отслеживаем смену экранов для очистки глобальных ошибок
                                 launch {
                                     navController.currentBackStackEntryFlow.collect { entry ->
                                         val newRoute = entry.destination.route
@@ -237,11 +223,38 @@ class MainActivity : ComponentActivity() {
 
                             // Баннер идет ПЕРВЫМ элементом в Column.
                             // Когда он скрыт (AnimatedVisibility), его высота = 0.
-                            // Когда появляется, он плавно раздвигает NavHost вниз.
                             OfflineBannerOverlay(isOnline = isOnline)
 
-                            // NavHost занимает ВСЁ ОСТАВШЕЕСЯ место благодаря weight(1f)
-                            NavHost(modifier = Modifier.weight(1f), navController = navController, startDestination = "login") {
+                            // startDestination теперь "splash"
+                            NavHost(modifier = Modifier.weight(1f), navController = navController, startDestination = "splash") {
+
+                                // === НОВЫЙ ЭКРАН ЗАГРУЗКИ (SPLASH) ===
+                                composable("splash") {
+                                    // Используем компонент
+                                    SplashLoadingScreen(message = "Проверка авторизации...")
+
+                                    // Маршрутизация сразу после того, как ViewModel проверил токен
+                                    LaunchedEffect(uiState) {
+                                        when (uiState) {
+                                            is MainViewModel.UiState.LoggedIn -> {
+                                                navController.navigate("home") {
+                                                    popUpTo("splash") { inclusive = true }
+                                                    launchSingleTop = true
+                                                }
+                                            }
+                                            is MainViewModel.UiState.Idle,
+                                            is MainViewModel.UiState.Error,
+                                            is MainViewModel.UiState.SessionExpired -> {
+                                                navController.navigate("login") {
+                                                    popUpTo("splash") { inclusive = true }
+                                                    launchSingleTop = true
+                                                }
+                                            }
+                                            else -> {} // Остаемся на splash, пока состояние Loading
+                                        }
+                                    }
+                                }
+
                                 composable("login") {
                                     // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПЕРЕД ВХОДОМ, на случай если сломалась авторизация
                                     checkForAppUpdate()
@@ -392,7 +405,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                // Обычный переход к типу актива
+                                // Переход к типу актива
                                 composable("assets_list/{assetTypeId}/{assetTypeName}") { backStackEntry ->
                                     val assetTypeId =
                                         backStackEntry.arguments?.getString("assetTypeId")

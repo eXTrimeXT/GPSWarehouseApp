@@ -24,8 +24,8 @@ import com.gps.warehouse.data.remote.gps_dto.UserProfileResponse
 import com.gps.warehouse.data.remote.gps_dto.WarehousePermissionDto
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.MainViewModel
-import com.gps.warehouse.ui.components.CustomLoadingView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -114,7 +114,9 @@ fun ProfileContent(
         MyCustomActionBar(onBackClick = onBackClick, text = "Профиль")
 
         when (uiState) {
-            is MainViewModel.UiState.Loading -> { CustomLoadingView() }
+            is MainViewModel.UiState.Loading -> {
+                SplashLoadingScreen()
+            }
             is MainViewModel.UiState.ProfileLoaded -> {
                 val profile = uiState.profile
 
@@ -223,7 +225,7 @@ fun ProfileContent(
                     modifier = Modifier.weight(1f)
                 )
             }
-            else -> { CustomLoadingView() }
+            else -> { SplashLoadingScreen() }
         }
     }
 }
