@@ -433,6 +433,7 @@ fun NotificationItem(notification: NotificationDto, isHighlighted: Boolean = fal
             Spacer(modifier = Modifier.height(10.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (notification.direction == DirectionFilter.INCOMING.apiValue) {
                 Badge(
                     containerColor = when (notification.status) {
                         "unread" -> MaterialTheme.colorScheme.primary
@@ -440,11 +441,13 @@ fun NotificationItem(notification: NotificationDto, isHighlighted: Boolean = fal
                         else -> Color.Gray
                     }
                 ) {
-                    Text(
-                        text = notification.statusRu,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary.takeIf { notification.status != "read" } ?: Color.White
-                    )
+                        Text(
+                            text = notification.statusRu,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimary.takeIf { notification.status != "read" }
+                                ?: Color.White
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -469,22 +472,33 @@ private fun NotificationsContentPreview() {
             assetId = null, sessionId = 12, eventType = "inventory_started", initiatorId = "0000015370",
             status = "unread", respondedAt = null, createdAt = "2026-08-27T16:01:39.042276",
             assetName = null, assetInventoryId = null, initiatorFullName = "Малышев Тимур Максимович",
-            direction = "outgoing", directionRu = "Исходящее", eventTypeRu = "Запущена новая сессия", statusRu = "Не прочитано"
+            direction = "outgoing", directionRu = "Исходящее", eventTypeRu = "Запущена новая сессия",
+            statusRu = "Не прочитано"
         ),
         NotificationDto(
             notificationId = 74, employeeId = "0000012657", employeeFullName = "Евсиков Константин Александрович",
             assetId = 49, sessionId = null, eventType = "user_declined", initiatorId = "0000015370",
             status = "declined", respondedAt = null, createdAt = "2026-08-26T12:29:14.756052",
             assetName = "Актив №3", assetInventoryId = "3333", initiatorFullName = "Малышев Тимур Максимович",
-            direction = "outgoing", directionRu = "Входящее", eventTypeRu = "Сотрудник отклонил назначение", statusRu = "Отклонено"
+            direction = "outgoing", directionRu = "Исходящее", eventTypeRu = "Сотрудник отклонил назначение",
+            statusRu = "Отклонено"
         ),
         NotificationDto(
             notificationId = 62, employeeId = "0000015370", employeeFullName = "Малышев Тимур Максимович",
             assetId = 48, sessionId = null, eventType = "write_off_approved", initiatorId = "0000012657",
             status = "read", respondedAt = null, createdAt = "2026-08-26T12:26:04.199824",
             assetName = "Актив №2", assetInventoryId = "INV_NUMBER_48", initiatorFullName = "Евсиков Константин Александрович",
-            direction = "incoming", directionRu = "Входящее", eventTypeRu = "Заявка на списание утверждена", statusRu = "Прочитано"
-        )
+            direction = "incoming", directionRu = "Входящее", eventTypeRu = "Заявка на списание утверждена",
+            statusRu = "Прочитано"
+        ),
+        NotificationDto(
+            notificationId = 61, employeeId = "0000015370", employeeFullName = "Малышев Тимур Максимович",
+            assetId = 48, sessionId = null, eventType = "write_off_approved", initiatorId = "0000012657",
+            status = "unread", respondedAt = null, createdAt = "2026-08-26T12:26:04.199824",
+            assetName = "Актив №2", assetInventoryId = "INV_NUMBER_48", initiatorFullName = "Евсиков Константин Александрович",
+            direction = "incoming", directionRu = "Входящее", eventTypeRu = "Заявка на списание утверждена",
+            statusRu = "Не прочитано"
+        ),
     )
 
     MaterialTheme {
