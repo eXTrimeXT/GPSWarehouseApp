@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,6 +43,9 @@ import com.gps.warehouse.ui.components.InfoRow
 import com.gps.warehouse.ui.components.InfoRowSmall
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.formatIsoToReadable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -94,16 +98,17 @@ fun AssetDetailsScreen(
 
     // === Вкладки ===
     val pagerState = rememberPagerState(pageCount = { 3 })
-    var selectedTab by remember { mutableIntStateOf(0) }
+    val coroutineScope = rememberCoroutineScope()
+//    var selectedTab by remember { mutableIntStateOf(0) }
 
     // Синхронизация табов и пейджера
-    LaunchedEffect(selectedTab) {
-        pagerState.animateScrollToPage(selectedTab)
-    }
-
-    LaunchedEffect(pagerState.currentPage) {
-        selectedTab = pagerState.currentPage
-    }
+//    LaunchedEffect(selectedTab) {
+//        pagerState.animateScrollToPage(selectedTab)
+//    }
+//
+//    LaunchedEffect(pagerState.currentPage) {
+//        selectedTab = pagerState.currentPage
+//    }
 
     // Загружаем данные при открытии
     LaunchedEffect(assetId, materialId) {
@@ -390,9 +395,10 @@ fun AssetDetailsScreen(
         assetHistory = assetHistory,
         isEditing = isEditing,
         editState = editState,
-        selectedTab = selectedTab,
+//        selectedTab = selectedTab,
         pagerState = pagerState,
-        onTabSelected = { selectedTab = it },
+        coroutineScope = coroutineScope,
+//        onTabSelected = { selectedTab = it },
         onEditStateChange = { newState -> editState = newState },
         onToggleEdit = { isEditing = !isEditing },
         workshops = workshops,
@@ -467,9 +473,10 @@ fun AssetDetailsContent(
     workshops: List<Workshop>,
     isEditing: Boolean,
     editState: AssetEditState?,
-    selectedTab: Int,
-    pagerState: androidx.compose.foundation.pager.PagerState,
-    onTabSelected: (Int) -> Unit,
+//    selectedTab: Int,
+    pagerState: PagerState,
+    coroutineScope: CoroutineScope,
+//    onTabSelected: (Int) -> Unit,
     onEditStateChange: (AssetEditState) -> Unit,
     onToggleEdit: () -> Unit,
     onSave: () -> Unit,
@@ -542,23 +549,23 @@ fun AssetDetailsContent(
                     )
                     // === Вкладки ===
                     TabRow(
-                        selectedTabIndex = selectedTab,
+                        selectedTabIndex = pagerState.currentPage,
                         containerColor = MaterialTheme.colorScheme.surface,
                         contentColor = MaterialTheme.colorScheme.primary
                     ) {
                         Tab(
-                            selected = selectedTab == 0,
-                            onClick = { onTabSelected(0) },
+                            selected = pagerState.currentPage == 0,
+                            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(0) } },
                             text = { Text("Основное") }
                         )
                         Tab(
-                            selected = selectedTab == 1,
-                            onClick = { onTabSelected(1) },
+                            selected = pagerState.currentPage == 1,
+                            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(1) } },
                             text = { Text("Люди") }
                         )
                         Tab(
-                            selected = selectedTab == 2,
-                            onClick = { onTabSelected(2) },
+                            selected = pagerState.currentPage == 2,
+                            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(2) } },
                             text = { Text("История") }
                         )
                     }
@@ -871,6 +878,97 @@ fun MainInfoTab(
 }
 
 // ==================== TAB 2: USERS ====================
+//@Composable
+//fun UsersTab(
+//    asset: AssetResponseDto,
+//    isEditing: Boolean,
+//    editState: AssetEditState?,
+//    onAddUser: ((UserType) -> Unit)?,
+//    onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)?,
+//    onTransferClick: () -> Unit,
+//    transfers: List<AssetTransferDto>,
+//    currentEmployeeId: String?,
+//    onCancelTransfer: (Int) -> Unit,
+//    onRespondTransfer: (AssetTransferDto) -> Unit
+//) {
+//    // Определяем: есть ли текущий пользователь среди владельцев
+//    val currentUsers = editState?.currentUsers ?: asset.users
+//    val isCurrentUserOwner = currentEmployeeId != null &&
+//            currentUsers?.any { it.employeeId == currentEmployeeId } == true
+//
+//    LazyColumn(
+//        modifier = Modifier.fillMaxSize(),
+//        contentPadding = PaddingValues(16.dp),
+//        verticalArrangement = Arrangement.spacedBy(12.dp)
+//    ) {
+//        // === Кнопка «Передать актив» — только если мы владелец ===
+//        if (!isEditing && isCurrentUserOwner) {
+//            item {
+//                Spacer(Modifier.height(8.dp))
+//                Button(
+//                    onClick = onTransferClick,
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .height(56.dp),
+//                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+//                ) {
+//                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+//                    Spacer(Modifier.width(8.dp))
+//                    Text(
+//                        "Передать актив",
+//                        style = MaterialTheme.typography.bodyLarge,
+//                        fontWeight = FontWeight.SemiBold
+//                    )
+//                }
+//                Spacer(Modifier.height(16.dp))
+//            }
+//        }
+//
+//        // === Владелец ===
+//        item {
+//            UsersSection(
+//                title = "Владелец",
+//                users = currentUsers,
+//                icon = Icons.Default.Person,
+//                color = MaterialTheme.colorScheme.surfaceVariant,
+//                isEditing = isEditing,
+//                onAddUser = if (isEditing) {
+//                    { onAddUser?.invoke(UserType.USER) }
+//                } else null,
+//                onRemoveUser = onRemoveUser
+//            )
+//        }
+//
+//        // === Обслуживающий персонал ===
+//        item {
+//            UsersSection(
+//                title = "Обслуживающий персонал",
+//                users = editState?.currentServingUsers ?: asset.servingUsers,
+//                icon = Icons.Default.Build,
+//                color = MaterialTheme.colorScheme.tertiaryContainer,
+//                isEditing = isEditing,
+//                onAddUser = if (isEditing) {
+//                    { onAddUser?.invoke(UserType.SERVING) }
+//                } else null,
+//                onRemoveUser = onRemoveUser
+//            )
+//        }
+//
+//        // === История передач ===
+//        if (!isEditing && transfers.isNotEmpty()) {
+//            item {
+//                AssetTransfersSection(
+//                    transfers = transfers,
+//                    currentEmployeeId = currentEmployeeId,
+//                    onCancelTransfer = onCancelTransfer,
+//                    onRespondTransfer = onRespondTransfer
+//                )
+//            }
+//        }
+//    }
+//}
+
+// ==================== TAB 2: USERS ====================
 @Composable
 fun UsersTab(
     asset: AssetResponseDto,
@@ -884,78 +982,117 @@ fun UsersTab(
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
 ) {
-    // Определяем: есть ли текущий пользователь среди владельцев
     val currentUsers = editState?.currentUsers ?: asset.users
+    val currentServingUsers = editState?.currentServingUsers ?: asset.servingUsers
+
+    // Определяем: есть ли текущий пользователь среди владельцев
     val isCurrentUserOwner = currentEmployeeId != null &&
             currentUsers?.any { it.employeeId == currentEmployeeId } == true
+
+    // Проверяем, пуст ли вообще весь контент вкладки (кроме режима редактирования)
+    val isEverythingEmpty = currentUsers.isNullOrEmpty() &&
+            currentServingUsers.isNullOrEmpty() &&
+            transfers.isEmpty() &&
+            !isEditing
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
+        // Если всё пусто, центрируем заглушку по вертикали
+        // verticalArrangement = if (isEverythingEmpty) Arrangement.Center else Arrangement.spacedBy(12.dp)
     ) {
-        // === Кнопка «Передать актив» — только если мы владелец ===
-        if (!isEditing && isCurrentUserOwner) {
+        if (isEverythingEmpty) {
+            // === ЗАГЛУШКА, ЕСЛИ НИКОГО НЕТ ===
             item {
-                Spacer(Modifier.height(8.dp))
-                Button(
-                    onClick = onTransferClick,
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        .padding(vertical = 48.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        "Передать актив",
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = Icons.Default.GroupOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            "Сотрудники не назначены",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        } else {
+            // === ОБЫЧНЫЙ КОНТЕНТ ===
+
+            // Кнопка «Передать актив» — только если мы владелец
+            if (!isEditing && isCurrentUserOwner) {
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onTransferClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Передать актив",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+
+            // Владелец
+            item {
+                UsersSection(
+                    title = "Владелец",
+                    users = currentUsers,
+                    icon = Icons.Default.Person,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    isEditing = isEditing,
+                    onAddUser = if (isEditing) {
+                        { onAddUser?.invoke(UserType.USER) }
+                    } else null,
+                    onRemoveUser = onRemoveUser
+                )
+            }
+
+            // Обслуживающий персонал
+            item {
+                UsersSection(
+                    title = "Обслуживающий персонал",
+                    users = currentServingUsers,
+                    icon = Icons.Default.Build,
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                    isEditing = isEditing,
+                    onAddUser = if (isEditing) {
+                        { onAddUser?.invoke(UserType.SERVING) }
+                    } else null,
+                    onRemoveUser = onRemoveUser
+                )
+            }
+
+            // История передач
+            if (!isEditing && transfers.isNotEmpty()) {
+                item {
+                    AssetTransfersSection(
+                        transfers = transfers,
+                        currentEmployeeId = currentEmployeeId,
+                        onCancelTransfer = onCancelTransfer,
+                        onRespondTransfer = onRespondTransfer
                     )
                 }
-                Spacer(Modifier.height(16.dp))
-            }
-        }
-
-        // === Владелец ===
-        item {
-            UsersSection(
-                title = "Владелец",
-                users = currentUsers,
-                icon = Icons.Default.Person,
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                isEditing = isEditing,
-                onAddUser = if (isEditing) {
-                    { onAddUser?.invoke(UserType.USER) }
-                } else null,
-                onRemoveUser = onRemoveUser
-            )
-        }
-
-        // === Обслуживающий персонал ===
-        item {
-            UsersSection(
-                title = "Обслуживающий персонал",
-                users = editState?.currentServingUsers ?: asset.servingUsers,
-                icon = Icons.Default.Build,
-                color = MaterialTheme.colorScheme.tertiaryContainer,
-                isEditing = isEditing,
-                onAddUser = if (isEditing) {
-                    { onAddUser?.invoke(UserType.SERVING) }
-                } else null,
-                onRemoveUser = onRemoveUser
-            )
-        }
-
-        // === История передач ===
-        if (!isEditing && transfers.isNotEmpty()) {
-            item {
-                AssetTransfersSection(
-                    transfers = transfers,
-                    currentEmployeeId = currentEmployeeId,
-                    onCancelTransfer = onCancelTransfer,
-                    onRespondTransfer = onRespondTransfer
-                )
             }
         }
     }
@@ -1785,7 +1922,7 @@ private fun ExpandableUserCard(
                     modifier = Modifier.size(20.dp)
                 )
             }
-            if (!expanded) {
+            if (expanded) {
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
@@ -2408,6 +2545,8 @@ fun TransferActionDialog(
 @Composable
 private fun AssetDetailsPreview_MainTab() {
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { 3 })
+    val coroutineScope = rememberCoroutineScope()
+
     MaterialTheme {
         Surface {
             AssetDetailsContent(
@@ -2418,10 +2557,9 @@ private fun AssetDetailsPreview_MainTab() {
                 assetHistory = emptyList(),
                 isEditing = false,
                 editState = AssetEditState.fromAsset(getSampleAsset()),
-                selectedTab = 0,
                 pagerState = pagerState,
+                coroutineScope = coroutineScope,
                 workshops = emptyList(),
-                onTabSelected = {},
                 onEditStateChange = {},
                 onToggleEdit = {},
                 onSave = {},
@@ -2465,6 +2603,8 @@ private fun AssetDetailsPreview_MainTab() {
 @Composable
 private fun AssetDetailsPreview_UserTab() {
     val pagerState = rememberPagerState(initialPage = 1, pageCount = { 3 })
+    val coroutineScope = rememberCoroutineScope()
+
     MaterialTheme {
         Surface {
             AssetDetailsContent(
@@ -2475,10 +2615,9 @@ private fun AssetDetailsPreview_UserTab() {
                 assetHistory = emptyList(),
                 isEditing = false,
                 editState = AssetEditState.fromAsset(getSampleAsset()),
-                selectedTab = 1,
                 pagerState = pagerState,
+                coroutineScope = coroutineScope,
                 workshops = emptyList(),
-                onTabSelected = {},
                 onEditStateChange = {},
                 onToggleEdit = {},
                 onSave = {},
@@ -2522,6 +2661,8 @@ private fun AssetDetailsPreview_UserTab() {
 @Composable
 private fun AssetDetailsPreview_HistoryTab() {
     val pagerState = rememberPagerState(initialPage = 2, pageCount = { 3 })
+    val coroutineScope = rememberCoroutineScope()
+
     val sampleHistory = listOf(
         AssetHistoryDto(
             id = 12, assetId = 48, actionType = "update",
@@ -2544,10 +2685,9 @@ private fun AssetDetailsPreview_HistoryTab() {
                 assetHistory = sampleHistory,
                 isEditing = false,
                 editState = AssetEditState.fromAsset(getSampleAsset()),
-                selectedTab = 2,
                 pagerState = pagerState,
+                coroutineScope = coroutineScope,
                 workshops = emptyList(),
-                onTabSelected = {},
                 onEditStateChange = {},
                 onToggleEdit = {},
                 onSave = {},
