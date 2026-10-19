@@ -10,6 +10,8 @@ import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetConfirmationResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetConfirmationStatus
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTransferCancelResponseDto
@@ -20,6 +22,7 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTransferRespondResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTransferResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
+import com.gps.warehouse.data.remote.assets_dto.ConfirmAssetRequestDto
 import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
@@ -191,13 +194,16 @@ class AssetViewModel @Inject constructor(
 
     // Состояние для хранения информации о передаче
     private val _transferStatus = MutableStateFlow<TransferStatus>(TransferStatus.None)
-    val transferStatus: StateFlow<TransferStatus> = _transferStatus.asStateFlow()
+    val transferStatus = _transferStatus.asStateFlow()
 
     private val _transferInfo = MutableStateFlow<AssetTransferExistsResponseDto?>(null)
-    val transferInfo: StateFlow<AssetTransferExistsResponseDto?> = _transferInfo.asStateFlow()
+    val transferInfo = _transferInfo.asStateFlow()
 
     private val _assetTransfers = MutableStateFlow<List<AssetTransferDto>>(emptyList())
-    val assetTransfers: StateFlow<List<AssetTransferDto>> = _assetTransfers.asStateFlow()
+    val assetTransfers = _assetTransfers.asStateFlow()
+
+    private val _assetConfirmations = MutableStateFlow<List<AssetConfirmationResponseDto>>(emptyList())
+    val assetConfirmations = _assetConfirmations.asStateFlow()
 
     private var eventSource: EventSource? = null
 
@@ -325,7 +331,7 @@ class AssetViewModel @Inject constructor(
                 val response = assetApiService.getMvzList("Bearer ${getToken()}")
                 _mvzDepartments.value = response.response.data
             } catch (e: Exception) {
-                // TODO: Дописать логику ошибок для цехов
+                // TODO: Дописать логику ошибок для департаментов
             }
         }
     }
@@ -970,6 +976,71 @@ class AssetViewModel @Inject constructor(
                 val errorMessage = getErrorMessage(e) ?: "Ошибка отмены запроса"
                 Log.e(TAG, "Ошибка отмены передачи: $errorMessage")
                 onError(errorMessage)
+                _uiState.value = AssetUiState.Error(errorMessage)
+            }
+        }
+    }
+
+    // ==================== Подтверждение наличия актива ====================
+    /**
+     * Подтверждает наличие актива (вручную или через отсканированный QR-код с ТСД Honeywell)
+     */
+    fun confirmAsset(
+        request: ConfirmAssetRequestDto,
+        onSuccess: (AssetConfirmationResponseDto) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val response = assetApiService.confirmAsset(
+                    token = "Bearer ${getToken()}",
+                    request = request
+                )
+                onSuccess(response)
+                loadConfirmationsList(onlyMy = true)
+            } catch (e: Exception) {
+                val errorMessage = getErrorMessage(e) ?: "Ошибка подтверждения актива"
+                Log.e(TAG, "Ошибка подтверждения актива: $errorMessage", e)
+                onError(errorMessage)
+                _uiState.value = AssetUiState.Error(errorMessage)
+            }
+        }
+    }
+
+    // ==================== Список запросов на подтверждение ====================
+    /**
+     * Получает список запросов на подтверждение с фильтрацией и пагинацией
+     */
+    fun loadConfirmationsList(
+        assetId: Int? = null,
+        statusConfirmation: AssetConfirmationStatus? = null,
+        onlyMy: Boolean = false,
+        employeeId: String? = null,
+        page: Int = 1,
+        pageSize: Int = 50,
+        onSuccess: (PaginatedResponse<AssetConfirmationResponseDto>) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val response = assetApiService.getConfirmationsList(
+                    token = "Bearer ${getToken()}",
+                    assetId = assetId,
+                    statusConfirmation = statusConfirmation,
+                    onlyMy = onlyMy,
+                    employeeId = employeeId,
+                    page = page,
+                    pageSize = pageSize
+                )
+                onSuccess(response)
+                _assetConfirmations.value = response.items
+            } catch (e: Exception) {
+                val errorMessage = getErrorMessage(e) ?: "Ошибка получения списка подтверждений"
+                Log.e(TAG, "Ошибка получения списка подтверждений: $errorMessage", e)
+                onError(errorMessage)
+                _assetConfirmations.value = emptyList()
                 _uiState.value = AssetUiState.Error(errorMessage)
             }
         }

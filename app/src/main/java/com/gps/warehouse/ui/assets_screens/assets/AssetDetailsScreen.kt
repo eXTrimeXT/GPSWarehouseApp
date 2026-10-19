@@ -88,6 +88,9 @@ fun AssetDetailsScreen(
     var selectedEmployeeForTransfer by remember { mutableStateOf<EmployeeShortResponse?>(null) }
     var isTransferring by remember { mutableStateOf(false) }
 
+    // === Подтверждения актива ===
+    var confirmations by assetViewModel.assetConfirmations.collectAsState()
+
     // Новый state для диалога подтверждения
     var transferToCancel by remember { mutableStateOf<Int?>(null) }
     var isCancellingTransfer by remember { mutableStateOf(false) }
@@ -99,16 +102,6 @@ fun AssetDetailsScreen(
     // === Вкладки ===
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
-//    var selectedTab by remember { mutableIntStateOf(0) }
-
-    // Синхронизация табов и пейджера
-//    LaunchedEffect(selectedTab) {
-//        pagerState.animateScrollToPage(selectedTab)
-//    }
-//
-//    LaunchedEffect(pagerState.currentPage) {
-//        selectedTab = pagerState.currentPage
-//    }
 
     // Загружаем данные при открытии
     LaunchedEffect(assetId, materialId) {
@@ -401,10 +394,8 @@ fun AssetDetailsScreen(
         assetHistory = assetHistory,
         isEditing = isEditing,
         editState = editState,
-//        selectedTab = selectedTab,
         pagerState = pagerState,
         coroutineScope = coroutineScope,
-//        onTabSelected = { selectedTab = it },
         onEditStateChange = { newState -> editState = newState },
         onToggleEdit = { isEditing = !isEditing },
         workshops = workshops,
@@ -449,6 +440,7 @@ fun AssetDetailsScreen(
             assetViewModel.loadEmployees(page = 1, pageSize = 20)
         },
         assetTransfers = assetTransfers,
+        confirmations = confirmations,
         currentEmployeeId = employeeMe?.employeeId,   // ← новое
         onCancelTransfer = { transferId ->            // ← новое
             // Открываем диалог подтверждения через state
@@ -465,6 +457,9 @@ fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?)
     viewModel.getEmployeeMe()
     viewModel.loadWorkshops()
     viewModel.loadMvzDepartments()
+//    if (assetId != null) {
+        viewModel.loadConfirmationsList(assetId = assetId, page = 1, pageSize = 50)
+//    }
 }
 
 // ==================== CONTENT: UI + TABS ====================
@@ -479,10 +474,8 @@ fun AssetDetailsContent(
     workshops: List<Workshop>,
     isEditing: Boolean,
     editState: AssetEditState?,
-//    selectedTab: Int,
     pagerState: PagerState,
     coroutineScope: CoroutineScope,
-//    onTabSelected: (Int) -> Unit,
     onEditStateChange: (AssetEditState) -> Unit,
     onToggleEdit: () -> Unit,
     onSave: () -> Unit,
@@ -496,6 +489,7 @@ fun AssetDetailsContent(
     onNextServiceClick: (() -> Unit)? = null,
     onTransferClick: () -> Unit,
     assetTransfers: List<AssetTransferDto>,
+    confirmations: List<AssetConfirmationResponseDto>,
     currentEmployeeId: String?,
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
@@ -604,6 +598,7 @@ fun AssetDetailsContent(
                                 onTransferClick = onTransferClick,
                                 onCancelTransfer = onCancelTransfer,
                                 transfers = assetTransfers,
+                                confirmations = confirmations,
                                 currentEmployeeId = currentEmployeeId,
                                 onRespondTransfer = onRespondTransfer,
                             )
@@ -738,37 +733,6 @@ fun AssetHeaderCard(
                     }
                 }
             }
-
-            // Краткие идентификаторы
-//            if (!isEditing) {
-//                Spacer(Modifier.height(12.dp))
-//                HorizontalDivider(color = statusColor.copy(alpha = 0.3f))
-//                Spacer(Modifier.height(8.dp))
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//                    CompactIdRow(
-//                        icon = Icons.Outlined.QrCode,
-//                        label = "Инв. №",
-//                        value = asset.inventoryId ?: "—"
-//                    )
-//                }
-//                Spacer(Modifier.height(8.dp))
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//                    if (!asset.serialNumber.isNullOrBlank()) {
-//                        CompactIdRow(
-//                            icon = Icons.Default.Code,
-//                            label = "Серийный",
-//                            value = asset.serialNumber
-//                        )
-//                    }
-//                }
-//
-//            }
         }
     }
 }
@@ -884,97 +848,6 @@ fun MainInfoTab(
 }
 
 // ==================== TAB 2: USERS ====================
-//@Composable
-//fun UsersTab(
-//    asset: AssetResponseDto,
-//    isEditing: Boolean,
-//    editState: AssetEditState?,
-//    onAddUser: ((UserType) -> Unit)?,
-//    onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)?,
-//    onTransferClick: () -> Unit,
-//    transfers: List<AssetTransferDto>,
-//    currentEmployeeId: String?,
-//    onCancelTransfer: (Int) -> Unit,
-//    onRespondTransfer: (AssetTransferDto) -> Unit
-//) {
-//    // Определяем: есть ли текущий пользователь среди владельцев
-//    val currentUsers = editState?.currentUsers ?: asset.users
-//    val isCurrentUserOwner = currentEmployeeId != null &&
-//            currentUsers?.any { it.employeeId == currentEmployeeId } == true
-//
-//    LazyColumn(
-//        modifier = Modifier.fillMaxSize(),
-//        contentPadding = PaddingValues(16.dp),
-//        verticalArrangement = Arrangement.spacedBy(12.dp)
-//    ) {
-//        // === Кнопка «Передать актив» — только если мы владелец ===
-//        if (!isEditing && isCurrentUserOwner) {
-//            item {
-//                Spacer(Modifier.height(8.dp))
-//                Button(
-//                    onClick = onTransferClick,
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .height(56.dp),
-//                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-//                ) {
-//                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
-//                    Spacer(Modifier.width(8.dp))
-//                    Text(
-//                        "Передать актив",
-//                        style = MaterialTheme.typography.bodyLarge,
-//                        fontWeight = FontWeight.SemiBold
-//                    )
-//                }
-//                Spacer(Modifier.height(16.dp))
-//            }
-//        }
-//
-//        // === Владелец ===
-//        item {
-//            UsersSection(
-//                title = "Владелец",
-//                users = currentUsers,
-//                icon = Icons.Default.Person,
-//                color = MaterialTheme.colorScheme.surfaceVariant,
-//                isEditing = isEditing,
-//                onAddUser = if (isEditing) {
-//                    { onAddUser?.invoke(UserType.USER) }
-//                } else null,
-//                onRemoveUser = onRemoveUser
-//            )
-//        }
-//
-//        // === Обслуживающий персонал ===
-//        item {
-//            UsersSection(
-//                title = "Обслуживающий персонал",
-//                users = editState?.currentServingUsers ?: asset.servingUsers,
-//                icon = Icons.Default.Build,
-//                color = MaterialTheme.colorScheme.tertiaryContainer,
-//                isEditing = isEditing,
-//                onAddUser = if (isEditing) {
-//                    { onAddUser?.invoke(UserType.SERVING) }
-//                } else null,
-//                onRemoveUser = onRemoveUser
-//            )
-//        }
-//
-//        // === История передач ===
-//        if (!isEditing && transfers.isNotEmpty()) {
-//            item {
-//                AssetTransfersSection(
-//                    transfers = transfers,
-//                    currentEmployeeId = currentEmployeeId,
-//                    onCancelTransfer = onCancelTransfer,
-//                    onRespondTransfer = onRespondTransfer
-//                )
-//            }
-//        }
-//    }
-//}
-
-// ==================== TAB 2: USERS ====================
 @Composable
 fun UsersTab(
     asset: AssetResponseDto,
@@ -984,6 +857,7 @@ fun UsersTab(
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)?,
     onTransferClick: () -> Unit,
     transfers: List<AssetTransferDto>,
+    confirmations: List<AssetConfirmationResponseDto> = emptyList(),
     currentEmployeeId: String?,
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
@@ -1056,6 +930,13 @@ fun UsersTab(
                         )
                     }
                     Spacer(Modifier.height(16.dp))
+                }
+            }
+
+            // Подтверждения актива
+            if (!isEditing && confirmations.isNotEmpty()) {
+                item {
+                    AssetConfirmationsSection(confirmations = confirmations)
                 }
             }
 
@@ -2233,6 +2114,205 @@ private fun AssetTransferCard(
     }
 }
 
+// ==================== СЕКЦИЯ ПОДТВЕРЖДЕНИЙ ====================
+@Composable
+private fun AssetConfirmationsSection(
+    confirmations: List<AssetConfirmationResponseDto>
+) {
+    // Если пусто - ничего не рендерим (требование ТЗ)
+    if (confirmations.isEmpty()) return
+
+    InfoSectionCard(icon = Icons.Default.VerifiedUser, title = "Подтверждения актива") {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            confirmations.forEach { confirmation ->
+                ConfirmationCard(confirmation = confirmation)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Всего записей: ${confirmations.size}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.End)
+            )
+        }
+    }
+}
+
+// ==================== КАРТОЧКА ОДНОГО ПОДТВЕРЖДЕНИЯ ====================
+@Composable
+private fun ConfirmationCard(
+    confirmation: AssetConfirmationResponseDto
+) {
+    var expanded by rememberSaveable(confirmation.id) { mutableStateOf(false) }
+    val statusInfo = confirmationStatusInfo(confirmation.status.name)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded }
+            .animateContentSize(animationSpec = spring()),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = statusInfo.containerColor.copy(alpha = 0.25f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // === Верхняя строка: Дата + Статус ===
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = confirmation.createdAt.formatIsoToReadable() ?: "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = statusInfo.containerColor
+                ) {
+                    Text(
+                        text = statusInfo.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusInfo.contentColor,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // === Основная информация: Сотрудник ===
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        confirmation.employeeFullName ?: "Сотрудник",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        "Таб. номер: ${confirmation.employeeId}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                // Иконка раскрытия
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // === Раскрытая часть (все остальные поля) ===
+            if (!expanded) {
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
+                Spacer(Modifier.height(10.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    confirmation.assetName?.let {
+                        InfoRowSmall(label = "Актив", value = it)
+                    }
+                    confirmation.requestedBy?.let {
+                        InfoRowSmall(label = "Инициатор запроса", value = it)
+                    }
+
+                    confirmation.comment?.takeIf { it.isNotBlank() }?.let { comment ->
+                        Spacer(Modifier.height(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    "Комментарий",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    comment,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    confirmation.confirmedAt?.let {
+                        InfoRowSmall(label = "Время подтверждения", value = it.formatIsoToReadable() ?: it)
+                    }
+
+                    InfoRowSmall(label = "ID записи", value = "#${confirmation.id}")
+                }
+            }
+        }
+    }
+}
+
+// ==================== ХЕЛПЕР ДЛЯ СТАТУСОВ ПОДТВЕРЖДЕНИЯ ====================
+@Composable
+private fun confirmationStatusInfo(status: String): TransferStatusInfo {
+    return when (status.lowercase()) {
+        "confirmed" -> TransferStatusInfo(
+            label = "Подтверждено",
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        "not_found" -> TransferStatusInfo(
+            label = "Не найден",
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer
+        )
+        "damaged" -> TransferStatusInfo(
+            label = "Поврежден",
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        "pending" -> TransferStatusInfo(
+            label = "Ожидает",
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        else -> TransferStatusInfo(
+            label = status.replaceFirstChar { it.uppercase() },
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 // Хелпер для статуса
 data class TransferStatusInfo(
     val label: String,
@@ -2275,7 +2355,7 @@ private fun transferStatusInfo(status: String): TransferStatusInfo {
     }
 }
 
-// ==================== ДИАЛОГ ПЕРЕДАЧИ (без изменений) ====================
+// ==================== ДИАЛОГ ПЕРЕДАЧИ ====================
 @Composable
 fun AssetTransferDialog(
     asset: AssetResponseDto,
@@ -2592,6 +2672,56 @@ private fun AssetDetailsPreview_MainTab() {
                         respondedAt = "2026-09-25T09:35:55.606425Z"
                     )
                 ),
+                confirmations = listOf(
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив PENDING",
+                        employeeId = "0000015370",
+                        employeeFullName = "ФИО",
+                        requestedBy = "ФИО requestedBy",
+                        status = AssetConfirmationStatus.PENDING,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив NOT_FOUND",
+                        employeeId = "0000015370",
+                        employeeFullName = "ФИО",
+                        requestedBy = "ФИО requestedBy",
+                        status = AssetConfirmationStatus.NOT_FOUND,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив DAMAGED",
+                        employeeId = "0000015370",
+                        employeeFullName = "ФИО",
+                        requestedBy = "ФИО requestedBy",
+                        status = AssetConfirmationStatus.DAMAGED,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив CONFIRMED",
+                        employeeId = "0000015370",
+                        employeeFullName = "ФИО",
+                        requestedBy = "ФИО requestedBy",
+                        status = AssetConfirmationStatus.CONFIRMED,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                ),
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
                 onRespondTransfer = {}
@@ -2649,6 +2779,56 @@ private fun AssetDetailsPreview_UserTab() {
                         createdAt = "2026-09-22T12:11:50.200708Z",
                         respondedAt = "2026-09-25T09:35:55.606425Z"
                     )
+                ),
+                confirmations = listOf(
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив PENDING",
+                        employeeId = "0000015370",
+                        employeeFullName = "Малышев Тимур Максимович",
+                        requestedBy = "Малых Андрей Владимирович",
+                        status = AssetConfirmationStatus.PENDING,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив NOT_FOUND",
+                        employeeId = "0000015370",
+                        employeeFullName = "Малышев Тимур Максимович",
+                        requestedBy = "Малых Андрей Владимирович",
+                        status = AssetConfirmationStatus.NOT_FOUND,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив DAMAGED",
+                        employeeId = "0000015370",
+                        employeeFullName = "Малышев Тимур Максимович",
+                        requestedBy = "Малых Андрей Владимирович",
+                        status = AssetConfirmationStatus.DAMAGED,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив CONFIRMED",
+                        employeeId = "0000015370",
+                        employeeFullName = "Малышев Тимур Максимович",
+                        requestedBy = "Малых Андрей Владимирович",
+                        status = AssetConfirmationStatus.CONFIRMED,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
                 ),
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
@@ -2719,6 +2899,56 @@ private fun AssetDetailsPreview_HistoryTab() {
                         createdAt = "2026-09-22T12:11:50.200708Z",
                         respondedAt = "2026-09-25T09:35:55.606425Z"
                     )
+                ),
+                confirmations = listOf(
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив PENDING",
+                        employeeId = "0000015370",
+                        employeeFullName = "ФИО",
+                        requestedBy = "ФИО requestedBy",
+                        status = AssetConfirmationStatus.PENDING,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив NOT_FOUND",
+                        employeeId = "0000015370",
+                        employeeFullName = "ФИО",
+                        requestedBy = "ФИО requestedBy",
+                        status = AssetConfirmationStatus.NOT_FOUND,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив DAMAGED",
+                        employeeId = "0000015370",
+                        employeeFullName = "ФИО",
+                        requestedBy = "ФИО requestedBy",
+                        status = AssetConfirmationStatus.DAMAGED,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив CONFIRMED",
+                        employeeId = "0000015370",
+                        employeeFullName = "ФИО",
+                        requestedBy = "ФИО requestedBy",
+                        status = AssetConfirmationStatus.CONFIRMED,
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
                 ),
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},

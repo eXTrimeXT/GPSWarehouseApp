@@ -1,5 +1,7 @@
 package com.gps.warehouse.data.remote
 
+import com.gps.warehouse.data.remote.assets_dto.AssetConfirmationResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetConfirmationStatus
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
@@ -12,6 +14,7 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTransferResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
+import com.gps.warehouse.data.remote.assets_dto.ConfirmAssetRequestDto
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
@@ -250,4 +253,23 @@ interface AssetApiService {
     suspend fun getMvzList(
         @Header("Authorization") token: String
     ): MvzListResponseDto
+
+    // ==================== Подтверждение наличия актива ====================
+    @POST("asset-confirmations/confirm")
+    suspend fun confirmAsset(
+        @Header("Authorization") token: String,
+        @Body request: ConfirmAssetRequestDto
+    ): AssetConfirmationResponseDto
+
+    // ==================== Список запросов на подтверждение ====================
+    @GET("asset-confirmations/")
+    suspend fun getConfirmationsList(
+        @Header("Authorization") token: String,
+        @Query("asset_id") assetId: Int? = null,
+        @Query("status_confirmation") statusConfirmation: AssetConfirmationStatus? = null,
+        @Query("only_my") onlyMy: Boolean? = false,
+        @Query("employee_id") employeeId: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 50
+    ): PaginatedResponse<AssetConfirmationResponseDto>
 }
