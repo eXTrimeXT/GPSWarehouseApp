@@ -1040,7 +1040,6 @@ class AssetViewModel @Inject constructor(
                 val errorMessage = getErrorMessage(e) ?: "Ошибка получения списка подтверждений"
                 Log.e(TAG, "Ошибка получения списка подтверждений: $errorMessage", e)
                 onError(errorMessage)
-                _assetConfirmations.value = emptyList()
                 _uiState.value = AssetUiState.Error(errorMessage)
             }
         }

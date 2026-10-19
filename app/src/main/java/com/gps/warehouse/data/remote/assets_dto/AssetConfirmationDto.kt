@@ -33,12 +33,12 @@ data class CreateConfirmationRequestDto(
 data class ConfirmAssetRequestDto(
     @SerialName("asset_id") val assetId: Int? = null,
     @SerialName("qr_data") val qrData: String? = null,
-    @SerialName("status") val status: AssetConfirmationStatus,
+    @SerialName("status") val status: String,
     @SerialName("comment") val comment: String? = null
 ) {
     // Валидация: комментарий обязателен для определенных статусов
     init {
-        if (status == AssetConfirmationStatus.NOT_FOUND || status == AssetConfirmationStatus.DAMAGED) {
+        if (status == "not_found" || status == "damaged") {
             require(!comment.isNullOrBlank()) {
                 "Комментарий обязателен для статусов 'not_found' или 'damaged'"
             }
@@ -55,7 +55,8 @@ data class AssetConfirmationResponseDto(
     @SerialName("employee_id") val employeeId: String,
     @SerialName("employee_full_name") val employeeFullName: String? = null,
     @SerialName("requested_by") val requestedBy: String? = null,
-    @SerialName("status") val status: AssetConfirmationStatus,
+    @SerialName("status") val status: String,
+    @SerialName("status_ru") val statusRu: String? = null,
     @SerialName("comment") val comment: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("confirmed_at") val confirmedAt: String? = null

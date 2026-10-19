@@ -26,14 +26,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.work.workDataOf
 import com.gps.warehouse.data.remote.assets_dto.*
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import com.gps.warehouse.ui.AssetViewModel
@@ -44,7 +42,6 @@ import com.gps.warehouse.ui.components.InfoRowSmall
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -76,6 +73,9 @@ fun AssetDetailsScreen(
     // Получаем список MVZ
     val mvzDepartments by assetViewModel.mvzDepartments.collectAsState()
 
+    // === Подтверждения актива ===
+    val confirmations by assetViewModel.assetConfirmations.collectAsState()
+
     var isEditing by remember { mutableStateOf(false) }
     var showNextServiceDatePicker by remember { mutableStateOf(false) }
     var userPendingRemoval by remember { mutableStateOf<Pair<UserType, AssetUserFullResponse>?>(null) }
@@ -87,9 +87,6 @@ fun AssetDetailsScreen(
     var showEmployeeSearchForTransfer by remember { mutableStateOf(false) }
     var selectedEmployeeForTransfer by remember { mutableStateOf<EmployeeShortResponse?>(null) }
     var isTransferring by remember { mutableStateOf(false) }
-
-    // === Подтверждения актива ===
-    var confirmations by assetViewModel.assetConfirmations.collectAsState()
 
     // Новый state для диалога подтверждения
     var transferToCancel by remember { mutableStateOf<Int?>(null) }
@@ -457,9 +454,9 @@ fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?)
     viewModel.getEmployeeMe()
     viewModel.loadWorkshops()
     viewModel.loadMvzDepartments()
-//    if (assetId != null) {
+    if (assetId != null) {
         viewModel.loadConfirmationsList(assetId = assetId, page = 1, pageSize = 50)
-//    }
+    }
 }
 
 // ==================== CONTENT: UI + TABS ====================
@@ -857,7 +854,7 @@ fun UsersTab(
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)?,
     onTransferClick: () -> Unit,
     transfers: List<AssetTransferDto>,
-    confirmations: List<AssetConfirmationResponseDto> = emptyList(),
+    confirmations: List<AssetConfirmationResponseDto>,
     currentEmployeeId: String?,
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
@@ -2147,7 +2144,9 @@ private fun ConfirmationCard(
     confirmation: AssetConfirmationResponseDto
 ) {
     var expanded by rememberSaveable(confirmation.id) { mutableStateOf(false) }
-    val statusInfo = confirmationStatusInfo(confirmation.status.name)
+
+    // Надежное получение статуса без enum
+    val statusInfo = getConfirmationStatusInfo(confirmation.statusRu)
 
     Card(
         modifier = Modifier
@@ -2156,7 +2155,7 @@ private fun ConfirmationCard(
             .animateContentSize(animationSpec = spring()),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
-            containerColor = statusInfo.containerColor.copy(alpha = 0.25f)
+            containerColor = statusInfo.containerColor.copy(alpha = 0.2f)
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -2167,7 +2166,7 @@ private fun ConfirmationCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = confirmation.createdAt.formatIsoToReadable() ?: "",
+                    text = confirmation.createdAt.formatIsoToReadable() ?: "Дата неизвестна",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -2209,20 +2208,19 @@ private fun ConfirmationCard(
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        confirmation.employeeFullName ?: "Сотрудник",
+                        text = confirmation.employeeFullName ?: "Сотрудник",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        "Таб. номер: ${confirmation.employeeId}",
+                        text = "Таб. номер: ${confirmation.employeeId}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                // Иконка раскрытия
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) "Свернуть" else "Развернуть",
@@ -2231,8 +2229,8 @@ private fun ConfirmationCard(
                 )
             }
 
-            // === Раскрытая часть (все остальные поля) ===
-            if (!expanded) {
+            // === Раскрытая часть (только если есть данные) ===
+            if (expanded) {
                 Spacer(Modifier.height(10.dp))
                 HorizontalDivider(
                     thickness = 1.dp,
@@ -2241,10 +2239,12 @@ private fun ConfirmationCard(
                 Spacer(Modifier.height(10.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    confirmation.assetName?.let {
+                    // Безопасный рендер: показываем только если значение не null и не пустое
+                    confirmation.assetName?.takeIf { it.isNotBlank() }?.let {
                         InfoRowSmall(label = "Актив", value = it)
                     }
-                    confirmation.requestedBy?.let {
+
+                    confirmation.requestedBy?.takeIf { it.isNotBlank() }?.let {
                         InfoRowSmall(label = "Инициатор запроса", value = it)
                     }
 
@@ -2262,7 +2262,7 @@ private fun ConfirmationCard(
                                 )
                                 Spacer(Modifier.height(2.dp))
                                 Text(
-                                    comment,
+                                    text = comment,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
@@ -2270,7 +2270,7 @@ private fun ConfirmationCard(
                         }
                     }
 
-                    confirmation.confirmedAt?.let {
+                    confirmation.confirmedAt?.takeIf { it.isNotBlank() }?.let {
                         InfoRowSmall(label = "Время подтверждения", value = it.formatIsoToReadable() ?: it)
                     }
 
@@ -2281,32 +2281,37 @@ private fun ConfirmationCard(
     }
 }
 
-// ==================== ХЕЛПЕР ДЛЯ СТАТУСОВ ПОДТВЕРЖДЕНИЯ ====================
+// ==================== ПРОСТОЙ И НАДЕЖНЫЙ ХЕЛПЕР СТАТУСОВ (БЕЗ ENUM) ====================
 @Composable
-private fun confirmationStatusInfo(status: String): TransferStatusInfo {
-    return when (status.lowercase()) {
-        "confirmed" -> TransferStatusInfo(
-            label = "Подтверждено",
+private fun getConfirmationStatusInfo(statusRu: String?): StatusInfo {
+    // Приводим к нижнему регистру и убираем пробелы для надежного сравнения
+    val status = statusRu?.lowercase()?.trim() ?: "неизвестно"
+
+    return when {
+        // Используем contains, чтобы ловить "подтверждено", "подтвержден", "подтвержденный" и т.д.
+        status.contains("подтвержд") -> StatusInfo(
+            label = statusRu ?: "Подтверждено",
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
-        "not_found" -> TransferStatusInfo(
-            label = "Не найден",
+        status.contains("не найден") || status.contains("не найдено") -> StatusInfo(
+            label = statusRu ?: "Не найден",
             containerColor = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer
         )
-        "damaged" -> TransferStatusInfo(
-            label = "Поврежден",
+        status.contains("поврежден") || status.contains("поврежд") -> StatusInfo(
+            label = statusRu ?: "Поврежден",
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer
         )
-        "pending" -> TransferStatusInfo(
-            label = "Ожидает",
+        status.contains("ожидает") || status.contains("pending") -> StatusInfo(
+            label = statusRu ?: "В ожидании",
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        else -> TransferStatusInfo(
-            label = status.replaceFirstChar { it.uppercase() },
+        // Fallback для абсолютно любого другого статуса, чтобы приложение НИКОГДА не упало
+        else -> StatusInfo(
+            label = statusRu?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } ?: "Неизвестно",
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -2314,40 +2319,40 @@ private fun confirmationStatusInfo(status: String): TransferStatusInfo {
 }
 
 // Хелпер для статуса
-data class TransferStatusInfo(
+data class StatusInfo(
     val label: String,
     val containerColor: Color,
     val contentColor: Color
 )
 
 @Composable
-private fun transferStatusInfo(status: String): TransferStatusInfo {
+private fun transferStatusInfo(status: String): StatusInfo {
     return when (status.uppercase()) {
-        "PENDING" -> TransferStatusInfo(
+        "PENDING" -> StatusInfo(
             label = "Ожидает",
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer
         )
 
-        "ACCEPTED" -> TransferStatusInfo(
+        "ACCEPTED" -> StatusInfo(
             label = "Принята",
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
 
-        "DECLINED" -> TransferStatusInfo(
+        "DECLINED" -> StatusInfo(
             label = "Отклонена",
             containerColor = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer
         )
 
-        "CANCELLED" -> TransferStatusInfo(
+        "CANCELLED" -> StatusInfo(
             label = "Отменена",
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        else -> TransferStatusInfo(
+        else -> StatusInfo(
             label = status,
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2672,56 +2677,7 @@ private fun AssetDetailsPreview_MainTab() {
                         respondedAt = "2026-09-25T09:35:55.606425Z"
                     )
                 ),
-                confirmations = listOf(
-                    AssetConfirmationResponseDto(
-                        id = 0,
-                        assetId = 7,
-                        assetName = "Актив PENDING",
-                        employeeId = "0000015370",
-                        employeeFullName = "ФИО",
-                        requestedBy = "ФИО requestedBy",
-                        status = AssetConfirmationStatus.PENDING,
-                        comment = "комментарий",
-                        createdAt = "11.11.2026 10:49:17",
-                        confirmedAt = "12.12.2026 12:59:39"
-                    ),
-                    AssetConfirmationResponseDto(
-                        id = 0,
-                        assetId = 7,
-                        assetName = "Актив NOT_FOUND",
-                        employeeId = "0000015370",
-                        employeeFullName = "ФИО",
-                        requestedBy = "ФИО requestedBy",
-                        status = AssetConfirmationStatus.NOT_FOUND,
-                        comment = "комментарий",
-                        createdAt = "11.11.2026 10:49:17",
-                        confirmedAt = "12.12.2026 12:59:39"
-                    ),
-                    AssetConfirmationResponseDto(
-                        id = 0,
-                        assetId = 7,
-                        assetName = "Актив DAMAGED",
-                        employeeId = "0000015370",
-                        employeeFullName = "ФИО",
-                        requestedBy = "ФИО requestedBy",
-                        status = AssetConfirmationStatus.DAMAGED,
-                        comment = "комментарий",
-                        createdAt = "11.11.2026 10:49:17",
-                        confirmedAt = "12.12.2026 12:59:39"
-                    ),
-                    AssetConfirmationResponseDto(
-                        id = 0,
-                        assetId = 7,
-                        assetName = "Актив CONFIRMED",
-                        employeeId = "0000015370",
-                        employeeFullName = "ФИО",
-                        requestedBy = "ФИО requestedBy",
-                        status = AssetConfirmationStatus.CONFIRMED,
-                        comment = "комментарий",
-                        createdAt = "11.11.2026 10:49:17",
-                        confirmedAt = "12.12.2026 12:59:39"
-                    ),
-                ),
+                confirmations = listOf(),
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
                 onRespondTransfer = {}
@@ -2788,7 +2744,8 @@ private fun AssetDetailsPreview_UserTab() {
                         employeeId = "0000015370",
                         employeeFullName = "Малышев Тимур Максимович",
                         requestedBy = "Малых Андрей Владимирович",
-                        status = AssetConfirmationStatus.PENDING,
+                        status = "pending",
+                        statusRu = "В ожидании",
                         comment = "комментарий",
                         createdAt = "11.11.2026 10:49:17",
                         confirmedAt = "12.12.2026 12:59:39"
@@ -2800,7 +2757,8 @@ private fun AssetDetailsPreview_UserTab() {
                         employeeId = "0000015370",
                         employeeFullName = "Малышев Тимур Максимович",
                         requestedBy = "Малых Андрей Владимирович",
-                        status = AssetConfirmationStatus.NOT_FOUND,
+                        status = "not_found",
+                        statusRu = "Не найдено",
                         comment = "комментарий",
                         createdAt = "11.11.2026 10:49:17",
                         confirmedAt = "12.12.2026 12:59:39"
@@ -2812,7 +2770,8 @@ private fun AssetDetailsPreview_UserTab() {
                         employeeId = "0000015370",
                         employeeFullName = "Малышев Тимур Максимович",
                         requestedBy = "Малых Андрей Владимирович",
-                        status = AssetConfirmationStatus.DAMAGED,
+                        status = "damaged",
+                        statusRu = "Поврежденный",
                         comment = "комментарий",
                         createdAt = "11.11.2026 10:49:17",
                         confirmedAt = "12.12.2026 12:59:39"
@@ -2824,7 +2783,8 @@ private fun AssetDetailsPreview_UserTab() {
                         employeeId = "0000015370",
                         employeeFullName = "Малышев Тимур Максимович",
                         requestedBy = "Малых Андрей Владимирович",
-                        status = AssetConfirmationStatus.CONFIRMED,
+                        status = "confirmed",
+                        statusRu = "Подтвержденный",
                         comment = "комментарий",
                         createdAt = "11.11.2026 10:49:17",
                         confirmedAt = "12.12.2026 12:59:39"
@@ -2900,56 +2860,7 @@ private fun AssetDetailsPreview_HistoryTab() {
                         respondedAt = "2026-09-25T09:35:55.606425Z"
                     )
                 ),
-                confirmations = listOf(
-                    AssetConfirmationResponseDto(
-                        id = 0,
-                        assetId = 7,
-                        assetName = "Актив PENDING",
-                        employeeId = "0000015370",
-                        employeeFullName = "ФИО",
-                        requestedBy = "ФИО requestedBy",
-                        status = AssetConfirmationStatus.PENDING,
-                        comment = "комментарий",
-                        createdAt = "11.11.2026 10:49:17",
-                        confirmedAt = "12.12.2026 12:59:39"
-                    ),
-                    AssetConfirmationResponseDto(
-                        id = 0,
-                        assetId = 7,
-                        assetName = "Актив NOT_FOUND",
-                        employeeId = "0000015370",
-                        employeeFullName = "ФИО",
-                        requestedBy = "ФИО requestedBy",
-                        status = AssetConfirmationStatus.NOT_FOUND,
-                        comment = "комментарий",
-                        createdAt = "11.11.2026 10:49:17",
-                        confirmedAt = "12.12.2026 12:59:39"
-                    ),
-                    AssetConfirmationResponseDto(
-                        id = 0,
-                        assetId = 7,
-                        assetName = "Актив DAMAGED",
-                        employeeId = "0000015370",
-                        employeeFullName = "ФИО",
-                        requestedBy = "ФИО requestedBy",
-                        status = AssetConfirmationStatus.DAMAGED,
-                        comment = "комментарий",
-                        createdAt = "11.11.2026 10:49:17",
-                        confirmedAt = "12.12.2026 12:59:39"
-                    ),
-                    AssetConfirmationResponseDto(
-                        id = 0,
-                        assetId = 7,
-                        assetName = "Актив CONFIRMED",
-                        employeeId = "0000015370",
-                        employeeFullName = "ФИО",
-                        requestedBy = "ФИО requestedBy",
-                        status = AssetConfirmationStatus.CONFIRMED,
-                        comment = "комментарий",
-                        createdAt = "11.11.2026 10:49:17",
-                        confirmedAt = "12.12.2026 12:59:39"
-                    ),
-                ),
+                confirmations = listOf(),
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
                 onRespondTransfer = {}
