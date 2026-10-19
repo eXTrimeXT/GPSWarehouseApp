@@ -177,241 +177,6 @@ fun InventorizationSessionsContent(
 }
 
 // ==================== ДИАЛОГ: Отдельный Composable ====================
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun CreateInventorySessionDialog(
-//    assetTypes: List<AssetTypeDto>,
-//    selectedAssetTypeId: Int?,
-//    permissionDepartments: List<PermissionDepartmentDto>,
-//    onDismiss: () -> Unit,
-//    onSelectedTypeChange: (Int?) -> Unit,
-//    onCreateSession: (assetTypeId: Int?, departmentCode: String?, startDate: String?, endDate: String?) -> Unit
-//) {
-//    // ИЗМЕНЕНО: Используем Set для удобного множественного выбора кодов департаментов
-//    var selectedDepartmentCodes by remember { mutableStateOf<Set<String>>(emptySet()) }
-//
-//    // Состояния для даты и времени (в миллисекундах)
-//    var startDateTimeMillis by remember { mutableStateOf<Long?>(null) }
-//    var endDateTimeMillis by remember { mutableStateOf<Long?>(null) }
-//
-//    // Состояния для пикеров времени
-//    val startTimePickerState = rememberTimePickerState()
-//    val endTimePickerState = rememberTimePickerState()
-//
-//    // Флаги видимости диалогов
-//    var showStartDatePicker by remember { mutableStateOf(false) }
-//    var showStartTimePicker by remember { mutableStateOf(false) }
-//    var showEndDatePicker by remember { mutableStateOf(false) }
-//    var showEndTimePicker by remember { mutableStateOf(false) }
-//
-//    // ФИЛЬТР: Берем только те департаменты, где есть право на запись
-//    val writableDepartments = permissionDepartments.filter { it.write }
-//
-//    // Вспомогательная функция форматирования в ISO 8601 (с учетом выбранного времени)
-//    @SuppressLint("DefaultLocale")
-//    fun formatToIso(dateMillis: Long?, hour: Int, minute: Int): String? {
-//        if (dateMillis == null) return null
-//        val instant = Instant.ofEpochMilli(dateMillis)
-//        val zdt = instant.atZone(ZoneOffset.UTC)
-//        return String.format("%04d-%02d-%02dT%02d:%02d:00.000Z", zdt.year, zdt.monthValue, zdt.dayOfMonth, hour, minute)
-//    }
-//
-//    // Вспомогательная функция для отображения текста в поле
-//    @SuppressLint("DefaultLocale")
-//    fun getDisplayText(dateMillis: Long?, timeState: TimePickerState): String {
-//        if (dateMillis == null) return "Выберите дату и время"
-//        val instant = Instant.ofEpochMilli(dateMillis)
-//        val zdt = instant.atZone(ZoneOffset.UTC)
-//        val dateStr = zdt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
-//        val timeStr = String.format("%02d:%02d", timeState.hour, timeState.minute)
-//        return "$dateStr $timeStr"
-//    }
-//
-//    AlertDialog(
-//        onDismissRequest = onDismiss,
-//        icon = { Icon(Icons.Default.AddBox, null, tint = MaterialTheme.colorScheme.primary) },
-//        title = { Text("Новая инвентаризация") },
-//        text = {
-//            Column(
-//                modifier = Modifier
-//                    .verticalScroll(rememberScrollState())
-//                    .padding(vertical = 8.dp),
-//                verticalArrangement = Arrangement.spacedBy(16.dp)
-//            ) {
-//                // 1. Выбор типа актива
-//                Text("Тип актива:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-//                FlowRow(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-//                    verticalArrangement = Arrangement.spacedBy(8.dp)
-//                ) {
-//                    FilterChip(
-//                        selected = selectedAssetTypeId == null,
-//                        onClick = { onSelectedTypeChange(null) },
-//                        label = { Text("Без типа") },
-//                        leadingIcon = if (selectedAssetTypeId == null) {
-//                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-//                        } else null
-//                    )
-//                    assetTypes.forEach { type ->
-//                        FilterChip(
-//                            selected = selectedAssetTypeId == type.assetTypeId,
-//                            onClick = { onSelectedTypeChange(type.assetTypeId) },
-//                            label = { Text(type.name) },
-//                            leadingIcon = if (selectedAssetTypeId == type.assetTypeId) {
-//                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-//                            } else null
-//                        )
-//                    }
-//                }
-//
-//                HorizontalDivider(
-//                    modifier = Modifier.padding(vertical = 8.dp),
-//                    thickness = DividerDefaults.Thickness,
-//                    color = DividerDefaults.color
-//                )
-//
-//                // 2. Выбор департаментов (ТОЛЬКО С ПРАВОМ write)
-//                Text("Департаменты", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-//
-//                if (writableDepartments.isEmpty()) {
-//                    Text(
-//                        "Нет доступных департаментов",
-//                        style = MaterialTheme.typography.bodySmall,
-//                        color = MaterialTheme.colorScheme.error
-//                    )
-//                } else {
-//                    FlowRow(
-//                        modifier = Modifier.fillMaxWidth(),
-//                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-//                        verticalArrangement = Arrangement.spacedBy(8.dp)
-//                    ) {
-//                        writableDepartments.forEach { dept ->
-//                            val code = dept.departmentCode ?: return@forEach
-//                            FilterChip(
-//                                selected = selectedDepartmentCodes.contains(code),
-//                                onClick = {
-//                                    selectedDepartmentCodes = if (selectedDepartmentCodes.contains(code)) {
-//                                        selectedDepartmentCodes - code
-//                                    } else {
-//                                        selectedDepartmentCodes + code
-//                                    }
-//                                },
-//                                label = { Text(dept.department ?: dept.nameGroup ?: code) },
-//                                leadingIcon = if (selectedDepartmentCodes.contains(code)) {
-//                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
-//                                } else null
-//                            )
-//                        }
-//                    }
-//                }
-//
-//                Divider(modifier = Modifier.padding(vertical = 8.dp))
-//
-//                // 3. Даты и время
-//                Text("Период инвентаризации:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-//
-//                // Поле: Дата и время начала
-//                OutlinedTextField(
-//                    value = getDisplayText(startDateTimeMillis, startTimePickerState),
-//                    onValueChange = {},
-//                    readOnly = true,
-//                    label = { Text("Дата и время начала") },
-//                    trailingIcon = {
-//                        IconButton(onClick = { showStartDatePicker = true }) {
-//                            Icon(Icons.Default.CalendarToday, null)
-//                        }
-//                    },
-//                    modifier = Modifier.fillMaxWidth()
-//                )
-//
-//                // Поле: Дата и время окончания
-//                OutlinedTextField(
-//                    value = getDisplayText(endDateTimeMillis, endTimePickerState),
-//                    onValueChange = {},
-//                    readOnly = true,
-//                    label = { Text("Дата и время окончания") },
-//                    trailingIcon = {
-//                        IconButton(onClick = { showEndDatePicker = true }) {
-//                            Icon(Icons.Default.CalendarToday, null)
-//                        }
-//                    },
-//                    modifier = Modifier.fillMaxWidth()
-//                )
-//            }
-//        },
-//        confirmButton = {
-//            Button(
-//                onClick = {
-//                    onCreateSession(
-//                        selectedAssetTypeId,
-//                        // Объединяем выбранные коды через точку с запятой
-//                        selectedDepartmentCodes.joinToString(";").takeIf { it.isNotBlank() },
-//                        formatToIso(startDateTimeMillis, startTimePickerState.hour, startTimePickerState.minute),
-//                        formatToIso(endDateTimeMillis, endTimePickerState.hour, endTimePickerState.minute)
-//                    )
-//                },
-//                // Кнопка активна, если выбран тип ИЛИ хотя бы один департамент
-//                enabled = (selectedAssetTypeId != null || selectedDepartmentCodes.isNotEmpty()) && assetTypes.isNotEmpty()
-//            ) {
-//                Text("Создать")
-//            }
-//        },
-//        dismissButton = {
-//            TextButton(onClick = onDismiss) { Text("Отмена") }
-//        }
-//    )
-//
-//    // ================= ДИАЛОГИ ВЫБОРА ДАТЫ И ВРЕМЕНИ =================
-//    // (Оставляем без изменений, они работают отлично)
-//    if (showStartDatePicker) {
-//        val startDatePickerState = rememberDatePickerState(initialSelectedDateMillis = startDateTimeMillis)
-//        DatePickerDialog(
-//            onDismissRequest = { showStartDatePicker = false },
-//            confirmButton = {
-//                TextButton(onClick = {
-//                    startDateTimeMillis = startDatePickerState.selectedDateMillis
-//                    showStartDatePicker = false
-//                    if (startDatePickerState.selectedDateMillis != null) showStartTimePicker = true
-//                }) { Text("OK") }
-//            },
-//            dismissButton = { TextButton(onClick = { showStartDatePicker = false }) { Text("Отмена") } }
-//        ) { DatePicker(state = startDatePickerState) }
-//    }
-//
-//    if (showStartTimePicker) {
-//        TimePickerDialog(
-//            onDismissRequest = { showStartTimePicker = false },
-//            confirmButton = { TextButton(onClick = { showStartTimePicker = false }) { Text("OK") } },
-//            dismissButton = { TextButton(onClick = { showStartTimePicker = false }) { Text("Отмена") } }
-//        ) { TimePicker(state = startTimePickerState) }
-//    }
-//
-//    if (showEndDatePicker) {
-//        val endDatePickerState = rememberDatePickerState(initialSelectedDateMillis = endDateTimeMillis)
-//        DatePickerDialog(
-//            onDismissRequest = { showEndDatePicker = false },
-//            confirmButton = {
-//                TextButton(onClick = {
-//                    endDateTimeMillis = endDatePickerState.selectedDateMillis
-//                    showEndDatePicker = false
-//                    if (endDatePickerState.selectedDateMillis != null) showEndTimePicker = true
-//                }) { Text("OK") }
-//            },
-//            dismissButton = { TextButton(onClick = { showEndDatePicker = false }) { Text("Отмена") } }
-//        ) { DatePicker(state = endDatePickerState) }
-//    }
-//
-//    if (showEndTimePicker) {
-//        TimePickerDialog(
-//            onDismissRequest = { showEndTimePicker = false },
-//            confirmButton = { TextButton(onClick = { showEndTimePicker = false }) { Text("OK") } },
-//            dismissButton = { TextButton(onClick = { showEndTimePicker = false }) { Text("Отмена") } }
-//        ) { TimePicker(state = endTimePickerState) }
-//    }
-//}
-
-// ==================== ДИАЛОГ: Отдельный Composable ====================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateInventorySessionDialog(
@@ -718,6 +483,7 @@ fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color = when (session.status) {
+                    "pending" -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                     "in_progress" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
                     "completed" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
                     else -> MaterialTheme.colorScheme.surfaceVariant
@@ -727,6 +493,7 @@ fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = when (session.status) {
+                            "pending" -> Icons.Default.Pending
                             "in_progress" -> Icons.Default.Sync
                             "completed" -> Icons.Default.CheckCircle
                             else -> Icons.Default.Inventory2
@@ -734,6 +501,7 @@ fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
                         contentDescription = null,
                         modifier = Modifier.size(22.dp),
                         tint = when (session.status) {
+                            "pending" -> MaterialTheme.colorScheme.outline
                             "in_progress" -> MaterialTheme.colorScheme.onPrimaryContainer
                             "completed" -> MaterialTheme.colorScheme.onTertiaryContainer
                             else -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -768,20 +536,18 @@ fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
             Surface(
                 shape = MaterialTheme.shapes.extraSmall,
                 color = when (session.status) {
+                    "pending" -> MaterialTheme.colorScheme.surfaceVariant
                     "in_progress" -> MaterialTheme.colorScheme.primaryContainer
                     "completed" -> MaterialTheme.colorScheme.tertiaryContainer
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
             ) {
                 Text(
-                    text = when (session.status) {
-                        "in_progress" -> "В процессе"
-                        "completed" -> "Завершена"
-                        else -> session.status
-                    },
+                    text = session.statusRu,
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold,
                     color = when (session.status) {
+                        "pending" -> MaterialTheme.colorScheme.outline
                         "in_progress" -> MaterialTheme.colorScheme.onPrimaryContainer
                         "completed" -> MaterialTheme.colorScheme.onTertiaryContainer
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
@@ -821,10 +587,47 @@ fun TimePickerDialog(
 private fun InventorizationSessionsContentPreview_Loaded() {
     val mockSessions = listOf(
         InventorizationSessionDto(
-            sessionId = 1, assetTypeId = null, departmentCodes = null, assetTypeName = "Без типа",
-            assetTypeEnName = "without_type", status = "in_progress", createdAt = "2026-07-23T08:59:53.158615Z",
-            startDate = "2026-07-23T08:59:53.158615Z", endDate = "2026-07-30T08:59:53.158615Z", createdBy = "0000015370", createdByFullName = "ФИО"
-        )
+            sessionId = 1,
+            assetTypeId = null,
+            departmentCodes = null,
+            assetTypeName = "Без типа",
+            assetTypeEnName = "without_type",
+            status = "pending",
+            statusRu = "В ожидании",
+            createdAt = "2026-07-23T08:59:53.158615Z",
+            startDate = "2026-07-23T08:59:53.158615Z",
+            endDate = "2026-07-30T08:59:53.158615Z",
+            createdBy = "0000015370",
+            createdByFullName = "ФИО"
+        ),
+        InventorizationSessionDto(
+            sessionId = 2,
+            assetTypeId = null,
+            departmentCodes = null,
+            assetTypeName = "Без типа",
+            assetTypeEnName = "without_type",
+            status = "in_progress",
+            statusRu = "В работе",
+            createdAt = "2026-07-23T08:59:53.158615Z",
+            startDate = "2026-07-23T08:59:53.158615Z",
+            endDate = "2026-07-30T08:59:53.158615Z",
+            createdBy = "0000015370",
+            createdByFullName = "ФИО"
+        ),
+        InventorizationSessionDto(
+            sessionId = 3,
+            assetTypeId = null,
+            departmentCodes = null,
+            assetTypeName = "Без типа",
+            assetTypeEnName = "without_type",
+            status = "completed",
+            statusRu = "Завершено",
+            createdAt = "2026-07-23T08:59:53.158615Z",
+            startDate = "2026-07-23T08:59:53.158615Z",
+            endDate = "2026-07-30T08:59:53.158615Z",
+            createdBy = "0000015370",
+            createdByFullName = "ФИО"
+        ),
     )
     MaterialTheme {
         Surface {
