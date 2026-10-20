@@ -1,24 +1,24 @@
 package com.gps.warehouse.data.remote.assets_dto
 
-import kotlinx.serialization.SerialName
+import com.google.gson.annotations.SerializedName
 import kotlinx.serialization.Serializable
 
 // Enum для статусов (аналог Literal в Python)
 @Serializable
 enum class AssetConfirmationStatus {
-    @SerialName("pending") PENDING,
-    @SerialName("confirmed") CONFIRMED,
-    @SerialName("not_found") NOT_FOUND,
-    @SerialName("damaged") DAMAGED
+    @SerializedName("pending") PENDING,
+    @SerializedName("confirmed") CONFIRMED,
+    @SerializedName("not_found") NOT_FOUND,
+    @SerializedName("damaged") DAMAGED
 }
 
 // CreateConfirmationRequest
 @Serializable
 data class CreateConfirmationRequestDto(
-    @SerialName("asset_id") val assetId: Int? = null,
-    @SerialName("material_id") val materialId: String? = null,
-    @SerialName("employee_id") val employeeId: String? = null,
-    @SerialName("comment") val comment: String? = null
+    @SerializedName("asset_id") val assetId: Int? = null,
+    @SerializedName("material_id") val materialId: String? = null,
+    @SerializedName("employee_id") val employeeId: String? = null,
+    @SerializedName("comment") val comment: String? = null
 ) {
     // Валидатор
     init {
@@ -31,10 +31,10 @@ data class CreateConfirmationRequestDto(
 // ConfirmAssetRequest
 @Serializable
 data class ConfirmAssetRequestDto(
-    @SerialName("asset_id") val assetId: Int? = null,
-    @SerialName("qr_data") val qrData: String? = null,
-    @SerialName("status") val status: String,
-    @SerialName("comment") val comment: String? = null
+    @SerializedName("asset_id") val assetId: Int? = null,
+    @SerializedName("qr_data") val qrData: String? = null,
+    @SerializedName("status") val status: String,
+    @SerializedName("comment") val comment: String? = null
 ) {
     // Валидация: комментарий обязателен для определенных статусов
     init {
@@ -49,15 +49,16 @@ data class ConfirmAssetRequestDto(
 // AssetConfirmationResponse
 @Serializable
 data class AssetConfirmationResponseDto(
-    @SerialName("id") val id: Int,
-    @SerialName("asset_id") val assetId: Int,
-    @SerialName("asset_name") val assetName: String? = null,
-    @SerialName("employee_id") val employeeId: String,
-    @SerialName("employee_full_name") val employeeFullName: String? = null,
-    @SerialName("requested_by") val requestedBy: String? = null,
-    @SerialName("status") val status: String,
-    @SerialName("status_ru") val statusRu: String? = null,
-    @SerialName("comment") val comment: String? = null,
-    @SerialName("created_at") val createdAt: String,
-    @SerialName("confirmed_at") val confirmedAt: String? = null
+    @SerializedName("id") val id: Int,
+    @SerializedName("asset_id") val assetId: Int,
+    @SerializedName("asset_name") val assetName: String? = null,
+    @SerializedName("employee_id") val employeeId: String,
+    @SerializedName("employee_full_name") val employeeFullName: String? = null,
+    @SerializedName("requested_by") val requestedBy: String? = null,
+    @SerializedName("requested_full_name") val requestedFullName: String? = null,
+    @SerializedName("status") val status: String,
+    @SerializedName("status_ru") val statusRu: String? = null,
+    @SerializedName("comment") val comment: String? = null,
+    @SerializedName("created_at") val createdAt: String,
+    @SerializedName("confirmed_at") val confirmedAt: String? = null
 )

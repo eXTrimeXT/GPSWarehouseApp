@@ -205,6 +205,9 @@ class AssetViewModel @Inject constructor(
     private val _assetConfirmations = MutableStateFlow<List<AssetConfirmationResponseDto>>(emptyList())
     val assetConfirmations = _assetConfirmations.asStateFlow()
 
+    private val _assetConfirmationLast = MutableStateFlow<AssetConfirmationResponseDto?>(null)
+    val assetConfirmationLast = _assetConfirmationLast.asStateFlow()
+
     private var eventSource: EventSource? = null
 
     // Вспомогательная функция парсинга ошибок
@@ -1040,6 +1043,23 @@ class AssetViewModel @Inject constructor(
                 val errorMessage = getErrorMessage(e) ?: "Ошибка получения списка подтверждений"
                 Log.e(TAG, "Ошибка получения списка подтверждений: $errorMessage", e)
                 onError(errorMessage)
+                _uiState.value = AssetUiState.Error(errorMessage)
+            }
+        }
+    }
+
+    fun getLastConfirmation(assetId: Int){
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val response = assetApiService.getLastConfirmation(
+                    token = "Bearer ${getToken()}",
+                    assetId = assetId,
+                )
+                _assetConfirmationLast.value = response
+            } catch (e: Exception) {
+                val errorMessage = getErrorMessage(e) ?: "Ошибка получения последнего подтверждения"
+                Log.e(TAG, "Ошибка получения последнего подтверждения: $errorMessage", e)
                 _uiState.value = AssetUiState.Error(errorMessage)
             }
         }

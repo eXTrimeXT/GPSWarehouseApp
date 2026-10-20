@@ -40,6 +40,7 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.InfoRow
 import com.gps.warehouse.ui.components.InfoRowSmall
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -75,6 +76,8 @@ fun AssetDetailsScreen(
 
     // === Подтверждения актива ===
     val confirmations by assetViewModel.assetConfirmations.collectAsState()
+    // Получить последнее подтверждение
+    val lastConfirmation by assetViewModel.assetConfirmationLast.collectAsState()
 
     var isEditing by remember { mutableStateOf(false) }
     var showNextServiceDatePicker by remember { mutableStateOf(false) }
@@ -102,7 +105,11 @@ fun AssetDetailsScreen(
 
     // Загружаем данные при открытии
     LaunchedEffect(assetId, materialId) {
-        firstLoadData(viewModel = assetViewModel, assetId = assetId, materialId = materialId)
+        firstLoadData(
+            viewModel = assetViewModel,
+            assetId = assetId,
+            materialId = materialId
+        )
     }
 
     // Инициализируем editState когда всё загружено
@@ -421,7 +428,7 @@ fun AssetDetailsScreen(
             firstLoadData(
                 viewModel = assetViewModel,
                 assetId = assetId,
-                materialId = materialId
+                materialId = materialId,
             )
         },
         onAddUser = { userType ->
@@ -438,6 +445,10 @@ fun AssetDetailsScreen(
         },
         assetTransfers = assetTransfers,
         confirmations = confirmations,
+        lastConfirmation = lastConfirmation,
+        onConformationClick = {
+//            assetViewModel.confirmAsset()
+        },
         currentEmployeeId = employeeMe?.employeeId,   // ← новое
         onCancelTransfer = { transferId ->            // ← новое
             // Открываем диалог подтверждения через state
@@ -447,7 +458,11 @@ fun AssetDetailsScreen(
     )
 }
 
-fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?) {
+fun firstLoadData(
+    viewModel: AssetViewModel,
+    assetId: Int?,
+    materialId: String?,
+) {
     viewModel.loadAssetDetails(assetId = assetId, materialId = materialId)
     viewModel.loadAssetStatuses()
     viewModel.loadAssetTypes()
@@ -456,6 +471,7 @@ fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?)
     viewModel.loadMvzDepartments()
     if (assetId != null) {
         viewModel.loadConfirmationsList(assetId = assetId, page = 1, pageSize = 50)
+        viewModel.getLastConfirmation(assetId = assetId)
     }
 }
 
@@ -487,6 +503,8 @@ fun AssetDetailsContent(
     onTransferClick: () -> Unit,
     assetTransfers: List<AssetTransferDto>,
     confirmations: List<AssetConfirmationResponseDto>,
+    lastConfirmation: AssetConfirmationResponseDto?,
+    onConformationClick: () -> Unit,
     currentEmployeeId: String?,
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
@@ -495,7 +513,7 @@ fun AssetDetailsContent(
         when (uiState) {
             is AssetViewModel.AssetUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    SplashLoadingScreen()
                 }
             }
 
@@ -596,6 +614,8 @@ fun AssetDetailsContent(
                                 onCancelTransfer = onCancelTransfer,
                                 transfers = assetTransfers,
                                 confirmations = confirmations,
+                                lastConfirmation = lastConfirmation,
+                                onConformationClick = onConformationClick,
                                 currentEmployeeId = currentEmployeeId,
                                 onRespondTransfer = onRespondTransfer,
                             )
@@ -855,6 +875,8 @@ fun UsersTab(
     onTransferClick: () -> Unit,
     transfers: List<AssetTransferDto>,
     confirmations: List<AssetConfirmationResponseDto>,
+    lastConfirmation: AssetConfirmationResponseDto?,
+    onConformationClick: () -> Unit,
     currentEmployeeId: String?,
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
@@ -922,6 +944,28 @@ fun UsersTab(
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "Передать актив",
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+
+            if (!isEditing && lastConfirmation != null) {
+                item {
+                    Spacer(Modifier.height(8.dp))
+                    Button(
+                        onClick = onConformationClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Подтвердить наличие актива",
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1369,7 +1413,9 @@ fun DepartmentFromCard(
                     readOnly = true,
                     label = { Text("МВЗ (Откуда)") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
                     singleLine = true
                 )
                 ExposedDropdownMenu(
@@ -1439,7 +1485,9 @@ fun DepartmentToCard(
                     readOnly = true,
                     label = { Text("МВЗ (Куда)") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
                     singleLine = true
                 )
                 ExposedDropdownMenu(
@@ -2244,7 +2292,7 @@ private fun ConfirmationCard(
                         InfoRowSmall(label = "Актив", value = it)
                     }
 
-                    confirmation.requestedBy?.takeIf { it.isNotBlank() }?.let {
+                    confirmation.requestedFullName?.takeIf { it.isNotBlank() }?.let {
                         InfoRowSmall(label = "Инициатор запроса", value = it)
                     }
 
@@ -2678,6 +2726,8 @@ private fun AssetDetailsPreview_MainTab() {
                     )
                 ),
                 confirmations = listOf(),
+                lastConfirmation = null,
+                onConformationClick = {},
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
                 onRespondTransfer = {}
@@ -2790,9 +2840,22 @@ private fun AssetDetailsPreview_UserTab() {
                         confirmedAt = "12.12.2026 12:59:39"
                     ),
                 ),
+                lastConfirmation = AssetConfirmationResponseDto(
+                    id = 0,
+                    assetId = 7,
+                    assetName = "Актив PENDING",
+                    employeeId = "0000015370",
+                    employeeFullName = "Малышев Тимур Максимович",
+                    requestedBy = "Малых Андрей Владимирович",
+                    status = "pending",
+                    statusRu = "В ожидании",
+                    comment = "комментарий",
+                    createdAt = "11.11.2026 10:49:17",
+                    confirmedAt = "12.12.2026 12:59:39"
+                ),
+                onConformationClick = {},
                 currentEmployeeId = "0000015370",   // или null
-                onCancelTransfer = {},
-                onRespondTransfer = {}
+                onCancelTransfer = {}, onRespondTransfer = {}
             )
         }
     }
@@ -2861,6 +2924,8 @@ private fun AssetDetailsPreview_HistoryTab() {
                     )
                 ),
                 confirmations = listOf(),
+                lastConfirmation = null,
+                onConformationClick = {},
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
                 onRespondTransfer = {}

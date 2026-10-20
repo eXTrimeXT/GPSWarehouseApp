@@ -272,4 +272,10 @@ interface AssetApiService {
         @Query("page") page: Int = 1,
         @Query("page_size") pageSize: Int = 50
     ): PaginatedResponse<AssetConfirmationResponseDto>
+
+    @GET("asset-confirmations/last")
+    suspend fun getLastConfirmation(
+        @Header("Authorization") token: String,
+        @Query("asset_id") assetId: Int,
+    ): AssetConfirmationResponseDto
 }
