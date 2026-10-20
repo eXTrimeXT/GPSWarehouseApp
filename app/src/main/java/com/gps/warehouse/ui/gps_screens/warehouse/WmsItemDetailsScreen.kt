@@ -39,6 +39,7 @@ import com.gps.warehouse.ui.components.ChangeTopologyDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SapBadge
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.ScannerManager
 import kotlinx.coroutines.delay
 
@@ -435,11 +436,8 @@ fun WmsItemDetailsScreen(
     // Экран ошибки показываем ТОЛЬКО если данных реально нет
     if (item == null) {
         when (uiState) {
-            is MainViewModel.UiState.Loading -> Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
+            is MainViewModel.UiState.Loading -> {
+                SplashLoadingScreen()
             }
             else -> ErrorStateView(
                 message = "Материал не найден",
@@ -1394,6 +1392,7 @@ fun MoveMaterialDialog(
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                             CircularProgressIndicator(modifier = Modifier.size(24.dp))
                             Spacer(Modifier.width(8.dp))
                             Text("Выполняется перемещение...")

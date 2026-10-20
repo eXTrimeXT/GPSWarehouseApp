@@ -28,7 +28,7 @@ import com.gps.warehouse.utils.Constants
 fun SplashLoadingScreen(
     message: String = "Загрузка ...",
     showLogo: Boolean = true,
-    showTextLoading: Boolean = true
+    showTextLoading: Boolean = true,
 ) {
     Box(
         modifier = Modifier

@@ -318,6 +318,7 @@ fun AssetDetailsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     if (isCancellingTransfer) {
+                        // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                     }
@@ -2510,6 +2511,7 @@ fun AssetTransferDialog(
                 enabled = !isLoading
             ) {
                 if (isLoading) {
+                    // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                 }
@@ -2643,6 +2645,7 @@ fun TransferActionDialog(
                 )
             ) {
                 if (isLoading) {
+                    // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                     CircularProgressIndicator(
                         Modifier.size(16.dp),
                         strokeWidth = 2.dp,

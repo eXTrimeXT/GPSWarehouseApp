@@ -22,6 +22,7 @@ import com.gps.warehouse.data.remote.assets_dto.RamInfoDto
 import com.gps.warehouse.data.remote.assets_dto.UserInfoDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,11 +53,7 @@ fun MyPcDetailsScreen(
     ) { paddingValues ->
         when (uiState) {
             is AssetViewModel.AssetUiState.Loading -> {
-                Box(modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                SplashLoadingScreen()
             }
             is AssetViewModel.AssetUiState.MyPcsLoaded -> {
                 if (pc != null) {

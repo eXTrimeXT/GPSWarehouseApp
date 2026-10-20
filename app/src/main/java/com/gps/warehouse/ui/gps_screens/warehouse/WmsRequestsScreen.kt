@@ -626,6 +626,7 @@ fun ConfirmWmsRequestActionDialog(
                 modifier = Modifier.height(48.dp)
             ) {
                 if (isProcessing) {
+                    // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,

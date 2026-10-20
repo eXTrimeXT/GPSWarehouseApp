@@ -2,10 +2,12 @@ package com.gps.warehouse.ui.assets_screens.assets
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,6 +25,7 @@ import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
 import kotlinx.coroutines.launch
@@ -41,6 +44,9 @@ fun AssetTypeListScreen(
 
     // Для поиска по серийному или инвентарному номеру
     val scope = rememberCoroutineScope()
+
+    // Индикатор поиска
+    var isSearching by remember { mutableStateOf(false) }
 
     var serialNumber by remember { mutableStateOf("") }
     var inventoryId by remember { mutableStateOf("") }
@@ -72,9 +78,9 @@ fun AssetTypeListScreen(
 
         // Запускаем серверный поиск в корутине
         scope.launch {
-//            isSearching = true
+            isSearching = true
             try {
-                val foundAsset = assetViewModel.findAssetByScanValue(scannedValue)
+                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
                     Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
@@ -101,7 +107,7 @@ fun AssetTypeListScreen(
                 Log.e(TAG, "Ошибка поиска: ${e.message}")
                 Toast.makeText(context, "Ошибка поиска: ${e.message}", Toast.LENGTH_SHORT).show()
             } finally {
-//                isSearching = false
+                isSearching = false
             }
         }
     }
@@ -130,6 +136,7 @@ fun AssetTypeListScreen(
         uiState = assetTypesUiState,
         cameraScanEnabled = cameraScanEnabled,
         onCameraScanClick = { showCameraDialog = true },
+        isSearching = isSearching,
         assetTypes = assetTypes,
         gpsPermissions = gpsPermissions,
         onNavigate = { route -> navController.navigate(route) },
@@ -146,6 +153,7 @@ fun AssetTypeListScreenContent(
     uiState: AssetViewModel.AssetTypesUiState,
     cameraScanEnabled: Boolean,
     onCameraScanClick: () -> Unit,
+    isSearching: Boolean,
     assetTypes: List<AssetTypeDto>,
     gpsPermissions: List<PermissionDto>?,
     onNavigate: (String) -> Unit,
@@ -172,11 +180,7 @@ fun AssetTypeListScreenContent(
         }
     ) { paddingValues ->
         when (uiState) {
-            is AssetViewModel.AssetTypesUiState.Loading -> {
-                Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            }
+            is AssetViewModel.AssetTypesUiState.Loading -> { SplashLoadingScreen() }
             is AssetViewModel.AssetTypesUiState.Error -> {
                 Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -225,6 +229,32 @@ fun AssetTypeListScreenContent(
                                 }
                             )
                         }
+                    }
+                }
+            }
+        }
+        // Оверлей с индикатором во время поиска
+        if (isSearching) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(24.dp)
+                            .fillMaxWidth(0.35f)
+                            .fillMaxHeight(0.35f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        SplashLoadingScreen(message = "Поиск ...")
                     }
                 }
             }
@@ -378,6 +408,7 @@ fun AssetTypeListScreenPreview_Loaded() {
                 uiState = AssetViewModel.AssetTypesUiState.Loaded(mockAssetTypes),
                 cameraScanEnabled = true,
                 onCameraScanClick = {},
+                isSearching = true,
                 assetTypes = mockAssetTypes,
                 gpsPermissions = listOf(
                     PermissionDto(nameGroup = "without_type", read = true, write = true),
@@ -413,9 +444,36 @@ fun AssetTypeListScreenPreview_Empty() {
                 uiState = AssetViewModel.AssetTypesUiState.Loaded(mockAssetTypes),
                 cameraScanEnabled = true,
                 onCameraScanClick = {},
+                isSearching = true,
                 assetTypes = mockAssetTypes,
                 gpsPermissions = listOf(
                     PermissionDto(nameGroup = "computer", read = false, write = false)
+                ),
+                onNavigate = {},
+                onBackClick = {},
+                onRetry = {}
+            )
+        }
+    }
+}
+
+
+@Preview(showBackground = true, name = "Экран: Список типов (Заполненный)")
+@Composable
+fun AssetTypeListScreenPreview_Loading() {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            AssetTypeListScreenContent(
+                uiState = AssetViewModel.AssetTypesUiState.Loading,
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
+                isSearching = true,
+                assetTypes = listOf(),
+                gpsPermissions = listOf(
+                    PermissionDto(nameGroup = "without_type", read = true, write = true),
+                    PermissionDto(nameGroup = "computer", read = true, write = true),
+                    PermissionDto(nameGroup = "data_collection_equipment", read = true, write = false),
+                    PermissionDto(nameGroup = "network_equipment", read = true, write = true)
                 ),
                 onNavigate = {},
                 onBackClick = {},

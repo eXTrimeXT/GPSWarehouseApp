@@ -35,6 +35,7 @@ import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SapBadge
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
 import kotlinx.coroutines.launch
@@ -96,12 +97,10 @@ fun AssetsByTypeScreen(
         scope.launch {
             isSearching = true
             try {
-                val foundAsset = assetViewModel.findAssetByScanValue(scannedValue)
+                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
                     Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
-//                    navController.navigate("asset_details/${foundAsset.assetId}")
-//                    navController.navigate("asset_details?assetId=${foundAsset.assetId}&materialId=${foundAsset.materialId}")
 
                     serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
                         foundAsset.serialNumber
@@ -566,10 +565,9 @@ fun AssetsByTypeScreenContent(
             }
 
             when (uiState) {
-                is AssetViewModel.AssetUiState.Loading -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
+                is AssetViewModel.AssetUiState.Loading -> {
+                    SplashLoadingScreen()
+                }
 
                 is AssetViewModel.AssetUiState.AssetsLoadedPaginated -> {
                     val assets = uiState.assets
@@ -637,10 +635,7 @@ fun AssetsByTypeScreenContent(
                                             .padding(vertical = 16.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(28.dp),
-                                            strokeWidth = 2.dp
-                                        )
+                                        SplashLoadingScreen()
                                     }
                                 }
                             }
@@ -665,7 +660,7 @@ fun AssetsByTypeScreenContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -674,12 +669,13 @@ fun AssetsByTypeScreenContent(
                     )
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier
+                            .padding(24.dp)
+                            .fillMaxWidth(0.35f)
+                            .fillMaxHeight(0.35f),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        CircularProgressIndicator()
-                        Spacer(Modifier.height(12.dp))
-                        Text("Поиск актива...", style = MaterialTheme.typography.bodyMedium)
+                        SplashLoadingScreen(message = "Поиск ...")
                     }
                 }
             }
@@ -726,7 +722,9 @@ fun AssetCardModern(asset: AssetResponseDto, onClick: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -891,7 +889,7 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                     pageSize = 50,
                     totalPages = 1,
                     hasNext = true,
-                    hasPrevious = false
+                    hasPrevious = true
                 ),
                 cameraScanEnabled = true,
                 onCameraScanClick = {},
@@ -946,7 +944,7 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                     AssetStatusDto(7, "Списан")
                 ),
                 searchQuery = "",
-                isSearching = false,
+                isSearching = true,
                 onSearchQueryChange = {},
                 isFiltersExpanded = true,
                 onToggleFilters = {},

@@ -27,6 +27,7 @@ import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.formatIsoToReadable
 import java.time.Instant
 import java.time.ZoneOffset
@@ -120,12 +121,7 @@ fun InventorizationSessionsContent(
     ) { paddingValues ->
         when (uiState) {
             is AssetViewModel.InventorizationUiState.Loading -> {
-                Box(
-                    modifier = Modifier.fillMaxSize().padding(paddingValues),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
+                SplashLoadingScreen()
             }
             is AssetViewModel.InventorizationUiState.SessionsLoaded -> {
                 val items = sessions.orEmpty()

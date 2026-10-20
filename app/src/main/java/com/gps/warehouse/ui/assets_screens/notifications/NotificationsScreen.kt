@@ -30,7 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.delay
 
@@ -164,24 +166,13 @@ fun NotificationsContent(
 ) {
     when (uiState) {
         is AssetViewModel.AssetUiState.Loading -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            SplashLoadingScreen()
         }
         is AssetViewModel.AssetUiState.Error -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "Ошибка: ${uiState.message}",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onRetry) {
-                        Text("Повторить")
-                    }
-                }
-            }
+            ErrorStateView(
+                message = uiState.message,
+                onRetry = onRetry
+            )
         }
         is AssetViewModel.AssetUiState.NotificationsLoaded -> {
             // Применяем фильтрацию
@@ -252,9 +243,7 @@ fun NotificationsContent(
             }
         }
         else -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            SplashLoadingScreen()
         }
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +39,7 @@ import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SapBadge
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.InventoryQrParser // Добавляем импорт
 
@@ -271,11 +273,7 @@ fun InventorizationItemsContent(
 
             when (uiState) {
                 is AssetViewModel.AssetUiState.Loading -> {
-                    Box(modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    SplashLoadingScreen()
                 }
                 is AssetViewModel.AssetUiState.InventorizationItemsLoaded -> {
                     val allItems = uiState.items
@@ -338,7 +336,7 @@ fun InventorizationItemsContent(
                     Box(modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                        SplashLoadingScreen()
                     }
                 }
             }
@@ -473,7 +471,7 @@ fun InventoryItemCard(
 }
 
 // ==================== PREVIEWS ====================
-@PreviewLightDark
+@Preview
 @Composable
 private fun InventorizationItemsContentPreview() {
     MaterialTheme {
@@ -524,6 +522,46 @@ private fun InventorizationItemsContentPreview() {
                         )
                     )
                 ),
+                cameraScanEnabled = true,
+                onCameraScanClick = {},
+                isCompleted = false,
+                selectedAsset = InventorizationItemDto(
+                    inventorizationId = 1,
+                    sessionId = 42,
+                    assetId = null,
+                    materialId = "1",
+                    serialNumber = "serial_number",
+                    inventoryId = "inv_number",
+                    assetName = "Компьютер Dell",
+                    isChecked = true,
+                    quantity = 10,
+                    quantityFact = 8,
+                    checkedByFullName = "ФИО"
+                ),
+                inputQty = "",
+                showCompleteDialog = false,
+                quantityFocusRequester = FocusRequester.Default,
+                onQtyChange = {},
+                onAssetSelect = {},
+                onConfirmClick = {},
+                onShowCompleteDialogChange = {},
+                onCompleteSession = {},
+                onDetailsClick = {},
+                onRetry = {},
+                onBackClick = {}
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun InventorizationItemsContentPreviewLoading() {
+    MaterialTheme {
+        Surface {
+            InventorizationItemsContent(
+                sessionId = 42,
+                uiState = AssetViewModel.AssetUiState.Loading,
                 cameraScanEnabled = true,
                 onCameraScanClick = {},
                 isCompleted = false,

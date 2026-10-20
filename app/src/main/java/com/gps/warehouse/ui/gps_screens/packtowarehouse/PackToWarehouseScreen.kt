@@ -236,7 +236,7 @@ fun PackToWarehouseContent(
                         ErrorStateView(
                             message = uiState.message,
                             modifier = Modifier,
-                            onRetry = { onRetryClick() }
+//                            onRetry = { onRetryClick() }
                         )
 
                     }
@@ -288,17 +288,9 @@ fun PackToWarehouseContent(
 
                         Button(
                             onClick = onPackClick,
-                            enabled = uiState !is MainViewModel.UiState.Loading,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            if (uiState is MainViewModel.UiState.Loading) {
-                                CircularProgressIndicator(
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            } else {
-                                Text("Упаковать")
-                            }
+                            Text("Упаковать")
                         }
 
                         Spacer(modifier = Modifier.height(8.dp))
