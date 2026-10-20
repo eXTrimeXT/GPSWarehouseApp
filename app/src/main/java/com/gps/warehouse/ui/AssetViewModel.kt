@@ -431,57 +431,6 @@ class AssetViewModel @Inject constructor(
      * Так как мы не знаем, серийник это или инвентарник,
      * пробуем оба варианта последовательно.
      *
-     * @return найденный актив или null
-     */
-//    suspend fun findAssetByScanValue(scannedValue: String): AssetResponseDto? {
-//        return try {
-//            // Сначала пробуем как СЕРИЙНЫЙ номер
-//            Log.d("AssetViewModel", "Поиск по serialNumber: $scannedValue")
-//            val bySerial = assetApiService.getAssets(
-//                token = "Bearer ${getToken()}",
-//                serialNumber = scannedValue,
-//                page = 1,
-//                pageSize = 1
-//            )
-//            bySerial.items.firstOrNull()?.let {
-//                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
-//                return it
-//            }
-//
-//            // Если не найдено — пробуем как ИНВЕНТАРНЫЙ номер
-//
-//            // Валидация инвентарного номера по длине
-//            var inventoryId = scannedValue
-//            if (inventoryId.length == 11) {
-//                inventoryId = "0$scannedValue"
-//                Log.w(TAG, "Изменение inv.number: old=$scannedValue new=$inventoryId")
-//            }
-//
-//            Log.d("AssetViewModel", "Поиск по inventoryId: original inv. number=$scannedValue")
-//            val byInventory = assetApiService.getAssets(
-//                token = "Bearer ${getToken()}",
-//                inventoryId = inventoryId,
-//                page = 1,
-//                pageSize = 1,
-//            )
-//            val found = byInventory.items.firstOrNull()
-//            if (found != null) {
-//                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${found.assetId}")
-//            } else {
-//                Log.d("AssetViewModel", "Актив не найден ни по одному параметру")
-//            }
-//            found
-//        } catch (e: Exception) {
-//            Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
-//            null
-//        }
-//    }
-
-    /**
-     * Ищет актив по отсканированному значению.
-     * Так как мы не знаем, серийник это или инвентарник,
-     * пробуем оба варианта последовательно.
-     *
      * @return Pair(найденный актив или null, фактическое значение, по которому искали в последний раз)
      */
     suspend fun findAssetByScanValue(scannedValue: String): Pair<AssetResponseDto?, String> {
