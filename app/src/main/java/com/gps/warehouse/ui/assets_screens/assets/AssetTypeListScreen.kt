@@ -74,7 +74,7 @@ fun AssetTypeListScreen(
         scope.launch {
 //            isSearching = true
             try {
-                val foundAsset = assetViewModel.findAssetByScanValue(scannedValue)
+                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
                     Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")

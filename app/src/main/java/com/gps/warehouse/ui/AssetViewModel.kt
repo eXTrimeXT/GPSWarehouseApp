@@ -433,7 +433,58 @@ class AssetViewModel @Inject constructor(
      *
      * @return найденный актив или null
      */
-    suspend fun findAssetByScanValue(scannedValue: String): AssetResponseDto? {
+//    suspend fun findAssetByScanValue(scannedValue: String): AssetResponseDto? {
+//        return try {
+//            // Сначала пробуем как СЕРИЙНЫЙ номер
+//            Log.d("AssetViewModel", "Поиск по serialNumber: $scannedValue")
+//            val bySerial = assetApiService.getAssets(
+//                token = "Bearer ${getToken()}",
+//                serialNumber = scannedValue,
+//                page = 1,
+//                pageSize = 1
+//            )
+//            bySerial.items.firstOrNull()?.let {
+//                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
+//                return it
+//            }
+//
+//            // Если не найдено — пробуем как ИНВЕНТАРНЫЙ номер
+//
+//            // Валидация инвентарного номера по длине
+//            var inventoryId = scannedValue
+//            if (inventoryId.length == 11) {
+//                inventoryId = "0$scannedValue"
+//                Log.w(TAG, "Изменение inv.number: old=$scannedValue new=$inventoryId")
+//            }
+//
+//            Log.d("AssetViewModel", "Поиск по inventoryId: original inv. number=$scannedValue")
+//            val byInventory = assetApiService.getAssets(
+//                token = "Bearer ${getToken()}",
+//                inventoryId = inventoryId,
+//                page = 1,
+//                pageSize = 1,
+//            )
+//            val found = byInventory.items.firstOrNull()
+//            if (found != null) {
+//                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${found.assetId}")
+//            } else {
+//                Log.d("AssetViewModel", "Актив не найден ни по одному параметру")
+//            }
+//            found
+//        } catch (e: Exception) {
+//            Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
+//            null
+//        }
+//    }
+
+    /**
+     * Ищет актив по отсканированному значению.
+     * Так как мы не знаем, серийник это или инвентарник,
+     * пробуем оба варианта последовательно.
+     *
+     * @return Pair(найденный актив или null, фактическое значение, по которому искали в последний раз)
+     */
+    suspend fun findAssetByScanValue(scannedValue: String): Pair<AssetResponseDto?, String> {
         return try {
             // Сначала пробуем как СЕРИЙНЫЙ номер
             Log.d("AssetViewModel", "Поиск по serialNumber: $scannedValue")
@@ -445,27 +496,41 @@ class AssetViewModel @Inject constructor(
             )
             bySerial.items.firstOrNull()?.let {
                 Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
-                return it
+                // Если нашли по серийнику, возвращаем его и исходное значение
+                return Pair(it, scannedValue)
             }
 
             // Если не найдено — пробуем как ИНВЕНТАРНЫЙ номер
-            Log.d("AssetViewModel", "Поиск по inventoryId: $scannedValue")
+            var currentInventoryId = scannedValue
+
+            // Валидация инвентарного номера по длине
+            if (currentInventoryId.length == 11) {
+                currentInventoryId = "0$currentInventoryId"
+                Log.w("AssetViewModel", "Изменение inv.number: old=$scannedValue new=$currentInventoryId")
+            }
+
+            Log.d("AssetViewModel", "Поиск по inventoryId: inv. number=$currentInventoryId")
+
             val byInventory = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
-                inventoryId = scannedValue,
+                inventoryId = currentInventoryId,
                 page = 1,
                 pageSize = 1,
             )
+
             val found = byInventory.items.firstOrNull()
             if (found != null) {
                 Log.d("AssetViewModel", "Найдено по инвентарнику: id=${found.assetId}")
             } else {
-                Log.d("AssetViewModel", "Актив не найден ни по одному параметру")
+                Log.d("AssetViewModel", "Актив не найден ни по одному параметру. Последнее значение поиска: $currentInventoryId")
             }
-            found
+
+            // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
+            Pair(found, currentInventoryId)
         } catch (e: Exception) {
             Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
-            null
+            // В случае ошибки возвращаем null и исходное значение, чтобы не ломать логику
+            Pair(null, scannedValue)
         }
     }
 

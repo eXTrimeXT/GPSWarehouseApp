@@ -96,12 +96,10 @@ fun AssetsByTypeScreen(
         scope.launch {
             isSearching = true
             try {
-                val foundAsset = assetViewModel.findAssetByScanValue(scannedValue)
+                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
                     Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
-//                    navController.navigate("asset_details/${foundAsset.assetId}")
-//                    navController.navigate("asset_details?assetId=${foundAsset.assetId}&materialId=${foundAsset.materialId}")
 
                     serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
                         foundAsset.serialNumber
