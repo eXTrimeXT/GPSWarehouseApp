@@ -33,6 +33,7 @@ import com.gps.warehouse.data.remote.assets_dto.MvzListResponseDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
+import com.gps.warehouse.data.remote.assets_dto.ProcessConfirmationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import com.gps.warehouse.utils.NetworkMonitor
@@ -1000,27 +1001,55 @@ class AssetViewModel @Inject constructor(
 
     // ==================== Подтверждение наличия актива ====================
     /**
-     * Подтверждает наличие актива (вручную или через отсканированный QR-код с ТСД Honeywell)
+     * Подтверждает наличие актива (вручную или через отсканированный QR/штрих-код с ТСД Honeywell)
+     *
+     * @param request DTO с данными для подтверждения (assetId, serialNumber, inventoryId, status, comment)
+     * @param currentAssetId ID текущего актива на экране. Необходим для точечного обновления списка подтверждений.
+     * @param onSuccess Коллбек, возвращающий ProcessConfirmationResponseDto
+     * @param onError Коллбек с текстом ошибки для отображения пользователю
      */
     fun confirmAsset(
         request: ConfirmAssetRequestDto,
-        onSuccess: (AssetConfirmationResponseDto) -> Unit = {},
+        currentAssetId: Int? = null,
+        onSuccess: (ProcessConfirmationResponseDto) -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+            // ВАЖНО: Мы НЕ меняем _uiState.value = AssetUiState.Loading здесь.
+            // Изменение глобального состояния экрана во вторичных запросах вызывает баг
+            // "затирания" данных при переключении вкладок.
+            // Состояние загрузки кнопки должно управляться локально в UI (Composable).
+
             try {
                 val response = assetApiService.confirmAsset(
                     token = "Bearer ${getToken()}",
                     request = request
                 )
+
+                // Успешно передаем результат в UI (например, для показа Toast или закрытия диалога)
                 onSuccess(response)
-                loadConfirmationsList(onlyMy = true)
+
+                // Точечно обновляем список подтверждений ИМЕННО для этого актива.
+                // Это гарантирует, что на вкладке "Люди" сразу появится новая запись.
+                if (currentAssetId != null) {
+                    loadConfirmationsList(assetId = currentAssetId, page = 1, pageSize = 50)
+                }
+
+                // Опционально: Если подтверждение меняет общий статус актива,
+                // можно также обновить детали актива, чтобы обновилась "шапка" экрана:
+                 if (currentAssetId != null) {
+                     loadAssetDetails(assetId = currentAssetId, materialId = null)
+                 }
+
             } catch (e: Exception) {
+                // getErrorMessage должен извлекать поле "detail" из HTTP-ошибок Retrofit
                 val errorMessage = getErrorMessage(e) ?: "Ошибка подтверждения актива"
                 Log.e(TAG, "Ошибка подтверждения актива: $errorMessage", e)
+
                 onError(errorMessage)
-                _uiState.value = AssetUiState.Error(errorMessage)
+
+                // Тут _uiState.value = AssetUiState.Error(errorMessage)
+                // сломает отображение основного экрана. Ошибка обрабатывается только через onError.
             }
         }
     }
@@ -1030,7 +1059,7 @@ class AssetViewModel @Inject constructor(
      * Получает список запросов на подтверждение с фильтрацией и пагинацией
      */
     fun loadConfirmationsList(
-        assetId: Int? = null,
+        assetId: Int?,
         statusConfirmation: AssetConfirmationStatus? = null,
         onlyMy: Boolean = false,
         employeeId: String? = null,
@@ -1062,7 +1091,7 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    fun getLastConfirmation(assetId: Int){
+    fun getLastConfirmation(assetId: Int) {
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
@@ -1070,11 +1099,28 @@ class AssetViewModel @Inject constructor(
                     token = "Bearer ${getToken()}",
                     assetId = assetId,
                 )
-                _assetConfirmationLast.value = response
+
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    _assetConfirmationLast.value = body   // может быть null
+                    if (body == null) {
+                        Log.d(TAG, "getLastConfirmation: тело ответа пустое (нет активных подтверждений)")
+                    }
+                } else if (response.code() == 404) {
+                    // 404 — нет запроса на подтверждение, это НЕ ошибка
+                    Log.d(TAG, "getLastConfirmation: 404 — активных подтверждений нет")
+                    _assetConfirmationLast.value = null
+                } else {
+                    // Другие HTTP-коды — реальная ошибка
+                    val errorMessage = "HTTP ${response.code()}: ${response.message()}"
+                    Log.e(TAG, "getLastConfirmation: $errorMessage")
+                    _assetConfirmationLast.value = null
+                    // Не ставим Error в uiState, чтобы не ломать экран
+                }
             } catch (e: Exception) {
-                val errorMessage = getErrorMessage(e) ?: "Ошибка получения последнего подтверждения"
-                Log.e(TAG, "Ошибка получения последнего подтверждения: $errorMessage", e)
-                _uiState.value = AssetUiState.Error(errorMessage)
+                Log.e(TAG, "Ошибка получения последнего подтверждения: ${e.message}", e)
+                _assetConfirmationLast.value = null
+                // Не ставим Error в uiState — отсутствие подтверждения не критично
             }
         }
     }

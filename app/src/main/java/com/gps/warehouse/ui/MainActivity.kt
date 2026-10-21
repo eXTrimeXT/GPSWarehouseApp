@@ -491,7 +491,8 @@ class MainActivity : ComponentActivity() {
                                     AssetDetailsScreen(
                                         assetId = assetId,
                                         navController = navController,
-                                        assetViewModel = assetViewModel
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel
                                     )
                                 }
 
@@ -527,7 +528,8 @@ class MainActivity : ComponentActivity() {
                                         assetId = assetId,
                                         materialId = materialId,
                                         navController = navController,
-                                        assetViewModel = assetViewModel
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel
                                     )
                                 }
 

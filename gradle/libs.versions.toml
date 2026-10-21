@@ -27,6 +27,7 @@ workRuntimeKtx = "2.9.0"
 appcompat = "1.7.1"
 foundation = "1.11.4"
 carUiLib = "2.6.0"
+uiTest = "1.12.1"
 
 
 [libraries]
@@ -68,6 +69,7 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 car-ui-lib = { group = "com.android.car.ui", name = "car-ui-lib", version.ref = "carUiLib" }
+androidx-compose-ui-test = { group = "androidx.compose.ui", name = "ui-test", version.ref = "uiTest" }
 
 
 [plugins]

@@ -2,8 +2,14 @@ package com.gps.warehouse.ui.assets_screens.assets
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,8 +17,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -31,6 +41,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.*
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
@@ -43,19 +54,38 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-// ==================== SCREEN: Логика + Навигация ====================
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.focus.onFocusChanged
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeOut
+import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.CameraScannerDialog
+import com.gps.warehouse.utils.InventoryQrParser
+import com.gps.warehouse.utils.ScannerManager
+
+// ================= SCREEN: Логика + Навигация =================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetDetailsScreen(
     assetId: Int? = null,
     materialId: String? = null,
     navController: NavHostController,
-    assetViewModel: AssetViewModel
+    assetViewModel: AssetViewModel,
+    mainViewModel: MainViewModel,
 ) {
     val uiState by assetViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -74,7 +104,7 @@ fun AssetDetailsScreen(
     // Получаем список MVZ
     val mvzDepartments by assetViewModel.mvzDepartments.collectAsState()
 
-    // === Подтверждения актива ===
+    // Подтверждения актива
     val confirmations by assetViewModel.assetConfirmations.collectAsState()
     // Получить последнее подтверждение
     val lastConfirmation by assetViewModel.assetConfirmationLast.collectAsState()
@@ -85,7 +115,7 @@ fun AssetDetailsScreen(
 
     var editState by remember { mutableStateOf<AssetEditState?>(null) }
 
-    // === Передача актива ===
+    // Передача актива
     var showTransferDialog by remember { mutableStateOf(false) }
     var showEmployeeSearchForTransfer by remember { mutableStateOf(false) }
     var selectedEmployeeForTransfer by remember { mutableStateOf<EmployeeShortResponse?>(null) }
@@ -99,9 +129,20 @@ fun AssetDetailsScreen(
     var transferToRespond by remember { mutableStateOf<AssetTransferDto?>(null) }
     var isRespondingTransfer by remember { mutableStateOf(false) }
 
-    // === Вкладки ===
+    // Подтверждение наличия актива
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    var isConfirming by remember { mutableStateOf(false) }
+
+    // Вкладки
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
+
+    // Сканер для подтверждения наличия
+    val scannerManager = remember { ScannerManager(context) }
+
+    // Сканирование с помощью камеры
+    val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
+    var showCameraDialog by remember { mutableStateOf(false) }
 
     // Загружаем данные при открытии
     LaunchedEffect(assetId, materialId) {
@@ -133,7 +174,12 @@ fun AssetDetailsScreen(
         }
     }
 
-    // === Диалоги ===
+    DisposableEffect(Unit) {
+        scannerManager.init()
+        onDispose { scannerManager.release() }
+    }
+
+    // Диалоги
     showEmployeeSearchDialog?.let { userType ->
         EmployeeSearchDialog(
             userType = userType,
@@ -390,7 +436,53 @@ fun AssetDetailsScreen(
         )
     }
 
-    // === Контент ===
+    // ДИАЛОГ ПОДТВЕРЖДЕНИЯ НАЛИЧИЯ
+    if (showConfirmDialog) {
+        val currentAsset = (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset
+        if (currentAsset != null) {
+            ConfirmAssetDialog(
+                asset = currentAsset,
+                cameraScanEnabled = cameraScanEnabled,
+                isLoading = isConfirming,
+                onDismiss = {
+                    if (!isConfirming) showConfirmDialog = false
+                },
+                onConfirm = { status, comment ->
+                    isConfirming = true
+                    assetViewModel.confirmAsset(
+                        request = ConfirmAssetRequestDto(
+                            assetId = currentAsset.assetId,
+                            serialNumber = currentAsset.serialNumber,
+                            inventoryId = currentAsset.inventoryId,
+                            status = status,
+                            comment = comment
+                        ),
+                        currentAssetId = currentAsset.assetId,
+                        onSuccess = { response ->
+                            isConfirming = false
+                            showConfirmDialog = false
+                            Toast.makeText(
+                                context,
+                                response.message.ifBlank { "Готово" },
+                                Toast.LENGTH_LONG
+                            ).show()
+                            // Перезагружаем подтверждения и последнее подтверждение
+                            currentAsset.assetId?.let { id ->
+                                assetViewModel.getLastConfirmation(assetId = id)
+                                assetViewModel.loadConfirmationsList(assetId = id, page = 1, pageSize = 50)
+                            }
+                        },
+                        onError = { error ->
+                            isConfirming = false
+                            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            )
+        }
+    }
+
+    // Контент
     AssetDetailsContent(
         uiState = uiState,
         assetStatuses = assetStatuses,
@@ -447,11 +539,9 @@ fun AssetDetailsScreen(
         assetTransfers = assetTransfers,
         confirmations = confirmations,
         lastConfirmation = lastConfirmation,
-        onConformationClick = {
-//            assetViewModel.confirmAsset()
-        },
-        currentEmployeeId = employeeMe?.employeeId,   // ← новое
-        onCancelTransfer = { transferId ->            // ← новое
+        onConformationClick = { showConfirmDialog = true },
+        currentEmployeeId = employeeMe?.employeeId,
+        onCancelTransfer = { transferId ->
             // Открываем диалог подтверждения через state
             transferToCancel = transferId
         },
@@ -476,7 +566,7 @@ fun firstLoadData(
     }
 }
 
-// ==================== CONTENT: UI + TABS ====================
+// ================= CONTENT: UI + TABS =================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetDetailsContent(
@@ -533,7 +623,7 @@ fun AssetDetailsContent(
             is AssetViewModel.AssetUiState.AssetDetailsLoaded -> {
                 val asset = uiState.asset
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // === ActionBar (только Назад + Редактировать / Save+Cancel) ===
+                    // ActionBar (только Назад + Редактировать / Save+Cancel)
                     MyCustomActionBar(
                         text = asset.name,
                         onBackClick = onBackClick,
@@ -563,7 +653,7 @@ fun AssetDetailsContent(
                             }
                         }
                     )
-                    // === Вкладки ===
+                    // Вкладки
                     TabRow(
                         selectedTabIndex = pagerState.currentPage,
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -586,7 +676,7 @@ fun AssetDetailsContent(
                         )
                     }
 
-                    // === Контент вкладок (свайп) ===
+                    // Контент вкладок (свайп)
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize()
@@ -636,7 +726,7 @@ fun AssetDetailsContent(
     }
 }
 
-// ==================== FIXED HEADER CARD ====================
+// ================= FIXED HEADER CARD =================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetHeaderCard(
@@ -779,7 +869,7 @@ private fun CompactIdRow(icon: ImageVector, label: String, value: String) {
     }
 }
 
-// ==================== TAB 1: MAIN INFO ====================
+// ================= TAB 1: MAIN INFO =================
 @Composable
 fun MainInfoTab(
     asset: AssetResponseDto,
@@ -799,7 +889,7 @@ fun MainInfoTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            // === Фиксированный хедер со статусом ===
+            // Фиксированный хедер со статусом
             AssetHeaderCard(
                 asset = asset,
                 isEditing = isEditing,
@@ -865,7 +955,7 @@ fun MainInfoTab(
     }
 }
 
-// ==================== TAB 2: USERS ====================
+// ================= TAB 2: USERS =================
 @Composable
 fun UsersTab(
     asset: AssetResponseDto,
@@ -903,7 +993,7 @@ fun UsersTab(
         // verticalArrangement = if (isEverythingEmpty) Arrangement.Center else Arrangement.spacedBy(12.dp)
     ) {
         if (isEverythingEmpty) {
-            // === ЗАГЛУШКА, ЕСЛИ НИКОГО НЕТ ===
+            // ЗАГЛУШКА, ЕСЛИ НИКОГО НЕТ
             item {
                 Box(
                     modifier = Modifier
@@ -928,7 +1018,7 @@ fun UsersTab(
                 }
             }
         } else {
-            // === ОБЫЧНЫЙ КОНТЕНТ ===
+            // ОБЫЧНЫЙ КОНТЕНТ
 
             // Кнопка «Передать актив» — только если мы владелец
             if (!isEditing && isCurrentUserOwner) {
@@ -953,7 +1043,7 @@ fun UsersTab(
                 }
             }
 
-            if (!isEditing && lastConfirmation != null) {
+            if (!isEditing && lastConfirmation != null && lastConfirmation.status == "pending") {
                 item {
                     Spacer(Modifier.height(8.dp))
                     Button(
@@ -1027,7 +1117,7 @@ fun UsersTab(
     }
 }
 
-// ==================== TAB 3: HISTORY ====================
+// ================= TAB 3: HISTORY =================
 @Composable
 fun HistoryTab(
     asset: AssetResponseDto,
@@ -1860,6 +1950,10 @@ private fun ExpandableUserCard(
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    InfoRowSmall(label = "ФИО", value = user.fullNameRu)
+                    user.position?.name?.let { position ->
+                        InfoRowSmall(label = "Должность", value = position)
+                    }
                     InfoRowSmall(label = "Таб. номер", value = user.employeeId)
                     user.department?.shortName?.let { dept ->
                         InfoRowSmall(label = "Департамент", value = dept)
@@ -1951,7 +2045,7 @@ private fun AssetTransferCard(
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // === Верхняя строка: дата + статус ===
+            // Верхняя строка: дата + статус
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1978,7 +2072,7 @@ private fun AssetTransferCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // === Кто кому ===
+            // Кто кому
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -2030,7 +2124,7 @@ private fun AssetTransferCard(
                 )
             }
 
-            // === Раскрытая часть ===
+            // Раскрытая часть
             if (expanded) {
                 Spacer(Modifier.height(10.dp))
                 HorizontalDivider(
@@ -2114,7 +2208,7 @@ private fun AssetTransferCard(
                     )
                 }
 
-                // === Кнопка «Действие» (принять/отклонить) ===
+                // Кнопка «Действие» (принять/отклонить)
                 if (canRespond) {
                     Spacer(Modifier.height(12.dp))
                     Button(
@@ -2135,7 +2229,7 @@ private fun AssetTransferCard(
                     }
                 }
 
-                // === Кнопка отмены (для инициатора) ===
+                // Кнопка отмены (для инициатора)
                 if (canCancel) {
                     Spacer(Modifier.height(if (canRespond) 6.dp else 12.dp))
                     OutlinedButton(
@@ -2160,7 +2254,7 @@ private fun AssetTransferCard(
     }
 }
 
-// ==================== СЕКЦИЯ ПОДТВЕРЖДЕНИЙ ====================
+// ================= СЕКЦИЯ ПОДТВЕРЖДЕНИЙ =================
 @Composable
 private fun AssetConfirmationsSection(
     confirmations: List<AssetConfirmationResponseDto>
@@ -2187,7 +2281,7 @@ private fun AssetConfirmationsSection(
     }
 }
 
-// ==================== КАРТОЧКА ОДНОГО ПОДТВЕРЖДЕНИЯ ====================
+// ================= КАРТОЧКА ОДНОГО ПОДТВЕРЖДЕНИЯ =================
 @Composable
 private fun ConfirmationCard(
     confirmation: AssetConfirmationResponseDto
@@ -2208,7 +2302,7 @@ private fun ConfirmationCard(
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // === Верхняя строка: Дата + Статус ===
+            // Верхняя строка: Дата + Статус
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2235,7 +2329,7 @@ private fun ConfirmationCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // === Основная информация: Сотрудник ===
+            // Основная информация: Сотрудник
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -2278,7 +2372,7 @@ private fun ConfirmationCard(
                 )
             }
 
-            // === Раскрытая часть (только если есть данные) ===
+            // Раскрытая часть (только если есть данные)
             if (expanded) {
                 Spacer(Modifier.height(10.dp))
                 HorizontalDivider(
@@ -2288,13 +2382,16 @@ private fun ConfirmationCard(
                 Spacer(Modifier.height(10.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    confirmation.employeeFullName?.let {
+                        InfoRowSmall(label = "ФИО", value = it)
+                    }
                     // Безопасный рендер: показываем только если значение не null и не пустое
                     confirmation.assetName?.takeIf { it.isNotBlank() }?.let {
                         InfoRowSmall(label = "Актив", value = it)
                     }
 
                     confirmation.requestedFullName?.takeIf { it.isNotBlank() }?.let {
-                        InfoRowSmall(label = "Инициатор запроса", value = it)
+                        InfoRowSmall(label = "Инициатор", value = it)
                     }
 
                     confirmation.comment?.takeIf { it.isNotBlank() }?.let { comment ->
@@ -2330,7 +2427,7 @@ private fun ConfirmationCard(
     }
 }
 
-// ==================== ПРОСТОЙ И НАДЕЖНЫЙ ХЕЛПЕР СТАТУСОВ (БЕЗ ENUM) ====================
+// ================= ПРОСТОЙ И НАДЕЖНЫЙ ХЕЛПЕР СТАТУСОВ (БЕЗ ENUM) =================
 @Composable
 private fun getConfirmationStatusInfo(statusRu: String?): StatusInfo {
     // Приводим к нижнему регистру и убираем пробелы для надежного сравнения
@@ -2409,7 +2506,7 @@ private fun transferStatusInfo(status: String): StatusInfo {
     }
 }
 
-// ==================== ДИАЛОГ ПЕРЕДАЧИ ====================
+// ================= ДИАЛОГ ПЕРЕДАЧИ =================
 @Composable
 fun AssetTransferDialog(
     asset: AssetResponseDto,
@@ -2677,7 +2774,790 @@ fun TransferActionDialog(
     )
 }
 
-// ==================== PREVIEWS ====================
+// ================= ДИАЛОГ ПОДТВЕРЖДЕНИЯ НАЛИЧИЯ =================
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//fun ConfirmAssetDialog(
+//    asset: AssetResponseDto,
+//    scannerManager: ScannerManager,
+//    cameraScanEnabled: Boolean,
+//    isLoading: Boolean = false,
+//    onDismiss: () -> Unit,
+//    onConfirm: (status: String, comment: String?) -> Unit,
+//) {
+//    // "not_found" | "damaged" | "confirmed"
+//    var selectedStatus by remember { mutableStateOf("") }
+//    var comment by remember { mutableStateOf("") }
+//
+//    // Результат сканирования
+//    var scannedValue by remember { mutableStateOf<String?>(null) }
+//    var scanError by remember { mutableStateOf<String?>(null) }
+//
+//    // Совпадает ли скан с инвентарным или серийным номером
+//    val isScanMatched = remember(scannedValue, asset) {
+//        val code = scannedValue?.trim()?.takeIf { it.isNotEmpty() } ?: return@remember false
+//        code.equals(asset.inventoryId, ignoreCase = true) ||
+//                code.equals(asset.serialNumber, ignoreCase = true)
+//    }
+//
+//    // Комментарий обязателен для not_found / damaged
+//    val isCommentRequired = selectedStatus == "not_found" || selectedStatus == "damaged"
+//    val isCommentValid = !isCommentRequired || comment.isNotBlank()
+//
+//    // Кнопка "Подтвердить" активна только если:
+//    // - выбран not_found / damaged (комментарий валиден)
+//    // - или выбран confirmed И скан совпал
+//    val isConfirmEnabled = when (selectedStatus) {
+//        "confirmed" -> isScanMatched
+//        "not_found", "damaged" -> isCommentValid
+//        else -> false
+//    }
+//
+//    var showCameraDialog by remember { mutableStateOf(false) }
+//
+//    // Функция обработки отсканированного значения
+//    fun handleScanned(raw: String) {
+//        if (raw.isBlank()) return
+//        val code = raw.trim()
+//        scannedValue = code
+//        val matches = code.equals(asset.inventoryId, ignoreCase = true) ||
+//                code.equals(asset.serialNumber, ignoreCase = true)
+//        scanError = if (matches) null
+//        else "Код '$code' не совпадает с инвентарным или серийным номером"
+//        if (matches) {
+//            selectedStatus = "confirmed"
+//            comment = ""
+//        }
+//    }
+//
+//    if (showCameraDialog) {
+//        CameraScannerDialog(
+//            onDismiss = { showCameraDialog = false },
+//            onBarcodeDetected = { scannedCode ->
+//                handleScanned(scannedCode)
+//                showCameraDialog = false
+//            }
+//        )
+//    }
+//
+//    // Слушаем сканер, пока диалог открыт
+//    LaunchedEffect(Unit) {
+//        scannerManager.barcodeFlow.collect { scannedCode ->
+//            handleScanned(scannedCode)
+//        }
+//    }
+//
+//    val bringIntoViewRequester = remember { BringIntoViewRequester() }
+//    val scope = rememberCoroutineScope()
+//
+//    AlertDialog(
+//        onDismissRequest = { if (!isLoading) onDismiss() },
+//        properties = DialogProperties(
+//            usePlatformDefaultWidth = false,
+//            dismissOnBackPress = !isLoading,
+//            dismissOnClickOutside = !isLoading
+//        ),
+//        modifier = Modifier
+//            .fillMaxWidth()
+//            .padding(horizontal = 16.dp)
+//            .imePadding(),
+//        title = {
+//            Row(verticalAlignment = Alignment.CenterVertically) {
+//                Icon(
+//                    Icons.Default.FactCheck,
+//                    contentDescription = null,
+//                    tint = MaterialTheme.colorScheme.primary,
+//                    modifier = Modifier.size(22.dp)
+//                )
+//                Spacer(Modifier.width(8.dp))
+//                Text(
+//                    "Подтверждение наличия",
+//                    style = MaterialTheme.typography.titleMedium,
+//                    fontWeight = FontWeight.SemiBold
+//                )
+//            }
+//        },
+//        text = {
+//            Column(
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .verticalScroll(rememberScrollState()),
+//                verticalArrangement = Arrangement.spacedBy(10.dp)
+//            ) {
+//                // === Карточка актива ===
+//                Surface(
+//                    shape = RoundedCornerShape(8.dp),
+//                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+//                    modifier = Modifier.fillMaxWidth()
+//                ) {
+//                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+//                        Text(
+//                            asset.name,
+//                            style = MaterialTheme.typography.bodyMedium,
+//                            fontWeight = FontWeight.SemiBold,
+//                            maxLines = 1,
+//                            overflow = TextOverflow.Ellipsis
+//                        )
+//                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+//                            Text(
+//                                "Инв: ${asset.inventoryId ?: "—"}",
+//                                style = MaterialTheme.typography.labelSmall,
+//                                color = MaterialTheme.colorScheme.onSurfaceVariant
+//                            )
+//                            asset.serialNumber?.takeIf { it.isNotBlank() }?.let { serial ->
+//                                Text(
+//                                    "SN: $serial",
+//                                    style = MaterialTheme.typography.labelSmall,
+//                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                                    maxLines = 1,
+//                                    overflow = TextOverflow.Ellipsis
+//                                )
+//                            }
+//                        }
+//                    }
+//                }
+//
+//                // === Статусы ===
+//                // 1) Не найден
+//                ConfirmStatusChip(
+//                    label = "Не найден",
+//                    selected = selectedStatus == "not_found",
+//                    color = MaterialTheme.colorScheme.error,
+//                    icon = Icons.Default.SearchOff,
+//                    enabled = !isLoading,
+//                    onClick = {
+//                        selectedStatus = "not_found"
+//                        scannedValue = null
+//                        scanError = null
+//                    }
+//                )
+//
+//                // 2) Повреждён
+//                ConfirmStatusChip(
+//                    label = "Повреждён",
+//                    selected = selectedStatus == "damaged",
+//                    color = MaterialTheme.colorScheme.tertiary,
+//                    icon = Icons.Default.Warning,
+//                    enabled = !isLoading,
+//                    onClick = {
+//                        selectedStatus = "damaged"
+//                        scannedValue = null
+//                        scanError = null
+//                    }
+//                )
+//
+//                // 3) Подтверждён — только через скан
+//                ConfirmStatusChip(
+//                    label = if (isScanMatched) "Подтверждён (отсканирован)"
+//                    else "Подтверждён (отсканируйте код)",
+//                    selected = selectedStatus == "confirmed" && isScanMatched,
+//                    color = MaterialTheme.colorScheme.primary,
+//                    icon = if (isScanMatched) Icons.Default.CheckCircle else Icons.Default.QrCodeScanner,
+//                    enabled = false,   // нельзя выбрать вручную
+//                    onClick = { }
+//                )
+//
+//                // === Блок сканирования ===
+//                if (selectedStatus == "confirmed" || scannedValue != null || scanError != null) {
+//                    ScanResultBlock(
+//                        scannedValue = scannedValue,
+//                        isMatched = isScanMatched,
+//                        error = scanError,
+//                        expectedInventoryId = asset.inventoryId,
+//                        expectedSerialNumber = asset.serialNumber
+//                    )
+//                } else {
+//                    // Подсказка, что для confirmed надо сканировать
+//                    Surface(
+//                        shape = RoundedCornerShape(8.dp),
+//                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+//                        modifier = Modifier.fillMaxWidth()
+//                    ) {
+//                        Row(
+//                            modifier = Modifier.padding(10.dp),
+//                            verticalAlignment = Alignment.CenterVertically
+//                        ) {
+//                            Icon(
+//                                Icons.Default.QrCodeScanner,
+//                                contentDescription = null,
+//                                tint = MaterialTheme.colorScheme.primary,
+//                                modifier = Modifier.size(18.dp)
+//                            )
+//                            Spacer(Modifier.width(8.dp))
+//                            Text(
+//                                "Чтобы поставить «Подтверждён», отсканируйте QR/штрихкод актива",
+//                                style = MaterialTheme.typography.labelSmall,
+//                                color = MaterialTheme.colorScheme.onPrimaryContainer
+//                            )
+//                        }
+//                    }
+//                }
+//
+//                // === Комментарий (для not_found / damaged) ===
+//                AnimatedVisibility(
+//                    visible = isCommentRequired,
+//                    enter = expandVertically() + fadeIn(),
+//                    exit = shrinkVertically() + fadeOut()
+//                ) {
+//                    androidx.compose.animation.AnimatedVisibility(
+//                        visible = isCommentRequired && selectedStatus != "pending",
+//                        enter = expandVertically() + fadeIn(),
+//                        exit = shrinkVertically() + fadeOut()
+//                    ) {
+//                        OutlinedTextField(
+//                            value = comment,
+//                            onValueChange = { comment = it },
+//                            label = { Text("Причина") },
+//                            placeholder = { Text("Опишите причину") },
+//                            modifier = Modifier.fillMaxWidth(),
+//                            enabled = !isLoading,
+//                            minLines = 2,
+//                            maxLines = 3,
+//                            isError = comment.isBlank(),
+//                            textStyle = MaterialTheme.typography.bodySmall
+//                        )
+//                    }
+//                }
+//            }
+//        },
+//        confirmButton = {
+//            Button(
+//                onClick = {
+//                    onConfirm(selectedStatus, comment.takeIf { it.isNotBlank() })
+//                },
+//                enabled = !isLoading && isConfirmEnabled,
+//                modifier = Modifier.height(40.dp),
+//                contentPadding = PaddingValues(horizontal = 16.dp),
+//                colors = ButtonDefaults.buttonColors(
+//                    containerColor = when (selectedStatus) {
+//                        "not_found" -> MaterialTheme.colorScheme.error
+//                        "damaged" -> MaterialTheme.colorScheme.tertiary
+//                        else -> MaterialTheme.colorScheme.primary
+//                    }
+//                )
+//            ) {
+//                if (isLoading) {
+//                    CircularProgressIndicator(
+//                        Modifier.size(14.dp),
+//                        strokeWidth = 2.dp,
+//                        color = MaterialTheme.colorScheme.onPrimary
+//                    )
+//                    Spacer(Modifier.width(6.dp))
+//                }
+//                Text(
+//                    text = when (selectedStatus) {
+//                        "not_found" -> "Не найден"
+//                        "damaged" -> "Повреждён"
+//                        "confirmed" -> "Подтвердить"
+//                        else -> "Выберите статус"
+//                    },
+//                    style = MaterialTheme.typography.labelLarge
+//                )
+//            }
+//        },
+//        dismissButton = {
+//            TextButton(
+//                onClick = onDismiss,
+//                enabled = !isLoading,
+//                modifier = Modifier.height(40.dp)
+//            ) {
+//                Text("Отмена", style = MaterialTheme.typography.labelLarge)
+//            }
+//        }
+//    )
+//}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ConfirmAssetDialog(
+    asset: AssetResponseDto,
+    cameraScanEnabled: Boolean,
+    isLoading: Boolean = false,
+    onDismiss: () -> Unit,
+    onConfirm: (status: String, comment: String?) -> Unit
+) {
+    val context = LocalContext.current
+
+    // "not_found" | "damaged" | "confirmed"
+    var selectedStatus by remember { mutableStateOf("") }
+    var comment by remember { mutableStateOf("") }
+
+    // Результат сканирования
+    var scannedValue by remember { mutableStateOf<String?>(null) }
+    var scanError by remember { mutableStateOf<String?>(null) }
+
+    // Камера
+    var showCamera by remember { mutableStateOf(false) }
+
+    // Сканер ТСД
+    val scannerManager = remember { ScannerManager(context) }
+
+    DisposableEffect(Unit) {
+        scannerManager.init()
+        onDispose { scannerManager.release() }
+    }
+
+    // Совпадает ли скан с инвентарным или серийным номером
+    val isScanMatched = remember(scannedValue, asset) {
+        val code = scannedValue?.trim()?.takeIf { it.isNotEmpty() } ?: return@remember false
+        code.equals(asset.inventoryId, ignoreCase = true) ||
+                code.equals(asset.serialNumber, ignoreCase = true)
+    }
+
+    // Комментарий обязателен для not_found / damaged
+    val isCommentRequired = selectedStatus == "not_found" || selectedStatus == "damaged"
+    val isCommentValid = !isCommentRequired || comment.isNotBlank()
+
+    // Кнопка "Подтвердить"
+    val isConfirmEnabled = when (selectedStatus) {
+        "confirmed" -> isScanMatched
+        "not_found", "damaged" -> isCommentValid
+        else -> false
+    }
+
+    // Функция обработки отсканированного значения
+    fun handleScanned(raw: String) {
+        if (raw.isBlank()) return
+        // Парсим как простой текст или QR-JSON
+        val parsed = InventoryQrParser.parseAny(raw) ?: raw.trim()
+        scannedValue = parsed
+        val matches = parsed.equals(asset.inventoryId, ignoreCase = true) ||
+                parsed.equals(asset.serialNumber, ignoreCase = true)
+        scanError = if (matches) null
+        else "Код '$parsed' не совпадает с инвентарным или серийным номером"
+        if (matches) {
+            selectedStatus = "confirmed"
+            comment = ""
+        }
+    }
+
+    // Слушаем сканер ТСД
+    LaunchedEffect(Unit) {
+        scannerManager.barcodeFlow.collect { raw ->
+            handleScanned(raw)
+        }
+    }
+
+    // Диалог камеры
+    if (showCamera) {
+        CameraScannerDialog(
+            onDismiss = { showCamera = false },
+            onBarcodeDetected = { code ->
+                showCamera = false
+                handleScanned(code)
+            }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = !isLoading,
+            dismissOnClickOutside = !isLoading
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .imePadding(),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.FactCheck,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Подтверждение наличия",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // === Карточка актива ===
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                        Text(
+                            asset.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Инв: ${asset.inventoryId ?: "—"}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            asset.serialNumber?.takeIf { it.isNotBlank() }?.let { serial ->
+                                Text(
+                                    "SN: $serial",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // === Статусы ===
+
+                // 1) Не найден
+                ConfirmStatusChip(
+                    label = "Не найден",
+                    selected = selectedStatus == "not_found",
+                    color = MaterialTheme.colorScheme.error,
+                    icon = Icons.Default.SearchOff,
+                    enabled = !isLoading,
+                    onClick = {
+                        selectedStatus = "not_found"
+                        scannedValue = null
+                        scanError = null
+                    }
+                )
+
+                // 2) Повреждён
+                ConfirmStatusChip(
+                    label = "Повреждён",
+                    selected = selectedStatus == "damaged",
+                    color = MaterialTheme.colorScheme.tertiary,
+                    icon = Icons.Default.Warning,
+                    enabled = !isLoading,
+                    onClick = {
+                        selectedStatus = "damaged"
+                        scannedValue = null
+                        scanError = null
+                    }
+                )
+
+                // 3) Подтверждён — только через скан
+                ConfirmStatusChip(
+                    label = if (isScanMatched) "Подтверждён (отсканирован)"
+                    else "Подтверждён (отсканируйте код)",
+                    selected = selectedStatus == "confirmed" && isScanMatched,
+                    color = MaterialTheme.colorScheme.primary,
+                    icon = if (isScanMatched) Icons.Default.CheckCircle
+                    else Icons.Default.QrCodeScanner,
+                    enabled = false,
+                    onClick = { }
+                )
+
+                // === Блок сканирования ===
+                if (selectedStatus == "confirmed" || scannedValue != null || scanError != null) {
+                    ScanResultBlock(
+                        scannedValue = scannedValue,
+                        isMatched = isScanMatched,
+                        error = scanError,
+                        expectedInventoryId = asset.inventoryId,
+                        expectedSerialNumber = asset.serialNumber
+                    )
+                } else {
+                    // Подсказка + кнопка «Сканировать камерой»
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.QrCodeScanner,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Чтобы поставить «Подтверждён», отсканируйте QR/штрихкод актива",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            if (cameraScanEnabled) {
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = { showCamera = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isLoading
+                                ) {
+                                    Icon(Icons.Default.PhotoCamera, null, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Сканировать камерой")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Если скан уже был, но не совпал — тоже даём кнопку «Сканировать камерой»
+                if (scannedValue != null && !isScanMatched && cameraScanEnabled) {
+                    OutlinedButton(
+                        onClick = { showCamera = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Сканировать камерой")
+                    }
+                }
+
+                // === Комментарий (для not_found / damaged) ===
+                AnimatedVisibility(
+                    visible = isCommentRequired,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    OutlinedTextField(
+                        value = comment,
+                        onValueChange = { comment = it },
+                        label = { Text("Причина") },
+                        placeholder = { Text("Опишите причину") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        minLines = 2,
+                        maxLines = 3,
+                        isError = comment.isBlank(),
+                        textStyle = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(selectedStatus, comment.takeIf { it.isNotBlank() })
+                },
+                enabled = !isLoading && isConfirmEnabled,
+                modifier = Modifier.height(40.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = when (selectedStatus) {
+                        "not_found" -> MaterialTheme.colorScheme.error
+                        "damaged" -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                )
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    text = when (selectedStatus) {
+                        "not_found" -> "Не найден"
+                        "damaged" -> "Повреждён"
+                        "confirmed" -> "Подтвердить"
+                        else -> "Выберите статус"
+                    },
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading,
+                modifier = Modifier.height(40.dp)
+            ) {
+                Text("Отмена", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    )
+}
+
+@Composable
+private fun ScanResultBlock(
+    scannedValue: String?,
+    isMatched: Boolean,
+    error: String?,
+    expectedInventoryId: String?,
+    expectedSerialNumber: String?
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isMatched)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+        else
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (isMatched) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
+                    contentDescription = null,
+                    tint = if (isMatched) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = if (isMatched) "Код совпадает — можно подтвердить"
+                    else "Код не совпадает",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isMatched) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error
+                )
+            }
+
+            scannedValue?.takeIf { it.isNotBlank() }?.let { code ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Отсканировано: $code",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (!isMatched) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Ожидается: ${expectedInventoryId ?: "—"} / ${expectedSerialNumber ?: "—"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            error?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+// ================= Компактный chip =================
+@Composable
+private fun ConfirmStatusChip(
+    label: String,
+    selected: Boolean,
+    color: Color,
+    icon: ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) color.copy(alpha = 0.15f)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        border = if (selected) BorderStroke(1.5.dp, color) else null,
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (selected) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) color else MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.weight(1f))
+            if (selected) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+// ================= Радио-опция статуса =================
+@Composable
+private fun StatusRadioOption(
+    label: String,
+    description: String,
+    selected: Boolean,
+    color: Color,
+    icon: ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = if (selected) color.copy(alpha = 0.12f)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                enabled = enabled,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = color
+                )
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (selected) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (selected) color else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    description,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+// ================= PREVIEWS =================
 @Preview(
     showBackground = true,
     showSystemUi = true,
@@ -2937,9 +3817,22 @@ private fun AssetDetailsPreview_HistoryTab() {
     }
 }
 
+
+@Preview
+@Composable
+private fun ConfirmAssetDialogPreview(){
+    ConfirmAssetDialog(
+        asset = getSampleAsset(),
+        cameraScanEnabled = true,
+        isLoading = false,
+        onDismiss = {},
+        onConfirm = { _, _ -> }
+    )
+}
+
 fun getSampleAsset(): AssetResponseDto {
     return AssetResponseDto(
-        assetId = 48,
+        assetId = null,
         materialId = null,
         name = "Актив 2",
         inventoryId = "INV_NUMBER_48",

@@ -1,10 +1,10 @@
 package com.gps.warehouse.data.remote.assets_dto
 
 import com.google.gson.annotations.SerializedName
+import com.honeywell.Message
 import kotlinx.serialization.Serializable
 
 // Enum для статусов (аналог Literal в Python)
-@Serializable
 enum class AssetConfirmationStatus {
     @SerializedName("pending") PENDING,
     @SerializedName("confirmed") CONFIRMED,
@@ -13,7 +13,6 @@ enum class AssetConfirmationStatus {
 }
 
 // CreateConfirmationRequest
-@Serializable
 data class CreateConfirmationRequestDto(
     @SerializedName("asset_id") val assetId: Int? = null,
     @SerializedName("material_id") val materialId: String? = null,
@@ -28,16 +27,22 @@ data class CreateConfirmationRequestDto(
     }
 }
 
-// ConfirmAssetRequest
-@Serializable
+// Подтвердить
 data class ConfirmAssetRequestDto(
     @SerializedName("asset_id") val assetId: Int? = null,
-    @SerializedName("qr_data") val qrData: String? = null,
-    @SerializedName("status") val status: String,
+    @SerializedName("serial_number") val serialNumber: String? = null, // Было qr_data, стало serial_number
+    @SerializedName("inventory_id") val inventoryId: String? = null,   // Новое поле из схемы
+    @SerializedName("status") val status: String,                      // "confirmed", "not_found", "damaged"
     @SerializedName("comment") val comment: String? = null
 ) {
-    // Валидация: комментарий обязателен для определенных статусов
+    // Аналог @model_validator(mode='after')
     init {
+        // Проверка: хотя бы один идентификатор должен быть указан
+        require(assetId != null || serialNumber != null || inventoryId != null) {
+            "Необходимо указать хотя бы один идентификатор: assetId, serialNumber или inventoryId"
+        }
+
+        // Проверка: комментарий обязателен для определенных статусов
         if (status == "not_found" || status == "damaged") {
             require(!comment.isNullOrBlank()) {
                 "Комментарий обязателен для статусов 'not_found' или 'damaged'"
@@ -46,8 +51,17 @@ data class ConfirmAssetRequestDto(
     }
 }
 
-// AssetConfirmationResponse
-@Serializable
+// Ответ на подтверждение
+data class ProcessConfirmationResponseDto(
+    @SerializedName("message") val message: String,
+    @SerializedName("asset_id") val assetId: Int? = null,
+    @SerializedName("asset_name") val assetName: String? = null,
+    @SerializedName("inventory_id") val inventoryId: String? = null,
+    @SerializedName("serial_number") val serialNumber: String? = null,
+    @SerializedName("status") val status: String? = null
+)
+
+// Получение списка подтверждений
 data class AssetConfirmationResponseDto(
     @SerializedName("id") val id: Int,
     @SerializedName("asset_id") val assetId: Int,

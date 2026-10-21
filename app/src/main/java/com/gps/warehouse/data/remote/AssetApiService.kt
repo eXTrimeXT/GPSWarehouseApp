@@ -26,6 +26,7 @@ import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.PlaySoundResponse
+import com.gps.warehouse.data.remote.assets_dto.ProcessConfirmationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
@@ -259,7 +260,7 @@ interface AssetApiService {
     suspend fun confirmAsset(
         @Header("Authorization") token: String,
         @Body request: ConfirmAssetRequestDto
-    ): AssetConfirmationResponseDto
+    ): ProcessConfirmationResponseDto
 
     // ==================== Список запросов на подтверждение ====================
     @GET("asset-confirmations/")
@@ -277,5 +278,5 @@ interface AssetApiService {
     suspend fun getLastConfirmation(
         @Header("Authorization") token: String,
         @Query("asset_id") assetId: Int,
-    ): AssetConfirmationResponseDto
+    ): Response<AssetConfirmationResponseDto>
 }
