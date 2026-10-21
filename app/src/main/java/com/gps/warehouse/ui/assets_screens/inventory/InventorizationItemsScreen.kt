@@ -83,6 +83,7 @@ fun InventorizationItemsScreen(
                 val foundAsset = currentState.items.find {
                     (it.assetId != null && it.assetId.toString() == scannedValue) ||
                             (it.materialId != null && it.materialId.equals(scannedValue, ignoreCase = true)) ||
+                            (it.materialId != null && it.materialId.equals("0${scannedValue}0000", ignoreCase = true)) ||
                             it.serialNumber.equals(scannedValue, ignoreCase = true) ||
                             it.inventoryId.equals(scannedValue, ignoreCase = true)
                 }
