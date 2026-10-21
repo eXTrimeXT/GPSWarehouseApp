@@ -191,6 +191,15 @@ class MainViewModel @Inject constructor(
         // Запускаем периодическую проверку сессии при инициализации
         startSessionMonitoring()
 
+        // Подписываемся на SSE-события
+//        notificationSseManager.setOnNotificationReceived { response ->
+//            // Обновляем UI только если мы на экране уведомлений
+//            val current = _uiState.value
+//            if (current is AssetUiState.NotificationsLoaded) {
+//                _uiState.value = AssetUiState.NotificationsLoaded(response.items)
+//            }
+//        }
+
         // Мгновенная инициализация из кэша
         _bmList.value = localStorage.getCachedBmList()
         _gpsPermissions.value = localStorage.getCachedPermissions()

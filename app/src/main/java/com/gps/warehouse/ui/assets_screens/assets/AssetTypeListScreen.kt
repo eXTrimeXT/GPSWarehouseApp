@@ -29,6 +29,7 @@ import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
 import kotlinx.coroutines.launch
+import java.net.URLEncoder
 
 private const val TAG = "AssetTypeListScreen"
 
@@ -83,19 +84,30 @@ fun AssetTypeListScreen(
                 val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
-                    Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
+                    Log.d(
+                        TAG,
+                        "Scanned asset found: assetId=${foundAsset.assetId}, materialId=${foundAsset.materialId}, navigating"
+                    )
 
-                    serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
-                        foundAsset.serialNumber
-                    } else { "" }
+                    // 1. Безопасно кодируем все строковые параметры
+                    val assetTypeIdStr = foundAsset.assetTypeId?.toString() ?: "0"
+                    val assetTypeNameStr = URLEncoder.encode(foundAsset.assetTypeName ?: "Без типа", "UTF-8")
+                    val serialNumberStr = URLEncoder.encode(foundAsset.serialNumber ?: "", "UTF-8")
+                    val inventoryIdStr = URLEncoder.encode(foundAsset.inventoryId ?: "", "UTF-8")
+                    val materialIdStr = URLEncoder.encode(foundAsset.materialId ?: "", "UTF-8")
 
-                    inventoryId = if (foundAsset.inventoryId?.isNotEmpty() == true) {
-                        foundAsset.inventoryId
-                    } else { "" }
+                    // 2. Формируем query-маршрут
+                    val route = "assets_list?assetTypeId=$assetTypeIdStr" +
+                            "&assetTypeName=$assetTypeNameStr" +
+                            "&serialNumber=$serialNumberStr" +
+                            "&inventoryId=$inventoryIdStr" +
+                            "&materialId=$materialIdStr"
 
-                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}/${serialNumber}/${inventoryId}")
+                    Log.d(TAG, "Navigating to route: $route")
 
-
+                    navController.navigate(route) {
+                        launchSingleTop = true
+                    }
                 } else {
                     Toast.makeText(
                         context,
@@ -218,14 +230,17 @@ fun AssetTypeListScreenContent(
                         items(availableTypes) { type ->
                             AssetTypeCard(
                                 type = type,
-                                onClick = { onNavigate("assets_list/${type.assetTypeId}/${type.name}") }
+                                onClick = { onNavigate(
+                                    "assets_list?assetTypeId=${type.assetTypeId}&assetTypeName=${URLEncoder.encode(type.name, "UTF-8")}"
+                                ) }
                             )
                         }
                         // Карточка "Другие типы" всегда внизу списка
                         item {
                             OtherTypesCard(
                                 onClick = {
-                                    onNavigate("assets_list/null/Все активы")
+                                    // Все активы — без assetTypeId. assetTypeName не передаём вовсе
+                                    onNavigate("assets_list")
                                 }
                             )
                         }

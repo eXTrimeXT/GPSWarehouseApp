@@ -935,21 +935,30 @@ fun MainInfoTab(
             )
         }
         item {
-            LocationCard(
-                location = asset.location,
-                workshops = workshops,
-                isEditing = isEditing,
-                editState = editState,
-                onEditStateChange = onEditStateChange
-            )
-        }
-        item {
             ServiceCard(
                 asset = asset,
                 isEditing = isEditing,
                 editState = editState,
                 onEditStateChange = onEditStateChange,
                 onNextServiceClick = onNextServiceClick
+            )
+        }
+        item {
+            CheckCard(
+                asset = asset,
+                isEditing = isEditing,
+                editState = editState,
+                onEditStateChange = onEditStateChange,
+                onNextServiceClick = onNextServiceClick
+            )
+        }
+        item {
+            LocationCard(
+                location = asset.location,
+                workshops = workshops,
+                isEditing = isEditing,
+                editState = editState,
+                onEditStateChange = onEditStateChange
             )
         }
     }
@@ -1065,13 +1074,6 @@ fun UsersTab(
                 }
             }
 
-            // Подтверждения актива
-            if (!isEditing && confirmations.isNotEmpty()) {
-                item {
-                    AssetConfirmationsSection(confirmations = confirmations)
-                }
-            }
-
             // Владелец
             item {
                 UsersSection(
@@ -1100,6 +1102,13 @@ fun UsersTab(
                     } else null,
                     onRemoveUser = onRemoveUser
                 )
+            }
+
+            // Подтверждения актива
+            if (!isEditing && confirmations.isNotEmpty()) {
+                item {
+                    AssetConfirmationsSection(confirmations = confirmations)
+                }
             }
 
             // История передач
@@ -1751,14 +1760,14 @@ fun ServiceCard(
 ) {
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
+//            InfoRow(
+//                label = "Еженедельная проверка",
+//                value = if ((editState?.everyWeekCheck
+//                        ?: asset.everyWeekCheck) == true
+//                ) "Да" else "Нет"
+//            )
             InfoRow(
-                label = "Еженедельная проверка",
-                value = if ((editState?.everyWeekCheck
-                        ?: asset.everyWeekCheck) == true
-                ) "Да" else "Нет"
-            )
-            InfoRow(
-                label = "След. обслуживание",
+                label = "Следующая обслуживание",
                 value = asset.nextService?.formatIsoToReadable()
             )
             InfoRow(
@@ -1786,6 +1795,64 @@ fun ServiceCard(
                 )
             }
             Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = editState?.nextService ?: asset.nextService ?: "",
+                onValueChange = { },
+                label = { Text("След. обслуживание") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNextServiceClick?.invoke() },
+                readOnly = true,
+                placeholder = { Text("ДД.ММ.ГГГГ") },
+                trailingIcon = {
+                    IconButton(onClick = { onNextServiceClick?.invoke() }) {
+                        Icon(Icons.Default.CalendarToday, "Выбрать дату")
+                    }
+                },
+                singleLine = true
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = (editState?.servicePeriod ?: asset.servicePeriod ?: 0).toString(),
+                onValueChange = { input ->
+                    val current = editState?.servicePeriod ?: asset.servicePeriod ?: 0
+                    val period = if (current == 0 && input.isNotEmpty() && input != "0") {
+                        input.toIntOrNull() ?: 0
+                    } else input.toIntOrNull() ?: 0
+                    editState?.let { state ->
+                        onEditStateChange(state.copy(servicePeriod = period))
+                    }
+                },
+                label = { Text("Период (дни)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(min = 60.dp),
+                singleLine = true
+            )
+        }
+    }
+}
+
+@Composable
+fun CheckCard(
+    asset: AssetResponseDto,
+    isEditing: Boolean,
+    editState: AssetEditState?,
+    onEditStateChange: (AssetEditState) -> Unit,
+    onNextServiceClick: (() -> Unit)?
+) {
+    InfoSectionCard(icon = Icons.Default.LibraryAddCheck, title = "Проверка") {
+        if (!isEditing) {
+            InfoRow(
+                label = "Следующая проверка",
+                value = asset.nextCheck?.formatIsoToReadable()
+            )
+            InfoRow(
+                label = "Период (дни)",
+                value = (editState?.checkPeriod ?: asset.checkPeriod)?.toString()
+            )
+        } else {
             OutlinedTextField(
                 value = editState?.nextService ?: asset.nextService ?: "",
                 onValueChange = { },
@@ -3248,8 +3315,8 @@ fun ConfirmAssetDialog(
 
                 // 3) Подтверждён — только через скан
                 ConfirmStatusChip(
-                    label = if (isScanMatched) "Подтверждён (отсканирован)"
-                    else "Подтверждён (отсканируйте код)",
+                    label = if (isScanMatched) "Подтверждён"
+                    else "Отсканируйте QR-код",
                     selected = selectedStatus == "confirmed" && isScanMatched,
                     color = MaterialTheme.colorScheme.primary,
                     icon = if (isScanMatched) Icons.Default.CheckCircle
@@ -3856,7 +3923,9 @@ fun getSampleAsset(): AssetResponseDto {
         osName = "окнО",
         everyWeekCheck = false,
         nextService = "2026-09-08",
-        servicePeriod = 5,
+        servicePeriod = 8,
+        nextCheck = "2026-10-16",
+        checkPeriod = 16,
         createdBy = "0000012657",
         updatedBy = "0000015370",
         createdAt = "2026-07-14T19:23:04.784110",

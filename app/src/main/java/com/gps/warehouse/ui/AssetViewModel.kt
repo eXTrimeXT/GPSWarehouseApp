@@ -29,7 +29,6 @@ import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequ
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionObj
 import com.gps.warehouse.data.remote.assets_dto.MvzDepartments
-import com.gps.warehouse.data.remote.assets_dto.MvzListResponseDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
@@ -41,7 +40,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -372,8 +370,9 @@ class AssetViewModel @Inject constructor(
         page: Int,
         pageSize: Int = 50,
         name: String? = null,
-        inventoryId: String? = null,
         serialNumber: String? = null,
+        inventoryId: String? = null,
+        materialId: String? = null,
         assetStatus: String? = null,
         modelId: Int? = null,
         assetTypeId: Int? = null,
@@ -410,7 +409,8 @@ class AssetViewModel @Inject constructor(
             try {
                 val response = assetApiService.getAssets(
                     token = "Bearer ${getToken()}", page = page, pageSize = pageSize,
-                    name = name, inventoryId = inventoryId, serialNumber = serialNumber,
+                    name = name, inventoryId = inventoryId,
+                    serialNumber = serialNumber, materialId = materialId,
                     assetStatus = assetStatus, modelId = modelId, assetTypeId = assetTypeId,
                     parentId = parentId, locationId = locationId, onlyMy = onlyMy
                 )
@@ -445,7 +445,7 @@ class AssetViewModel @Inject constructor(
      */
     suspend fun findAssetByScanValue(scannedValue: String): Pair<AssetResponseDto?, String> {
         return try {
-            // Сначала пробуем как СЕРИЙНЫЙ номер
+            // === Пробуем поиск по СЕРИЙНОМУ номеру ===
             Log.d("AssetViewModel", "Поиск по serialNumber: $scannedValue")
             val bySerial = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
@@ -454,38 +454,49 @@ class AssetViewModel @Inject constructor(
                 pageSize = 1
             )
             bySerial.items.firstOrNull()?.let {
-                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
                 // Если нашли по серийнику, возвращаем его и исходное значение
+                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
                 return Pair(it, scannedValue)
             }
 
-            // Если не найдено — пробуем как ИНВЕНТАРНЫЙ номер
+            // === Если не нашли, пробуем поиск по ИНВЕНТАРНОМУ номеру ===
             var currentInventoryId = scannedValue
-
             // Валидация инвентарного номера по длине
             if (currentInventoryId.length == 11) {
                 currentInventoryId = "0$currentInventoryId"
                 Log.w("AssetViewModel", "Изменение inv.number: old=$scannedValue new=$currentInventoryId")
             }
-
             Log.d("AssetViewModel", "Поиск по inventoryId: inv. number=$currentInventoryId")
-
             val byInventory = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 inventoryId = currentInventoryId,
                 page = 1,
                 pageSize = 1,
             )
+            byInventory.items.firstOrNull()?.let {
+                // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
+                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${it.assetId}")
+                return Pair(it, currentInventoryId)
+            }
 
-            val found = byInventory.items.firstOrNull()
-            if (found != null) {
-                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${found.assetId}")
-            } else {
-                Log.d("AssetViewModel", "Актив не найден ни по одному параметру. Последнее значение поиска: $currentInventoryId")
+            // === Поиск по MATERIAL_ID ===
+            var materialId = scannedValue
+            if (materialId.length == 11) {
+                materialId = "0${materialId}0000"
+            }
+            val byMaterialId = assetApiService.getAssets(
+                token = "Bearer ${getToken()}",
+                materialId = materialId,
+                page = 1,
+                pageSize = 1
+            )
+            byMaterialId.items.firstOrNull()?.let {
+                Log.d("AssetViewModel", "Найдено по material_id: id=${it.materialId}")
+                return Pair(it, materialId)
             }
 
             // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
-            Pair(found, currentInventoryId)
+            Pair(null, materialId)
         } catch (e: Exception) {
             Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
             // В случае ошибки возвращаем null и исходное значение, чтобы не ломать логику
@@ -679,7 +690,7 @@ class AssetViewModel @Inject constructor(
                 _notificationItems.value = cachedNotifications
                 _uiState.value = AssetUiState.NotificationsLoaded(cachedNotifications)
             } else {
-                _uiState.value = AssetUiState.Loading
+//                _uiState.value = AssetUiState.Loading
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {

@@ -21,6 +21,8 @@ data class AssetEditState(
     val everyWeekCheck: Boolean? = null,
     val nextService: String? = null,
     val servicePeriod: Int? = null,
+    val nextCheck: String? = null,
+    val checkPeriod: Int? = null,
     val location: AssetLocationUpdate? = null,
     val currentUser: String? = null,
 
@@ -57,6 +59,8 @@ data class AssetEditState(
                 everyWeekCheck = asset.everyWeekCheck,
                 nextService = asset.nextService,
                 servicePeriod = asset.servicePeriod,
+                nextCheck = asset.nextCheck,
+                checkPeriod = asset.checkPeriod,
                 currentUser = asset.currentUser,
                 location = asset.location?.let {
                     AssetLocationUpdate(it.workshopId, it.workshopName, it.place, it.level, it.x ?: 0, it.y ?: 0)
@@ -95,6 +99,8 @@ data class AssetEditState(
             everyWeekCheck = everyWeekCheck.takeIf { it != original.everyWeekCheck },
             nextService = nextService.takeIf { it != original.nextService },
             servicePeriod = servicePeriod.takeIf { it != original.servicePeriod },
+            nextCheck = nextCheck.takeIf { it != original.nextCheck },
+            checkPeriod = checkPeriod.takeIf { it != original.checkPeriod },
             currentUser = currentUser.takeIf { it != original.currentUser },
             location = location.takeIf { it != original.location },
 
