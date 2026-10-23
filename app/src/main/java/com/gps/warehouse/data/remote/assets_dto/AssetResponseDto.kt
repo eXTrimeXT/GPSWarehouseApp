@@ -59,6 +59,10 @@ data class AssetResponseDto(
     @SerializedName("next_service") override val nextService: String?,
     @SerializedName("service_period") override val servicePeriod: Int?,
 
+    // Информация о проверки
+    @SerializedName("next_check") val nextCheck: String?,
+    @SerializedName("check_period") val checkPeriod: Int?,
+
     // MVZ
     // MVZ ответственного
     @SerializedName("cost_center_code_from") val costCenterCodeFrom: String?,

@@ -336,7 +336,7 @@ fun WmsContent(
                                             .padding(vertical = 16.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                        SplashLoadingScreen()
                                     }
                                 }
                             }

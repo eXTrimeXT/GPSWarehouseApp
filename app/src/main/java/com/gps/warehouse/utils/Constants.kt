@@ -16,5 +16,6 @@ object Constants {
     const val BASE_URL_API = "https://gps-rs.hmmr.ru/api/"
     const val ASSET_URL = "http://10.168.130.86:8800/api/"
 
+
     // https://git-new.hmmr.ru/timurmalyshev/android-gps-warehouse-app/-/jobs/1077/artifacts/download?file_type=archive
 }

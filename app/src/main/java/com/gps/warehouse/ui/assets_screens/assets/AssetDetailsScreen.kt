@@ -2,8 +2,14 @@ package com.gps.warehouse.ui.assets_screens.assets
 
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -11,8 +17,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -26,14 +34,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
-import androidx.work.workDataOf
 import com.gps.warehouse.data.remote.assets_dto.*
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import com.gps.warehouse.ui.AssetViewModel
@@ -42,22 +49,30 @@ import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.InfoRow
 import com.gps.warehouse.ui.components.InfoRowSmall
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-// ==================== SCREEN: Логика + Навигация ====================
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material.icons.automirrored.filled.FactCheck
+import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.CameraScannerDialog
+import com.gps.warehouse.utils.InventoryQrParser
+import com.gps.warehouse.utils.ScannerManager
+
+// ================= SCREEN: Логика + Навигация =================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetDetailsScreen(
     assetId: Int? = null,
     materialId: String? = null,
     navController: NavHostController,
-    assetViewModel: AssetViewModel
+    assetViewModel: AssetViewModel,
+    mainViewModel: MainViewModel,
 ) {
     val uiState by assetViewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -76,13 +91,19 @@ fun AssetDetailsScreen(
     // Получаем список MVZ
     val mvzDepartments by assetViewModel.mvzDepartments.collectAsState()
 
+    // Подтверждения актива
+    val confirmations by assetViewModel.assetConfirmations.collectAsState()
+    // Получить последнее подтверждение
+    val lastConfirmation by assetViewModel.assetConfirmationLast.collectAsState()
+
     var isEditing by remember { mutableStateOf(false) }
     var showNextServiceDatePicker by remember { mutableStateOf(false) }
+    var showNextCheckDatePicker by remember { mutableStateOf(false) }
     var userPendingRemoval by remember { mutableStateOf<Pair<UserType, AssetUserFullResponse>?>(null) }
 
     var editState by remember { mutableStateOf<AssetEditState?>(null) }
 
-    // === Передача актива ===
+    // Передача актива
     var showTransferDialog by remember { mutableStateOf(false) }
     var showEmployeeSearchForTransfer by remember { mutableStateOf(false) }
     var selectedEmployeeForTransfer by remember { mutableStateOf<EmployeeShortResponse?>(null) }
@@ -96,23 +117,28 @@ fun AssetDetailsScreen(
     var transferToRespond by remember { mutableStateOf<AssetTransferDto?>(null) }
     var isRespondingTransfer by remember { mutableStateOf(false) }
 
-    // === Вкладки ===
+    // Подтверждение наличия актива
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    var isConfirming by remember { mutableStateOf(false) }
+
+    // Вкладки
     val pagerState = rememberPagerState(pageCount = { 3 })
     val coroutineScope = rememberCoroutineScope()
-//    var selectedTab by remember { mutableIntStateOf(0) }
 
-    // Синхронизация табов и пейджера
-//    LaunchedEffect(selectedTab) {
-//        pagerState.animateScrollToPage(selectedTab)
-//    }
-//
-//    LaunchedEffect(pagerState.currentPage) {
-//        selectedTab = pagerState.currentPage
-//    }
+    // Сканер для подтверждения наличия
+    val scannerManager = remember { ScannerManager(context) }
+
+    // Сканирование с помощью камеры
+    val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
+    var showCameraDialog by remember { mutableStateOf(false) }
 
     // Загружаем данные при открытии
     LaunchedEffect(assetId, materialId) {
-        firstLoadData(viewModel = assetViewModel, assetId = assetId, materialId = materialId)
+        firstLoadData(
+            viewModel = assetViewModel,
+            assetId = assetId,
+            materialId = materialId
+        )
     }
 
     // Инициализируем editState когда всё загружено
@@ -136,7 +162,12 @@ fun AssetDetailsScreen(
         }
     }
 
-    // === Диалоги ===
+    DisposableEffect(Unit) {
+        scannerManager.init()
+        onDispose { scannerManager.release() }
+    }
+
+    // Диалоги
     showEmployeeSearchDialog?.let { userType ->
         EmployeeSearchDialog(
             userType = userType,
@@ -147,10 +178,13 @@ fun AssetDetailsScreen(
                 }
                 showEmployeeSearchDialog = null
             },
-            onSearch = { employeeId, searchDepartment, page ->
+            onSearch = { searchName, employeeId, searchDepartment, page ->
                 assetViewModel.loadEmployees(
-                    page = page, pageSize = 20,
-                    employeeId = employeeId, searchDepartment = searchDepartment
+                    page = page,
+                    pageSize = 20,
+                    employeeId = employeeId,
+                    searchDepartment = searchDepartment,
+                    searchName = searchName,
                 )
             },
             paginatedEmployees = employees,
@@ -215,6 +249,32 @@ fun AssetDetailsScreen(
         ) { DatePicker(state = datePickerState) }
     }
 
+    if (showNextCheckDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = editState?.nextCheck?.let {
+                LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showNextCheckDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val isoDate = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneId.systemDefault()).toLocalDate().toString()
+                        editState?.let { editState = it.copy(nextCheck = isoDate) }
+                    }
+                    showNextCheckDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showNextCheckDatePicker = false
+                }) { Text("Отмена") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
     if (showEmployeeSearchForTransfer) {
         EmployeeSearchDialog(
             userType = UserType.USER,
@@ -224,10 +284,13 @@ fun AssetDetailsScreen(
                 showEmployeeSearchForTransfer = false
                 showTransferDialog = true
             },
-            onSearch = { employeeId, searchDepartment, page ->
+            onSearch = { searchName, employeeId, searchDepartment, page ->
                 assetViewModel.loadEmployees(
-                    page = page, pageSize = 20,
-                    employeeId = employeeId, searchDepartment = searchDepartment
+                    page = page,
+                    pageSize = 20,
+                    employeeId = employeeId,
+                    searchDepartment = searchDepartment,
+                    searchName = searchName
                 )
             },
             paginatedEmployees = employees,
@@ -315,6 +378,7 @@ fun AssetDetailsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     if (isCancellingTransfer) {
+                        // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                     }
@@ -386,7 +450,53 @@ fun AssetDetailsScreen(
         )
     }
 
-    // === Контент ===
+    // ДИАЛОГ ПОДТВЕРЖДЕНИЯ НАЛИЧИЯ
+    if (showConfirmDialog) {
+        val currentAsset = (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset
+        if (currentAsset != null) {
+            ConfirmAssetDialog(
+                asset = currentAsset,
+                cameraScanEnabled = cameraScanEnabled,
+                isLoading = isConfirming,
+                onDismiss = {
+                    if (!isConfirming) showConfirmDialog = false
+                },
+                onConfirm = { status, comment ->
+                    isConfirming = true
+                    assetViewModel.confirmAsset(
+                        request = ConfirmAssetRequestDto(
+                            assetId = currentAsset.assetId,
+                            serialNumber = currentAsset.serialNumber,
+                            inventoryId = currentAsset.inventoryId,
+                            status = status,
+                            comment = comment
+                        ),
+                        currentAssetId = currentAsset.assetId,
+                        onSuccess = { response ->
+                            isConfirming = false
+                            showConfirmDialog = false
+                            Toast.makeText(
+                                context,
+                                response.message.ifBlank { "Готово" },
+                                Toast.LENGTH_LONG
+                            ).show()
+                            // Перезагружаем подтверждения и последнее подтверждение
+                            currentAsset.assetId?.let { id ->
+                                assetViewModel.getLastConfirmation(assetId = id)
+                                assetViewModel.loadConfirmationsList(assetId = id, page = 1, pageSize = 50)
+                            }
+                        },
+                        onError = { error ->
+                            isConfirming = false
+                            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            )
+        }
+    }
+
+    // Контент
     AssetDetailsContent(
         uiState = uiState,
         assetStatuses = assetStatuses,
@@ -395,10 +505,8 @@ fun AssetDetailsScreen(
         assetHistory = assetHistory,
         isEditing = isEditing,
         editState = editState,
-//        selectedTab = selectedTab,
         pagerState = pagerState,
         coroutineScope = coroutineScope,
-//        onTabSelected = { selectedTab = it },
         onEditStateChange = { newState -> editState = newState },
         onToggleEdit = { isEditing = !isEditing },
         workshops = workshops,
@@ -406,8 +514,12 @@ fun AssetDetailsScreen(
             editState?.let { state ->
                 (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
                     val idToUpdate = original.assetId ?: assetId
+                    val materialIdToUpdate = original.materialId ?: materialId
+
                     if (idToUpdate != null) {
                         assetViewModel.updateAsset(idToUpdate, state.toUpdate(original))
+                    } else if (materialIdToUpdate != null) {
+                        assetViewModel.upsertAsset(state.toUpdate(original))
                     } else {
                         Log.e("AssetDetailsScreen", "Невозможно обновить: assetId отсутствует")
                     }
@@ -427,7 +539,7 @@ fun AssetDetailsScreen(
             firstLoadData(
                 viewModel = assetViewModel,
                 assetId = assetId,
-                materialId = materialId
+                materialId = materialId,
             )
         },
         onAddUser = { userType ->
@@ -438,13 +550,17 @@ fun AssetDetailsScreen(
             userPendingRemoval = Pair(userType, user)
         },
         onNextServiceClick = { showNextServiceDatePicker = true },
+        onNextCheckClick = { showNextCheckDatePicker = true },
         onTransferClick = {
             showEmployeeSearchForTransfer = true
             assetViewModel.loadEmployees(page = 1, pageSize = 20)
         },
         assetTransfers = assetTransfers,
-        currentEmployeeId = employeeMe?.employeeId,   // ← новое
-        onCancelTransfer = { transferId ->            // ← новое
+        confirmations = confirmations,
+        lastConfirmation = lastConfirmation,
+        onConformationClick = { showConfirmDialog = true },
+        currentEmployeeId = employeeMe?.employeeId,
+        onCancelTransfer = { transferId ->
             // Открываем диалог подтверждения через state
             transferToCancel = transferId
         },
@@ -452,16 +568,24 @@ fun AssetDetailsScreen(
     )
 }
 
-fun firstLoadData(viewModel: AssetViewModel, assetId: Int?, materialId: String?) {
+fun firstLoadData(
+    viewModel: AssetViewModel,
+    assetId: Int?,
+    materialId: String?,
+) {
     viewModel.loadAssetDetails(assetId = assetId, materialId = materialId)
     viewModel.loadAssetStatuses()
     viewModel.loadAssetTypes()
     viewModel.getEmployeeMe()
     viewModel.loadWorkshops()
     viewModel.loadMvzDepartments()
+    if (assetId != null) {
+        viewModel.loadConfirmationsList(assetId = assetId, page = 1, pageSize = 50)
+        viewModel.getLastConfirmation(assetId = assetId)
+    }
 }
 
-// ==================== CONTENT: UI + TABS ====================
+// ================= CONTENT: UI + TABS =================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetDetailsContent(
@@ -473,10 +597,8 @@ fun AssetDetailsContent(
     workshops: List<Workshop>,
     isEditing: Boolean,
     editState: AssetEditState?,
-//    selectedTab: Int,
     pagerState: PagerState,
     coroutineScope: CoroutineScope,
-//    onTabSelected: (Int) -> Unit,
     onEditStateChange: (AssetEditState) -> Unit,
     onToggleEdit: () -> Unit,
     onSave: () -> Unit,
@@ -488,8 +610,12 @@ fun AssetDetailsContent(
     onAddUser: ((UserType) -> Unit)? = null,
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)? = null,
     onNextServiceClick: (() -> Unit)? = null,
+    onNextCheckClick: (() -> Unit)? = null,
     onTransferClick: () -> Unit,
     assetTransfers: List<AssetTransferDto>,
+    confirmations: List<AssetConfirmationResponseDto>,
+    lastConfirmation: AssetConfirmationResponseDto?,
+    onConformationClick: () -> Unit,
     currentEmployeeId: String?,
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
@@ -498,7 +624,7 @@ fun AssetDetailsContent(
         when (uiState) {
             is AssetViewModel.AssetUiState.Loading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                    SplashLoadingScreen()
                 }
             }
 
@@ -517,7 +643,7 @@ fun AssetDetailsContent(
             is AssetViewModel.AssetUiState.AssetDetailsLoaded -> {
                 val asset = uiState.asset
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // === ActionBar (только Назад + Редактировать / Save+Cancel) ===
+                    // ActionBar (только Назад + Редактировать / Save+Cancel)
                     MyCustomActionBar(
                         text = asset.name,
                         onBackClick = onBackClick,
@@ -547,7 +673,7 @@ fun AssetDetailsContent(
                             }
                         }
                     )
-                    // === Вкладки ===
+                    // Вкладки
                     TabRow(
                         selectedTabIndex = pagerState.currentPage,
                         containerColor = MaterialTheme.colorScheme.surface,
@@ -570,7 +696,7 @@ fun AssetDetailsContent(
                         )
                     }
 
-                    // === Контент вкладок (свайп) ===
+                    // Контент вкладок (свайп)
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize()
@@ -586,7 +712,8 @@ fun AssetDetailsContent(
                                 editState = editState,
                                 onEditStateChange = onEditStateChange,
                                 onNavigateToParent = onNavigateToParent,
-                                onNextServiceClick = onNextServiceClick
+                                onNextServiceClick = onNextServiceClick,
+                                onNextCheckClick = onNextCheckClick
                             )
 
                             1 -> UsersTab(
@@ -598,6 +725,9 @@ fun AssetDetailsContent(
                                 onTransferClick = onTransferClick,
                                 onCancelTransfer = onCancelTransfer,
                                 transfers = assetTransfers,
+                                confirmations = confirmations,
+                                lastConfirmation = lastConfirmation,
+                                onConformationClick = onConformationClick,
                                 currentEmployeeId = currentEmployeeId,
                                 onRespondTransfer = onRespondTransfer,
                             )
@@ -617,7 +747,7 @@ fun AssetDetailsContent(
     }
 }
 
-// ==================== FIXED HEADER CARD ====================
+// ================= FIXED HEADER CARD =================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssetHeaderCard(
@@ -732,37 +862,6 @@ fun AssetHeaderCard(
                     }
                 }
             }
-
-            // Краткие идентификаторы
-//            if (!isEditing) {
-//                Spacer(Modifier.height(12.dp))
-//                HorizontalDivider(color = statusColor.copy(alpha = 0.3f))
-//                Spacer(Modifier.height(8.dp))
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//                    CompactIdRow(
-//                        icon = Icons.Outlined.QrCode,
-//                        label = "Инв. №",
-//                        value = asset.inventoryId ?: "—"
-//                    )
-//                }
-//                Spacer(Modifier.height(8.dp))
-//                Row(
-//                    modifier = Modifier.fillMaxWidth(),
-//                    horizontalArrangement = Arrangement.SpaceBetween
-//                ) {
-//                    if (!asset.serialNumber.isNullOrBlank()) {
-//                        CompactIdRow(
-//                            icon = Icons.Default.Code,
-//                            label = "Серийный",
-//                            value = asset.serialNumber
-//                        )
-//                    }
-//                }
-//
-//            }
         }
     }
 }
@@ -791,7 +890,7 @@ private fun CompactIdRow(icon: ImageVector, label: String, value: String) {
     }
 }
 
-// ==================== TAB 1: MAIN INFO ====================
+// ================= TAB 1: MAIN INFO =================
 @Composable
 fun MainInfoTab(
     asset: AssetResponseDto,
@@ -803,7 +902,8 @@ fun MainInfoTab(
     editState: AssetEditState?,
     onEditStateChange: (AssetEditState) -> Unit,
     onNavigateToParent: (Int) -> Unit,
-    onNextServiceClick: (() -> Unit)?
+    onNextServiceClick: (() -> Unit)?,
+    onNextCheckClick: (() -> Unit)?
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -811,7 +911,7 @@ fun MainInfoTab(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         item {
-            // === Фиксированный хедер со статусом ===
+            // Фиксированный хедер со статусом
             AssetHeaderCard(
                 asset = asset,
                 isEditing = isEditing,
@@ -857,15 +957,6 @@ fun MainInfoTab(
             )
         }
         item {
-            LocationCard(
-                location = asset.location,
-                workshops = workshops,
-                isEditing = isEditing,
-                editState = editState,
-                onEditStateChange = onEditStateChange
-            )
-        }
-        item {
             ServiceCard(
                 asset = asset,
                 isEditing = isEditing,
@@ -874,101 +965,28 @@ fun MainInfoTab(
                 onNextServiceClick = onNextServiceClick
             )
         }
+        item {
+            CheckCard(
+                asset = asset,
+                isEditing = isEditing,
+                editState = editState,
+                onEditStateChange = onEditStateChange,
+                onNextCheckClick = onNextCheckClick
+            )
+        }
+        item {
+            LocationCard(
+                location = asset.location,
+                workshops = workshops,
+                isEditing = isEditing,
+                editState = editState,
+                onEditStateChange = onEditStateChange
+            )
+        }
     }
 }
 
-// ==================== TAB 2: USERS ====================
-//@Composable
-//fun UsersTab(
-//    asset: AssetResponseDto,
-//    isEditing: Boolean,
-//    editState: AssetEditState?,
-//    onAddUser: ((UserType) -> Unit)?,
-//    onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)?,
-//    onTransferClick: () -> Unit,
-//    transfers: List<AssetTransferDto>,
-//    currentEmployeeId: String?,
-//    onCancelTransfer: (Int) -> Unit,
-//    onRespondTransfer: (AssetTransferDto) -> Unit
-//) {
-//    // Определяем: есть ли текущий пользователь среди владельцев
-//    val currentUsers = editState?.currentUsers ?: asset.users
-//    val isCurrentUserOwner = currentEmployeeId != null &&
-//            currentUsers?.any { it.employeeId == currentEmployeeId } == true
-//
-//    LazyColumn(
-//        modifier = Modifier.fillMaxSize(),
-//        contentPadding = PaddingValues(16.dp),
-//        verticalArrangement = Arrangement.spacedBy(12.dp)
-//    ) {
-//        // === Кнопка «Передать актив» — только если мы владелец ===
-//        if (!isEditing && isCurrentUserOwner) {
-//            item {
-//                Spacer(Modifier.height(8.dp))
-//                Button(
-//                    onClick = onTransferClick,
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .height(56.dp),
-//                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-//                ) {
-//                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
-//                    Spacer(Modifier.width(8.dp))
-//                    Text(
-//                        "Передать актив",
-//                        style = MaterialTheme.typography.bodyLarge,
-//                        fontWeight = FontWeight.SemiBold
-//                    )
-//                }
-//                Spacer(Modifier.height(16.dp))
-//            }
-//        }
-//
-//        // === Владелец ===
-//        item {
-//            UsersSection(
-//                title = "Владелец",
-//                users = currentUsers,
-//                icon = Icons.Default.Person,
-//                color = MaterialTheme.colorScheme.surfaceVariant,
-//                isEditing = isEditing,
-//                onAddUser = if (isEditing) {
-//                    { onAddUser?.invoke(UserType.USER) }
-//                } else null,
-//                onRemoveUser = onRemoveUser
-//            )
-//        }
-//
-//        // === Обслуживающий персонал ===
-//        item {
-//            UsersSection(
-//                title = "Обслуживающий персонал",
-//                users = editState?.currentServingUsers ?: asset.servingUsers,
-//                icon = Icons.Default.Build,
-//                color = MaterialTheme.colorScheme.tertiaryContainer,
-//                isEditing = isEditing,
-//                onAddUser = if (isEditing) {
-//                    { onAddUser?.invoke(UserType.SERVING) }
-//                } else null,
-//                onRemoveUser = onRemoveUser
-//            )
-//        }
-//
-//        // === История передач ===
-//        if (!isEditing && transfers.isNotEmpty()) {
-//            item {
-//                AssetTransfersSection(
-//                    transfers = transfers,
-//                    currentEmployeeId = currentEmployeeId,
-//                    onCancelTransfer = onCancelTransfer,
-//                    onRespondTransfer = onRespondTransfer
-//                )
-//            }
-//        }
-//    }
-//}
-
-// ==================== TAB 2: USERS ====================
+// ================= TAB 2: USERS =================
 @Composable
 fun UsersTab(
     asset: AssetResponseDto,
@@ -978,6 +996,9 @@ fun UsersTab(
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)?,
     onTransferClick: () -> Unit,
     transfers: List<AssetTransferDto>,
+    confirmations: List<AssetConfirmationResponseDto>,
+    lastConfirmation: AssetConfirmationResponseDto?,
+    onConformationClick: () -> Unit,
     currentEmployeeId: String?,
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
@@ -1003,7 +1024,7 @@ fun UsersTab(
         // verticalArrangement = if (isEverythingEmpty) Arrangement.Center else Arrangement.spacedBy(12.dp)
     ) {
         if (isEverythingEmpty) {
-            // === ЗАГЛУШКА, ЕСЛИ НИКОГО НЕТ ===
+            // ЗАГЛУШКА, ЕСЛИ НИКОГО НЕТ
             item {
                 Box(
                     modifier = Modifier
@@ -1028,28 +1049,121 @@ fun UsersTab(
                 }
             }
         } else {
-            // === ОБЫЧНЫЙ КОНТЕНТ ===
+            // ОБЫЧНЫЙ КОНТЕНТ
 
-            // Кнопка «Передать актив» — только если мы владелец
-            if (!isEditing && isCurrentUserOwner) {
+//            // Кнопка "Передать актив" — только если мы владелец
+//            if (!isEditing && isCurrentUserOwner) {
+//                item {
+//                    Spacer(Modifier.height(8.dp))
+//                    Button(
+//                        onClick = onTransferClick,
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .height(56.dp),
+//                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+//                    ) {
+//                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+//                        Spacer(Modifier.width(8.dp))
+//                        Text(
+//                            "Передать актив",
+//                            style = MaterialTheme.typography.bodyLarge,
+//                            fontWeight = FontWeight.SemiBold
+//                        )
+//                    }
+//                    Spacer(Modifier.height(16.dp))
+//                }
+//            }
+//
+//            // Кнопка "Подтвердить наличие актива"
+//            if (!isEditing && lastConfirmation != null && lastConfirmation.status == "pending") {
+//                item {
+//                    Spacer(Modifier.height(8.dp))
+//                    Button(
+//                        onClick = onConformationClick,
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .height(56.dp),
+//                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+//                    ) {
+//                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+//                        Spacer(Modifier.width(8.dp))
+//                        Text(
+//                            "Подтвердить наличие актива",
+//                            style = MaterialTheme.typography.bodyLarge,
+//                            fontWeight = FontWeight.SemiBold
+//                        )
+//                    }
+//                    Spacer(Modifier.height(16.dp))
+//                }
+//            }
+
+            // === Карточка «Управление» — все действия с людьми ===
+            val hasPendingConfirmation = !isEditing &&
+                    lastConfirmation != null &&
+                    lastConfirmation.status.equals("pending", ignoreCase = true)
+
+            val showActionsCard = !isEditing && (isCurrentUserOwner || hasPendingConfirmation)
+
+            if (showActionsCard) {
                 item {
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = onTransferClick,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Передать актив",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Кнопка «Подтвердить наличие актива» — только если есть pending
+                            if (hasPendingConfirmation) {
+                                Button(
+                                    onClick = onConformationClick,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.FactCheck, null, Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Подтвердить наличие",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+
+                            // Кнопка «Передать актив» — только если мы владелец
+                            if (isCurrentUserOwner) {
+                                Button(
+                                    onClick = onTransferClick,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Передать актив",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            // Если ни одно условие не сработало — не рендерим карточку (showActionsCard = false)
+                        }
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
                 }
             }
 
@@ -1083,6 +1197,13 @@ fun UsersTab(
                 )
             }
 
+            // Подтверждения актива
+            if (!isEditing && confirmations.isNotEmpty()) {
+                item {
+                    AssetConfirmationsSection(confirmations = confirmations)
+                }
+            }
+
             // История передач
             if (!isEditing && transfers.isNotEmpty()) {
                 item {
@@ -1098,7 +1219,7 @@ fun UsersTab(
     }
 }
 
-// ==================== TAB 3: HISTORY ====================
+// ================= TAB 3: HISTORY =================
 @Composable
 fun HistoryTab(
     asset: AssetResponseDto,
@@ -1310,6 +1431,7 @@ fun ReadOnlyInfoSection(asset: AssetResponseDto, onNavigateToParent: (Int) -> Un
     InfoSectionCard(icon = Icons.Default.Info, title = "Основная информация") {
         InfoRow(label = "Название", value = asset.name)
         InfoRow(label = "Инв. номер", value = asset.inventoryId)
+        InfoRow(label = "Номер SAP", value = asset.materialId)
         InfoRow(label = "Серийный номер", value = asset.serialNumber)
         InfoRow(label = "Тип", value = asset.assetTypeName)
         InfoRow(label = "Модель", value = asset.modelName)
@@ -1388,6 +1510,13 @@ fun EditableInfoSection(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
+        OutlinedTextField(
+            value = editState.materialId ?: "",
+            onValueChange = { onEditStateChange(editState.copy(materialId = it)) },
+            label = { Text("Номер SAP") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = editState.serialNumber ?: "",
@@ -1461,19 +1590,43 @@ fun DepartmentFromCard(
 ) {
     InfoSectionCard(icon = Icons.Default.Business, title = "Ответственное МВЗ") {
         if (!isEditing) {
-            if (name?.startsWith("#") ?: false) {
-                Text("Удален", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            val isDeleted = name?.startsWith("#") == true
+
+            if (!isDeleted) {
+                Text(
+                    text = name?.takeIf { it.isNotBlank() } ?: "Без названия",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             } else {
-                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall)
-                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Удален",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = name.takeIf { it.isNotBlank() } ?: "Без названия",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         } else {
             var expanded by remember { mutableStateOf(false) }
             val currentCode = editState?.costCenterCodeFrom ?: code
-            val displayText = mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
-                ?: (if (currentCode.isNullOrEmpty()) "Выберите МВЗ" else "Неизвестный МВЗ ($currentCode)")
+            val displayText = if (currentCode.isNullOrBlank()) {
+                "Выберите МВЗ"
+            } else {
+                mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
+                    ?: "Неизвестный МВЗ ($currentCode)"
+            }
 
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -1485,7 +1638,9 @@ fun DepartmentFromCard(
                     readOnly = true,
                     label = { Text("МВЗ (Откуда)") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
                     singleLine = true
                 )
                 ExposedDropdownMenu(
@@ -1496,16 +1651,25 @@ fun DepartmentFromCard(
                         DropdownMenuItem(
                             text = {
                                 Column {
-                                    Text(dept.departmentName ?: "", style = MaterialTheme.typography.bodyMedium)
-                                    Text(dept.departmentCode ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = dept.departmentName?.takeIf { it.isNotBlank() }
+                                            ?: "Без названия",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = dept.departmentCode?.takeIf { it.isNotBlank() }
+                                            ?: "Без кода",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             },
                             onClick = {
                                 editState?.let { state ->
                                     onEditStateChange(
                                         state.copy(
-                                            costCenterCodeFrom = dept.departmentCode,
-                                            costCenterNameFrom = dept.departmentName
+                                            costCenterCodeFrom = dept.departmentCode ?: "",
+                                            costCenterNameFrom = dept.departmentName ?: ""
                                         )
                                     )
                                 }
@@ -1531,19 +1695,43 @@ fun DepartmentToCard(
 ) {
     InfoSectionCard(icon = Icons.Default.AccountTree, title = "МВЗ Пользователь") {
         if (!isEditing) {
-            if (name?.startsWith("#") ?: false) {
-                Text("Удален", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            val isDeleted = name?.startsWith("#") == true
+
+            if (!isDeleted) {
+                Text(
+                    text = name?.takeIf { it.isNotBlank() } ?: "Без названия",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             } else {
-                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall)
-                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Удален",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = name.takeIf { it.isNotBlank() } ?: "Без названия",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         } else {
             var expanded by remember { mutableStateOf(false) }
             val currentCode = editState?.costCenterCode ?: code
-            val displayText = mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
-                ?: (if (currentCode.isNullOrEmpty()) "Выберите МВЗ" else "Неизвестный МВЗ ($currentCode)")
+            val displayText = if (currentCode.isNullOrBlank()) {
+                "Выберите МВЗ"
+            } else {
+                mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
+                    ?: "Неизвестный МВЗ ($currentCode)"
+            }
 
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -1555,7 +1743,9 @@ fun DepartmentToCard(
                     readOnly = true,
                     label = { Text("МВЗ (Куда)") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
                     singleLine = true
                 )
                 ExposedDropdownMenu(
@@ -1566,16 +1756,25 @@ fun DepartmentToCard(
                         DropdownMenuItem(
                             text = {
                                 Column {
-                                    Text(dept.departmentName ?: "", style = MaterialTheme.typography.bodyMedium)
-                                    Text(dept.departmentCode ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = dept.departmentName?.takeIf { it.isNotBlank() }
+                                            ?: "Без названия",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = dept.departmentCode?.takeIf { it.isNotBlank() }
+                                            ?: "Без кода",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             },
                             onClick = {
                                 editState?.let { state ->
                                     onEditStateChange(
                                         state.copy(
-                                            costCenterCode = dept.departmentCode,
-                                            costCenterName = dept.departmentName
+                                            costCenterCode = dept.departmentCode ?: "",
+                                            costCenterName = dept.departmentName ?: ""
                                         )
                                     )
                                 }
@@ -1729,13 +1928,7 @@ fun ServiceCard(
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
             InfoRow(
-                label = "Еженедельная проверка",
-                value = if ((editState?.everyWeekCheck
-                        ?: asset.everyWeekCheck) == true
-                ) "Да" else "Нет"
-            )
-            InfoRow(
-                label = "След. обслуживание",
+                label = "Следующая обслуживание",
                 value = asset.nextService?.formatIsoToReadable()
             )
             InfoRow(
@@ -1743,26 +1936,6 @@ fun ServiceCard(
                 value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString()
             )
         } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Еженедельная проверка",
-                    style = MaterialTheme.typography.labelMedium
-                )
-                val currentCheck = editState?.everyWeekCheck ?: asset.everyWeekCheck ?: false
-                Switch(
-                    checked = currentCheck,
-                    onCheckedChange = { newValue ->
-                        editState?.let { state ->
-                            onEditStateChange(state.copy(everyWeekCheck = newValue))
-                        }
-                    }
-                )
-            }
-            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = editState?.nextService ?: asset.nextService ?: "",
                 onValueChange = { },
@@ -1803,12 +1976,71 @@ fun ServiceCard(
 }
 
 @Composable
+fun CheckCard(
+    asset: AssetResponseDto,
+    isEditing: Boolean,
+    editState: AssetEditState?,
+    onEditStateChange: (AssetEditState) -> Unit,
+    onNextCheckClick: (() -> Unit)?
+) {
+    InfoSectionCard(icon = Icons.Default.LibraryAddCheck, title = "Проверка") {
+        if (!isEditing) {
+            InfoRow(
+                label = "Следующая проверка",
+                value = asset.nextCheck?.formatIsoToReadable()
+            )
+            InfoRow(
+                label = "Период (дни)",
+                value = (editState?.checkPeriod ?: asset.checkPeriod)?.toString()
+            )
+        } else {
+            OutlinedTextField(
+                value = editState?.nextCheck ?: asset.nextCheck ?: "",
+                onValueChange = { },
+                label = { Text("След. обслуживание") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNextCheckClick?.invoke() },
+                readOnly = true,
+                placeholder = { Text("ДД.ММ.ГГГГ") },
+                trailingIcon = {
+                    IconButton(onClick = { onNextCheckClick?.invoke() }) {
+                        Icon(Icons.Default.CalendarToday, "Выбрать дату")
+                    }
+                },
+                singleLine = true
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = (editState?.checkPeriod ?: asset.checkPeriod ?: 0).toString(),
+                onValueChange = { input ->
+                    val current = editState?.checkPeriod ?: asset.checkPeriod ?: 0
+                    val period = if (current == 0 && input.isNotEmpty() && input != "0") {
+                        input.toIntOrNull() ?: 0
+                    } else input.toIntOrNull() ?: 0
+                    editState?.let { state ->
+                        onEditStateChange(state.copy(checkPeriod = period))
+                    }
+                },
+                label = { Text("Период (дни)") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(min = 60.dp),
+                singleLine = true
+            )
+        }
+    }
+}
+
+@Composable
 fun UsersSection(
     title: String,
     users: List<AssetUserFullResponse>?,
     icon: ImageVector,
     color: Color = MaterialTheme.colorScheme.surfaceVariant,
     isEditing: Boolean = false,
+    initiallyExpanded: Boolean = false,
     onAddUser: ((UserType) -> Unit)? = null,
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)? = null
 ) {
@@ -1820,7 +2052,19 @@ fun UsersSection(
         else -> UserType.USER
     }
 
-    InfoSectionCard(icon = icon, title = title) {
+    val count = users?.size ?: 0
+
+    CollapsibleSectionCard(
+        icon = icon,
+        title = title,
+        subtitle = if (count > 0) {
+            "$count ${pluralize(count, "сотрудник", "сотрудника", "сотрудников")}"
+        } else if (isEditing) {
+            "Нет сотрудников"
+        } else null,
+        initiallyExpanded = initiallyExpanded
+    ) {
+        // Список пользователей
         users?.forEach { user ->
             ExpandableUserCard(
                 user = user,
@@ -1832,17 +2076,31 @@ fun UsersSection(
                 } else null
             )
         }
+
+        // Кнопка «Добавить» — только в режиме редактирования
         if (onAddUser != null && isEditing) {
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = { onAddUser(userType) },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
             ) {
                 Icon(Icons.Default.Add, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Добавить")
             }
+        }
+
+        // Если в режиме редактирования и список пуст — показать подсказку
+        if (isEditing && users.isNullOrEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Сотрудники не назначены. Нажмите «Добавить», чтобы добавить.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -1927,6 +2185,10 @@ private fun ExpandableUserCard(
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    InfoRowSmall(label = "ФИО", value = user.fullNameRu)
+                    user.position?.name?.let { position ->
+                        InfoRowSmall(label = "Должность", value = position)
+                    }
                     InfoRowSmall(label = "Таб. номер", value = user.employeeId)
                     user.department?.shortName?.let { dept ->
                         InfoRowSmall(label = "Департамент", value = dept)
@@ -1966,9 +2228,18 @@ private fun AssetTransfersSection(
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
 ) {
-    InfoSectionCard(
+    // Считаем сколько ещё «в ожидании» — покажем в шапке
+    val pendingCount = transfers.count { it.status.equals("PENDING", ignoreCase = true) }
+
+    CollapsibleSectionCard(
         icon = Icons.Default.SwapHoriz,
-        title = "История передач"
+        title = "История передач",
+        subtitle = buildString {
+            append("${transfers.size} ")
+            append(pluralize(transfers.size, "запись", "записи", "записей"))
+            if (pendingCount > 0) append(" · $pendingCount в ожидании")
+        },
+        initiallyExpanded = false
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -2018,7 +2289,7 @@ private fun AssetTransferCard(
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // === Верхняя строка: дата + статус ===
+            // Верхняя строка: дата + статус
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -2045,7 +2316,7 @@ private fun AssetTransferCard(
 
             Spacer(Modifier.height(8.dp))
 
-            // === Кто кому ===
+            // Кто кому
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -2097,7 +2368,7 @@ private fun AssetTransferCard(
                 )
             }
 
-            // === Раскрытая часть ===
+            // Раскрытая часть
             if (expanded) {
                 Spacer(Modifier.height(10.dp))
                 HorizontalDivider(
@@ -2181,7 +2452,7 @@ private fun AssetTransferCard(
                     )
                 }
 
-                // === Кнопка «Действие» (принять/отклонить) ===
+                // Кнопка «Действие» (принять/отклонить)
                 if (canRespond) {
                     Spacer(Modifier.height(12.dp))
                     Button(
@@ -2202,7 +2473,7 @@ private fun AssetTransferCard(
                     }
                 }
 
-                // === Кнопка отмены (для инициатора) ===
+                // Кнопка отмены (для инициатора)
                 if (canCancel) {
                     Spacer(Modifier.height(if (canRespond) 6.dp else 12.dp))
                     OutlinedButton(
@@ -2227,41 +2498,254 @@ private fun AssetTransferCard(
     }
 }
 
+// ================= СЕКЦИЯ ПОДТВЕРЖДЕНИЙ =================
+@Composable
+private fun AssetConfirmationsSection(
+    confirmations: List<AssetConfirmationResponseDto>
+) {
+    if (confirmations.isEmpty()) return
+
+    val pendingCount = confirmations.count { it.status.equals("pending", ignoreCase = true) }
+
+    CollapsibleSectionCard(
+        icon = Icons.Default.VerifiedUser,
+        title = "Подтверждения наличия",
+        subtitle = buildString {
+            append("${confirmations.size} ")
+            append(pluralize(confirmations.size, "запись", "записи", "записей"))
+            if (pendingCount > 0) append(" · $pendingCount в ожидании")
+        },
+        initiallyExpanded = false
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            confirmations.forEach { confirmation ->
+                ConfirmationCard(confirmation = confirmation)
+            }
+        }
+    }
+}
+
+// ================= КАРТОЧКА ОДНОГО ПОДТВЕРЖДЕНИЯ =================
+@Composable
+private fun ConfirmationCard(
+    confirmation: AssetConfirmationResponseDto
+) {
+    var expanded by rememberSaveable(confirmation.id) { mutableStateOf(false) }
+
+    // Надежное получение статуса без enum
+    val statusInfo = getConfirmationStatusInfo(confirmation.statusRu)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded }
+            .animateContentSize(animationSpec = spring()),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = statusInfo.containerColor.copy(alpha = 0.2f)
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            // Верхняя строка: Дата + Статус
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = confirmation.createdAt.formatIsoToReadable() ?: "Дата неизвестна",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = statusInfo.containerColor
+                ) {
+                    Text(
+                        text = statusInfo.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusInfo.contentColor,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Основная информация: Сотрудник
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = confirmation.employeeFullName ?: "Сотрудник",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "Таб. номер: ${confirmation.employeeId}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            // Раскрытая часть (только если есть данные)
+            if (expanded) {
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
+                Spacer(Modifier.height(10.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    confirmation.employeeFullName?.let {
+                        InfoRowSmall(label = "ФИО", value = it)
+                    }
+                    // Безопасный рендер: показываем только если значение не null и не пустое
+                    confirmation.assetName?.takeIf { it.isNotBlank() }?.let {
+                        InfoRowSmall(label = "Актив", value = it)
+                    }
+
+                    confirmation.requestedFullName?.takeIf { it.isNotBlank() }?.let {
+                        InfoRowSmall(label = "Инициатор", value = it)
+                    }
+
+                    confirmation.comment?.takeIf { it.isNotBlank() }?.let { comment ->
+                        Spacer(Modifier.height(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
+                                Text(
+                                    "Комментарий",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = comment,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    confirmation.confirmedAt?.takeIf { it.isNotBlank() }?.let {
+                        InfoRowSmall(label = "Время подтверждения", value = it.formatIsoToReadable() ?: it)
+                    }
+
+                    InfoRowSmall(label = "ID записи", value = "#${confirmation.id}")
+                }
+            }
+        }
+    }
+}
+
+// ================= ПРОСТОЙ И НАДЕЖНЫЙ ХЕЛПЕР СТАТУСОВ (БЕЗ ENUM) =================
+@Composable
+private fun getConfirmationStatusInfo(statusRu: String?): StatusInfo {
+    // Приводим к нижнему регистру и убираем пробелы для надежного сравнения
+    val status = statusRu?.lowercase()?.trim() ?: "неизвестно"
+
+    return when {
+        // Используем contains, чтобы ловить "подтверждено", "подтвержден", "подтвержденный" и т.д.
+        status.contains("подтвержд") -> StatusInfo(
+            label = statusRu ?: "Подтверждено",
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        status.contains("не найден") || status.contains("не найдено") -> StatusInfo(
+            label = statusRu ?: "Не найден",
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer
+        )
+        status.contains("поврежден") || status.contains("поврежд") -> StatusInfo(
+            label = statusRu ?: "Поврежден",
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        status.contains("ожидает") || status.contains("pending") -> StatusInfo(
+            label = statusRu ?: "В ожидании",
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        // Fallback для абсолютно любого другого статуса, чтобы приложение НИКОГДА не упало
+        else -> StatusInfo(
+            label = statusRu?.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() } ?: "Неизвестно",
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 // Хелпер для статуса
-data class TransferStatusInfo(
+data class StatusInfo(
     val label: String,
     val containerColor: Color,
     val contentColor: Color
 )
 
 @Composable
-private fun transferStatusInfo(status: String): TransferStatusInfo {
+private fun transferStatusInfo(status: String): StatusInfo {
     return when (status.uppercase()) {
-        "PENDING" -> TransferStatusInfo(
+        "PENDING" -> StatusInfo(
             label = "Ожидает",
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
             contentColor = MaterialTheme.colorScheme.onTertiaryContainer
         )
 
-        "ACCEPTED" -> TransferStatusInfo(
+        "ACCEPTED" -> StatusInfo(
             label = "Принята",
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         )
 
-        "DECLINED" -> TransferStatusInfo(
+        "DECLINED" -> StatusInfo(
             label = "Отклонена",
             containerColor = MaterialTheme.colorScheme.errorContainer,
             contentColor = MaterialTheme.colorScheme.onErrorContainer
         )
 
-        "CANCELLED" -> TransferStatusInfo(
+        "CANCELLED" -> StatusInfo(
             label = "Отменена",
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        else -> TransferStatusInfo(
+        else -> StatusInfo(
             label = status,
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -2269,7 +2753,7 @@ private fun transferStatusInfo(status: String): TransferStatusInfo {
     }
 }
 
-// ==================== ДИАЛОГ ПЕРЕДАЧИ (без изменений) ====================
+// ================= ДИАЛОГ ПЕРЕДАЧИ =================
 @Composable
 fun AssetTransferDialog(
     asset: AssetResponseDto,
@@ -2371,6 +2855,7 @@ fun AssetTransferDialog(
                 enabled = !isLoading
             ) {
                 if (isLoading) {
+                    // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                     CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                 }
@@ -2504,6 +2989,7 @@ fun TransferActionDialog(
                 )
             ) {
                 if (isLoading) {
+                    // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                     CircularProgressIndicator(
                         Modifier.size(16.dp),
                         strokeWidth = 2.dp,
@@ -2535,7 +3021,562 @@ fun TransferActionDialog(
     )
 }
 
-// ==================== PREVIEWS ====================
+@Composable
+fun CollapsibleSectionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    initiallyExpanded: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var expanded by rememberSaveable(title) { mutableStateOf(initiallyExpanded) }
+
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    subtitle?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
+                    Spacer(Modifier.height(12.dp))
+                    content()
+                }
+            }
+        }
+    }
+}
+
+// ================= ДИАЛОГ ПОДТВЕРЖДЕНИЯ НАЛИЧИЯ =================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ConfirmAssetDialog(
+    asset: AssetResponseDto,
+    cameraScanEnabled: Boolean,
+    isLoading: Boolean = false,
+    onDismiss: () -> Unit,
+    onConfirm: (status: String, comment: String?) -> Unit
+) {
+    val context = LocalContext.current
+
+    // "not_found" | "damaged" | "confirmed"
+    var selectedStatus by remember { mutableStateOf("") }
+    var comment by remember { mutableStateOf("") }
+
+    // Результат сканирования
+    var scannedValue by remember { mutableStateOf<String?>(null) }
+    var scanError by remember { mutableStateOf<String?>(null) }
+
+    // Камера
+    var showCamera by remember { mutableStateOf(false) }
+
+    // Сканер ТСД
+    val scannerManager = remember { ScannerManager(context) }
+
+    DisposableEffect(Unit) {
+        scannerManager.init()
+        onDispose { scannerManager.release() }
+    }
+
+    // Совпадает ли скан с инвентарным или серийным номером
+    val isScanMatched = remember(scannedValue, asset) {
+        val code = scannedValue?.trim()?.takeIf { it.isNotEmpty() } ?: return@remember false
+        code.equals(asset.inventoryId, ignoreCase = true) ||
+                code.equals(asset.serialNumber, ignoreCase = true)
+    }
+
+    // Комментарий обязателен для not_found / damaged
+    val isCommentRequired = selectedStatus == "not_found" || selectedStatus == "damaged"
+    val isCommentValid = !isCommentRequired || comment.isNotBlank()
+
+    // Кнопка "Подтвердить"
+    val isConfirmEnabled = when (selectedStatus) {
+        "confirmed" -> isScanMatched
+        "not_found", "damaged" -> isCommentValid
+        else -> false
+    }
+
+    // Функция обработки отсканированного значения
+    fun handleScanned(raw: String) {
+        if (raw.isBlank()) return
+        // Парсим как простой текст или QR-JSON
+        val parsed = InventoryQrParser.parseAny(raw) ?: raw.trim()
+        scannedValue = parsed
+        val matches = parsed.equals(asset.inventoryId, ignoreCase = true) ||
+                parsed.equals(asset.serialNumber, ignoreCase = true)
+        scanError = if (matches) null
+        else "Код '$parsed' не совпадает с инвентарным или серийным номером"
+        if (matches) {
+            selectedStatus = "confirmed"
+            comment = ""
+        }
+    }
+
+    // Слушаем сканер ТСД
+    LaunchedEffect(Unit) {
+        scannerManager.barcodeFlow.collect { raw ->
+            handleScanned(raw)
+        }
+    }
+
+    // Диалог камеры
+    if (showCamera) {
+        CameraScannerDialog(
+            onDismiss = { showCamera = false },
+            onBarcodeDetected = { code ->
+                showCamera = false
+                handleScanned(code)
+            }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!isLoading) onDismiss() },
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            dismissOnBackPress = !isLoading,
+            dismissOnClickOutside = !isLoading
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .imePadding(),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.FactCheck,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Подтверждение наличия",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // === Карточка актива ===
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                        Text(
+                            asset.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                "Инв: ${asset.inventoryId ?: "—"}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            asset.serialNumber?.takeIf { it.isNotBlank() }?.let { serial ->
+                                Text(
+                                    "SN: $serial",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // === Статусы ===
+
+                // 1) Не найден
+                ConfirmStatusChip(
+                    label = "Не найден",
+                    selected = selectedStatus == "not_found",
+                    color = MaterialTheme.colorScheme.error,
+                    icon = Icons.Default.SearchOff,
+                    enabled = !isLoading,
+                    onClick = {
+                        selectedStatus = "not_found"
+                        scannedValue = null
+                        scanError = null
+                    }
+                )
+
+                // 2) Повреждён
+                ConfirmStatusChip(
+                    label = "Повреждён",
+                    selected = selectedStatus == "damaged",
+                    color = MaterialTheme.colorScheme.tertiary,
+                    icon = Icons.Default.Warning,
+                    enabled = !isLoading,
+                    onClick = {
+                        selectedStatus = "damaged"
+                        scannedValue = null
+                        scanError = null
+                    }
+                )
+
+                // 3) Подтверждён — только через скан
+                ConfirmStatusChip(
+                    label = if (isScanMatched) "Подтверждён"
+                    else "Отсканируйте QR-код",
+                    selected = selectedStatus == "confirmed" && isScanMatched,
+                    color = MaterialTheme.colorScheme.primary,
+                    icon = if (isScanMatched) Icons.Default.CheckCircle
+                    else Icons.Default.QrCodeScanner,
+                    enabled = false,
+                    onClick = { }
+                )
+
+                // === Блок сканирования ===
+                if (selectedStatus == "confirmed" || scannedValue != null || scanError != null) {
+                    ScanResultBlock(
+                        scannedValue = scannedValue,
+                        isMatched = isScanMatched,
+                        error = scanError,
+                        expectedInventoryId = asset.inventoryId,
+                        expectedSerialNumber = asset.serialNumber
+                    )
+                } else {
+                    // Подсказка + кнопка «Сканировать камерой»
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.QrCodeScanner,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "Чтобы поставить «Подтверждён», отсканируйте QR/штрихкод актива",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                            if (cameraScanEnabled) {
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = { showCamera = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !isLoading
+                                ) {
+                                    Icon(Icons.Default.PhotoCamera, null, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Сканировать камерой")
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Если скан уже был, но не совпал — тоже даём кнопку «Сканировать камерой»
+                if (scannedValue != null && !isScanMatched && cameraScanEnabled) {
+                    OutlinedButton(
+                        onClick = { showCamera = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading
+                    ) {
+                        Icon(Icons.Default.PhotoCamera, null, Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Сканировать камерой")
+                    }
+                }
+
+                // === Комментарий (для not_found / damaged) ===
+                AnimatedVisibility(
+                    visible = isCommentRequired,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    OutlinedTextField(
+                        value = comment,
+                        onValueChange = { comment = it },
+                        label = { Text("Причина") },
+                        placeholder = { Text("Опишите причину") },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        minLines = 2,
+                        maxLines = 3,
+                        isError = comment.isBlank(),
+                        textStyle = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(selectedStatus, comment.takeIf { it.isNotBlank() })
+                },
+                enabled = !isLoading && isConfirmEnabled,
+                modifier = Modifier.height(40.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = when (selectedStatus) {
+                        "not_found" -> MaterialTheme.colorScheme.error
+                        "damaged" -> MaterialTheme.colorScheme.tertiary
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                )
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        Modifier.size(14.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(
+                    text = when (selectedStatus) {
+                        "not_found" -> "Не найден"
+                        "damaged" -> "Повреждён"
+                        "confirmed" -> "Подтвердить"
+                        else -> "Выберите статус"
+                    },
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading,
+                modifier = Modifier.height(40.dp)
+            ) {
+                Text("Отмена", style = MaterialTheme.typography.labelLarge)
+            }
+        }
+    )
+}
+
+@Composable
+private fun ScanResultBlock(
+    scannedValue: String?,
+    isMatched: Boolean,
+    error: String?,
+    expectedInventoryId: String?,
+    expectedSerialNumber: String?
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (isMatched)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+        else
+            MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = if (isMatched) Icons.Default.CheckCircle else Icons.Default.ErrorOutline,
+                    contentDescription = null,
+                    tint = if (isMatched) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = if (isMatched) "Код совпадает — можно подтвердить"
+                    else "Код не совпадает",
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isMatched) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error
+                )
+            }
+
+            scannedValue?.takeIf { it.isNotBlank() }?.let { code ->
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Отсканировано: $code",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (!isMatched) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Ожидается: ${expectedInventoryId ?: "—"} / ${expectedSerialNumber ?: "—"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            error?.let {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+// ================= Компактный chip =================
+@Composable
+private fun ConfirmStatusChip(
+    label: String,
+    selected: Boolean,
+    color: Color,
+    icon: ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) color.copy(alpha = 0.15f)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        border = if (selected) BorderStroke(1.5.dp, color) else null,
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (selected) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) color else MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.weight(1f))
+            if (selected) {
+                Icon(
+                    Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+// ================= Радио-опция статуса =================
+@Composable
+private fun StatusRadioOption(
+    label: String,
+    description: String,
+    selected: Boolean,
+    color: Color,
+    icon: ImageVector,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = if (selected) color.copy(alpha = 0.12f)
+        else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                enabled = enabled,
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = color
+                )
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (selected) color else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (selected) color else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    description,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+// Хелпер для раскрытия/скрытия карточек
+private fun pluralize(count: Int, one: String, few: String, many: String): String {
+    val mod10 = count % 10
+    val mod100 = count % 100
+    return when {
+        mod10 == 1 && mod100 != 11 -> one
+        mod10 in 2..4 && mod100 !in 12..14 -> few
+        else -> many
+    }
+}
+
+
+// ================= PREVIEWS =================
 @Preview(
     showBackground = true,
     showSystemUi = true,
@@ -2586,6 +3627,9 @@ private fun AssetDetailsPreview_MainTab() {
                         respondedAt = "2026-09-25T09:35:55.606425Z"
                     )
                 ),
+                confirmations = listOf(),
+                lastConfirmation = null,
+                onConformationClick = {},
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
                 onRespondTransfer = {}
@@ -2630,23 +3674,90 @@ private fun AssetDetailsPreview_UserTab() {
                 onRemoveUser = { _, _ -> },
                 onTransferClick = {},
                 assetTransfers = listOf(
-//                    AssetTransferDto(
-//                        transferId = 1,
-//                        assetId = 48,
-//                        initiator = EmployeeInfoDto("0000010680", "Малых Андрей Владимирович"),
-//                        targetEmployee = EmployeeInfoDto("0000015370", "Малышев Тимур Максимович"),
-//                        assignmentType = "user",
-//                        assignmentTypeRu = "Пользователь",
-//                        status = "ACCEPTED",
-//                        initiatorComment = "Передаю коллеге",
-//                        responderComment = null,
-//                        createdAt = "2026-09-22T12:11:50.200708Z",
-//                        respondedAt = "2026-09-25T09:35:55.606425Z"
-//                    )
+                    AssetTransferDto(
+                        transferId = 1,
+                        assetId = 48,
+                        initiator = EmployeeInfoDto("0000010680", "Малых Андрей Владимирович"),
+                        targetEmployee = EmployeeInfoDto("0000015370", "Малышев Тимур Максимович"),
+                        assignmentType = "user",
+                        assignmentTypeRu = "Пользователь",
+                        status = "ACCEPTED",
+                        initiatorComment = "Передаю коллеге",
+                        responderComment = null,
+                        createdAt = "2026-09-22T12:11:50.200708Z",
+                        respondedAt = "2026-09-25T09:35:55.606425Z"
+                    )
                 ),
+                confirmations = listOf(
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив PENDING",
+                        employeeId = "0000015370",
+                        employeeFullName = "Малышев Тимур Максимович",
+                        requestedBy = "Малых Андрей Владимирович",
+                        status = "pending",
+                        statusRu = "В ожидании",
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив NOT_FOUND",
+                        employeeId = "0000015370",
+                        employeeFullName = "Малышев Тимур Максимович",
+                        requestedBy = "Малых Андрей Владимирович",
+                        status = "not_found",
+                        statusRu = "Не найдено",
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив DAMAGED",
+                        employeeId = "0000015370",
+                        employeeFullName = "Малышев Тимур Максимович",
+                        requestedBy = "Малых Андрей Владимирович",
+                        status = "damaged",
+                        statusRu = "Поврежденный",
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                    AssetConfirmationResponseDto(
+                        id = 0,
+                        assetId = 7,
+                        assetName = "Актив CONFIRMED",
+                        employeeId = "0000015370",
+                        employeeFullName = "Малышев Тимур Максимович",
+                        requestedBy = "Малых Андрей Владимирович",
+                        status = "confirmed",
+                        statusRu = "Подтвержденный",
+                        comment = "комментарий",
+                        createdAt = "11.11.2026 10:49:17",
+                        confirmedAt = "12.12.2026 12:59:39"
+                    ),
+                ),
+                lastConfirmation = AssetConfirmationResponseDto(
+                    id = 0,
+                    assetId = 7,
+                    assetName = "Актив PENDING",
+                    employeeId = "0000015370",
+                    employeeFullName = "Малышев Тимур Максимович",
+                    requestedBy = "Малых Андрей Владимирович",
+                    status = "pending",
+                    statusRu = "В ожидании",
+                    comment = "комментарий",
+                    createdAt = "11.11.2026 10:49:17",
+                    confirmedAt = "12.12.2026 12:59:39"
+                ),
+                onConformationClick = {},
                 currentEmployeeId = "0000015370",   // или null
-                onCancelTransfer = {},
-                onRespondTransfer = {}
+                onCancelTransfer = {}, onRespondTransfer = {}
             )
         }
     }
@@ -2714,6 +3825,9 @@ private fun AssetDetailsPreview_HistoryTab() {
                         respondedAt = "2026-09-25T09:35:55.606425Z"
                     )
                 ),
+                confirmations = listOf(),
+                lastConfirmation = null,
+                onConformationClick = {},
                 currentEmployeeId = "0000015370",   // или null
                 onCancelTransfer = {},
                 onRespondTransfer = {}
@@ -2722,9 +3836,22 @@ private fun AssetDetailsPreview_HistoryTab() {
     }
 }
 
+
+@Preview
+@Composable
+private fun ConfirmAssetDialogPreview(){
+    ConfirmAssetDialog(
+        asset = getSampleAsset(),
+        cameraScanEnabled = true,
+        isLoading = false,
+        onDismiss = {},
+        onConfirm = { _, _ -> }
+    )
+}
+
 fun getSampleAsset(): AssetResponseDto {
     return AssetResponseDto(
-        assetId = 48,
+        assetId = null,
         materialId = null,
         name = "Актив 2",
         inventoryId = "INV_NUMBER_48",
@@ -2748,7 +3875,9 @@ fun getSampleAsset(): AssetResponseDto {
         osName = "окнО",
         everyWeekCheck = false,
         nextService = "2026-09-08",
-        servicePeriod = 5,
+        servicePeriod = 8,
+        nextCheck = "2026-10-16",
+        checkPeriod = 16,
         createdBy = "0000012657",
         updatedBy = "0000015370",
         createdAt = "2026-07-14T19:23:04.784110",
@@ -2763,92 +3892,92 @@ fun getSampleAsset(): AssetResponseDto {
             y = 415
         ),
         users = listOf(
-//            AssetUserFullResponse(
-//                guid = "974f470d-a7cd-11ef-a3b2-000c290ca5c4",
-//                employeeId = "0000010680",
-//                birthDate = "1994-12-30",
-//                employmentDate = "2024-11-21",
-//                dismissalDate = null,
-//                phone = "+79805882104",
-//                email = "Andrey.Malykh@hmmr.ru",
-//                comment = null,
-//                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
-//                departmentGuid = "80911547-78ee-11f0-a3c1-000c290ca5c4",
-//                createdAt = "2026-07-08T14:17:34.650680",
-//                updatedAt = "2026-09-03T02:00:11.229864",
-//                fullNameRu = "Малых Андрей Владимирович",
-//                fullNameEn = "Malykh Andrey Vladimirovich",
-//                society = null,
-//                department = null,
-//                division = null,
-//                group = null,
-//                position = PositionResponse(
-//                    name = "Младший инженер по внедрению информационных систем 2 категории",
-//                    nameEn = null
-//                ),
-//                startDate = "2026-08-24",
-//                endDate = null,
-//                assignmentType = "user"
-//            ),
-//            AssetUserFullResponse(
-//                guid = "14ba77ab-2d91-11f1-a3cb-000c290ca5c4",
-//                employeeId = "0000015370",
-//                birthDate = "2002-09-06",
-//                employmentDate = "2026-04-01",
-//                dismissalDate = null,
-//                phone = "+79190809746",
-//                email = "Timur.Malyshev@hmmr.ru",
-//                comment = "Проверка",
-//                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
-//                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
-//                createdAt = "2026-07-08T14:17:44.545594",
-//                updatedAt = "2026-09-03T02:00:11.229864",
-//                fullNameRu = "Малышев Тимур Максимович",
-//                fullNameEn = "Malyshev Timur Maksimovich",
-//                society = WorkplaceResponse(
-//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-//                    name = "ХАВЕЙЛ",
-//                    nameEn = "",
-//                    shortName = "SOCIETY",
-//                    creationDate = "2019-08-01",
-//                    closureDate = null,
-//                    parentGuid = "00000000-0000-0000-0000-000000000000"
-//                ),
-//                department = WorkplaceResponse(
-//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-//                    name = "ХАВЕЙЛ",
-//                    nameEn = "",
-//                    shortName = "DEPARTMENT",
-//                    creationDate = "2019-08-01",
-//                    closureDate = null,
-//                    parentGuid = "00000000-0000-0000-0000-000000000000"
-//                ),
-//                division = WorkplaceResponse(
-//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-//                    name = "ХАВЕЙЛ",
-//                    nameEn = "",
-//                    shortName = "DIVISION",
-//                    creationDate = "2019-08-01",
-//                    closureDate = null,
-//                    parentGuid = "00000000-0000-0000-0000-000000000000"
-//                ),
-//                group = WorkplaceResponse(
-//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-//                    name = "ХАВЕЙЛ",
-//                    nameEn = "",
-//                    shortName = "GROUP",
-//                    creationDate = "2019-08-01",
-//                    closureDate = null,
-//                    parentGuid = "00000000-0000-0000-0000-000000000000"
-//                ),
-//                position = PositionResponse(
-//                    name = "Разработчик Программного Обеспечения",
-//                    nameEn = null
-//                ),
-//                startDate = "2026-08-26",
-//                endDate = null,
-//                assignmentType = "user"
-//            )
+            AssetUserFullResponse(
+                guid = "974f470d-a7cd-11ef-a3b2-000c290ca5c4",
+                employeeId = "0000010680",
+                birthDate = "1994-12-30",
+                employmentDate = "2024-11-21",
+                dismissalDate = null,
+                phone = "+79805882104",
+                email = "Andrey.Malykh@hmmr.ru",
+                comment = null,
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "80911547-78ee-11f0-a3c1-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:34.650680",
+                updatedAt = "2026-09-03T02:00:11.229864",
+                fullNameRu = "Малых Андрей Владимирович",
+                fullNameEn = "Malykh Andrey Vladimirovich",
+                society = null,
+                department = null,
+                division = null,
+                group = null,
+                position = PositionResponse(
+                    name = "Младший инженер по внедрению информационных систем 2 категории",
+                    nameEn = null
+                ),
+                startDate = "2026-08-24",
+                endDate = null,
+                assignmentType = "user"
+            ),
+            AssetUserFullResponse(
+                guid = "14ba77ab-2d91-11f1-a3cb-000c290ca5c4",
+                employeeId = "0000015370",
+                birthDate = "2002-09-06",
+                employmentDate = "2026-04-01",
+                dismissalDate = null,
+                phone = "+79190809746",
+                email = "Timur.Malyshev@hmmr.ru",
+                comment = "Проверка",
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:44.545594",
+                updatedAt = "2026-09-03T02:00:11.229864",
+                fullNameRu = "Малышев Тимур Максимович",
+                fullNameEn = "Malyshev Timur Maksimovich",
+                society = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "SOCIETY",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                department = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "DEPARTMENT",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                division = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "DIVISION",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                group = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "GROUP",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                position = PositionResponse(
+                    name = "Разработчик Программного Обеспечения",
+                    nameEn = null
+                ),
+                startDate = "2026-08-26",
+                endDate = null,
+                assignmentType = "user"
+            )
         ),
         responsibleUsers = listOf(
             AssetUserFullResponse(
@@ -2880,65 +4009,65 @@ fun getSampleAsset(): AssetResponseDto {
             )
         ),
         servingUsers = listOf(
-//            AssetUserFullResponse(
-//                guid = "c0ed588f-1c4a-11f1-a3ca-000c290ca5c4",
-//                employeeId = "0000014942",
-//                birthDate = "2003-04-19",
-//                employmentDate = "2026-03-10",
-//                dismissalDate = null,
-//                phone = "+79805882044",
-//                email = "Oleg.Feshchenko@hmmr.ru",
-//                comment = null,
-//                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
-//                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
-//                createdAt = "2026-07-08T14:17:43.360340",
-//                updatedAt = "2026-09-03T02:00:11.229864",
-//                fullNameRu = "Фещенко Олег Игоревич",
-//                fullNameEn = "Feshchenko Oleg Igorevich",
-//                society = WorkplaceResponse(
-//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-//                    name = "ХАВЕЙЛ",
-//                    nameEn = "",
-//                    shortName = "SOCIETY",
-//                    creationDate = "2019-08-01",
-//                    closureDate = null,
-//                    parentGuid = "00000000-0000-0000-0000-000000000000"
-//                ),
-//                department = WorkplaceResponse(
-//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-//                    name = "ХАВЕЙЛ",
-//                    nameEn = "",
-//                    shortName = "DEPARTMENT",
-//                    creationDate = "2019-08-01",
-//                    closureDate = null,
-//                    parentGuid = "00000000-0000-0000-0000-000000000000"
-//                ),
-//                division = WorkplaceResponse(
-//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-//                    name = "ХАВЕЙЛ",
-//                    nameEn = "",
-//                    shortName = "DIVISION",
-//                    creationDate = "2019-08-01",
-//                    closureDate = null,
-//                    parentGuid = "00000000-0000-0000-0000-000000000000"
-//                ),
-//                group = WorkplaceResponse(
-//                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
-//                    name = "ХАВЕЙЛ",
-//                    nameEn = "",
-//                    shortName = "GROUP",
-//                    creationDate = "2019-08-01",
-//                    closureDate = null,
-//                    parentGuid = "00000000-0000-0000-0000-000000000000"
-//                ),
-//                position = PositionResponse(
-//                    name = "Младший инженер по внедрению информационных систем 2 категории",
-//                    nameEn = null
-//                ),
-//                startDate = "2026-09-02",
-//                endDate = null,
-//                assignmentType = "serving"
-//            )
+            AssetUserFullResponse(
+                guid = "c0ed588f-1c4a-11f1-a3ca-000c290ca5c4",
+                employeeId = "0000014942",
+                birthDate = "2003-04-19",
+                employmentDate = "2026-03-10",
+                dismissalDate = null,
+                phone = "+79805882044",
+                email = "Oleg.Feshchenko@hmmr.ru",
+                comment = null,
+                positionGuid = "f508e032-1c57-11f1-a3ca-000c290ca5c4",
+                departmentGuid = "6334328f-f69a-11f0-a3c7-000c290ca5c4",
+                createdAt = "2026-07-08T14:17:43.360340",
+                updatedAt = "2026-09-03T02:00:11.229864",
+                fullNameRu = "Фещенко Олег Игоревич",
+                fullNameEn = "Feshchenko Oleg Igorevich",
+                society = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "SOCIETY",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                department = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "DEPARTMENT",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                division = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "DIVISION",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                group = WorkplaceResponse(
+                    guid = "295dd391-1099-11e7-80ca-6c0b843fb628",
+                    name = "ХАВЕЙЛ",
+                    nameEn = "",
+                    shortName = "GROUP",
+                    creationDate = "2019-08-01",
+                    closureDate = null,
+                    parentGuid = "00000000-0000-0000-0000-000000000000"
+                ),
+                position = PositionResponse(
+                    name = "Младший инженер по внедрению информационных систем 2 категории",
+                    nameEn = null
+                ),
+                startDate = "2026-09-02",
+                endDate = null,
+                assignmentType = "serving"
+            )
         ),
         currentUser = "0000012657",
         currentUserFullName = "Евсиков Константин Александрович",
@@ -2947,10 +4076,10 @@ fun getSampleAsset(): AssetResponseDto {
         costCenterCodeFrom = "RU01050007",
         costCenterNameFrom = "#Отдел поддержки базовых сервисов",
         costCenterShortnameFrom = "BSSS",
-//        costCenterCode = "RU01860089",
-//        costCenterName = "Департамент производ систем трансмис TM",
-        costCenterCode = null,
-        costCenterName = null,
+//        costCenterCodeFrom = "",
+//        costCenterNameFrom = "",
+        costCenterCode = "",
+        costCenterName = "",
         costCenterShortname = "TM",
     )
 }

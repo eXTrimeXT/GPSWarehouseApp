@@ -42,13 +42,12 @@ fun LoginScreen(
         }
     }
 
-    // ГЛАВНОЕ ИСПРАВЛЕНИЕ МИГАНИЯ:
     // Если состояние Loading И поля пустые (значит это первоначальная проверка токена при старте),
     // показываем полноэкранный индикатор вместо формы ввода.
     if (uiState is MainViewModel.UiState.Loading && username.isEmpty() && password.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator()
+                SplashLoadingScreen()
             }
         }
     } else {
@@ -146,6 +145,7 @@ fun LoginScreenContent(
             modifier = Modifier.fillMaxWidth()
         ) {
             if (uiState is MainViewModel.UiState.Loading) {
+                // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                 CircularProgressIndicator(
                     color = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(24.dp)

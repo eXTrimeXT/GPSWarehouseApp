@@ -1,5 +1,7 @@
 package com.gps.warehouse.data.remote
 
+import com.gps.warehouse.data.remote.assets_dto.AssetConfirmationResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetConfirmationStatus
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
@@ -12,6 +14,7 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTransferResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
+import com.gps.warehouse.data.remote.assets_dto.ConfirmAssetRequestDto
 import com.gps.warehouse.data.remote.assets_dto.DeviceResponse
 import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
@@ -23,6 +26,7 @@ import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.PlaySoundResponse
+import com.gps.warehouse.data.remote.assets_dto.ProcessConfirmationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
@@ -181,9 +185,15 @@ interface AssetApiService {
 
     // Обновление актива
     @PATCH("assets/{assetId}")
-    suspend fun updateAsset(
+    suspend fun updateAssetByAssetId(
         @Header("Authorization") token: String,
         @Path("assetId") assetId: Int,
+        @Body update: AssetUpdate
+    ): AssetResponseDto
+
+    @POST("assets/")
+    suspend fun updateAssetByMaterialId(
+        @Header("Authorization") token: String,
         @Body update: AssetUpdate
     ): AssetResponseDto
 
@@ -194,12 +204,7 @@ interface AssetApiService {
         @Query("page") page: Int = 1,
         @Query("page_size") pageSize: Int = 50,
         @Query("employee_id") employeeId: String? = null,
-        @Query("last_name") lastName: String? = null,
-        @Query("first_name") firstName: String? = null,
-        @Query("middle_name") middleName: String? = null,
-        @Query("last_name_en") lastNameEn: String? = null,
-        @Query("first_name_en") firstNameEn: String? = null,
-        @Query("middle_name_en") middleNameEn: String? = null,
+        @Query("search_name") searchName: String? = null,
         @Query("department_guid") departmentGuid: String? = null,
         @Query("position_guid") positionGuid: String? = null,
         @Query("is_active") isActive: Boolean? = true,
@@ -255,4 +260,29 @@ interface AssetApiService {
     suspend fun getMvzList(
         @Header("Authorization") token: String
     ): MvzListResponseDto
+
+    // ==================== Подтверждение наличия актива ====================
+    @POST("asset-confirmations/confirm")
+    suspend fun confirmAsset(
+        @Header("Authorization") token: String,
+        @Body request: ConfirmAssetRequestDto
+    ): ProcessConfirmationResponseDto
+
+    // ==================== Список запросов на подтверждение ====================
+    @GET("asset-confirmations/")
+    suspend fun getConfirmationsList(
+        @Header("Authorization") token: String,
+        @Query("asset_id") assetId: Int? = null,
+        @Query("status_confirmation") statusConfirmation: AssetConfirmationStatus? = null,
+        @Query("only_my") onlyMy: Boolean? = false,
+        @Query("employee_id") employeeId: String? = null,
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 50
+    ): PaginatedResponse<AssetConfirmationResponseDto>
+
+    @GET("asset-confirmations/last")
+    suspend fun getLastConfirmation(
+        @Header("Authorization") token: String,
+        @Query("asset_id") assetId: Int,
+    ): Response<AssetConfirmationResponseDto>
 }

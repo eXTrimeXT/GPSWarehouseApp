@@ -30,7 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.ui.AssetViewModel
+import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.delay
 
@@ -77,9 +79,14 @@ fun NotificationsScreen(
     val listState = rememberLazyListState()
     var highlightedId by remember { mutableStateOf<Int?>(null) }
 
+    val inventorizationSessions by assetViewModel.inventorizationSessions.collectAsState()
+
     // Загружаем уведомления по активу или сессии инвентаризации
     LaunchedEffect(assetId, sessionId) {
         assetViewModel.loadNotifications(assetId = assetId, sessionId = sessionId)
+        if (sessionId != null) {
+            assetViewModel.loadInventorizationSessions()
+        }
     }
 
     // Обработка прокрутки и включения подсветки
@@ -138,7 +145,13 @@ fun NotificationsScreen(
                         navController.navigate("asset_details/${notification.assetId}")
                     }
                     notification.sessionId != null -> {
-                        navController.navigate("inventorization_items/${notification.sessionId}/false")
+                        val isCompleted =
+                            if (inventorizationSessions?.isNotEmpty() == true)
+                                inventorizationSessions?.filter {
+                                    it.sessionId == notification.sessionId &&
+                                    it.status == "completed"
+                                } else false
+                        navController.navigate("inventorization_items/${notification.sessionId}/${isCompleted}")
                     }
                 }
             }
@@ -164,24 +177,13 @@ fun NotificationsContent(
 ) {
     when (uiState) {
         is AssetViewModel.AssetUiState.Loading -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            SplashLoadingScreen()
         }
         is AssetViewModel.AssetUiState.Error -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "Ошибка: ${uiState.message}",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onRetry) {
-                        Text("Повторить")
-                    }
-                }
-            }
+            ErrorStateView(
+                message = uiState.message,
+                onRetry = onRetry
+            )
         }
         is AssetViewModel.AssetUiState.NotificationsLoaded -> {
             // Применяем фильтрацию
@@ -252,9 +254,7 @@ fun NotificationsContent(
             }
         }
         else -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            SplashLoadingScreen()
         }
     }
 }

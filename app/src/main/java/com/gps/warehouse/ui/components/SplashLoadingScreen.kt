@@ -27,12 +27,13 @@ import com.gps.warehouse.utils.Constants
 @Composable
 fun SplashLoadingScreen(
     message: String = "Загрузка ...",
-    showLogo: Boolean = true
+    showLogo: Boolean = true,
+    showTextLoading: Boolean = true,
 ) {
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .fillMaxSize(),
+//            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -42,16 +43,18 @@ fun SplashLoadingScreen(
             // Логотип с анимацией вращения
             if (showLogo) {
                 AnimatedLogo()
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            // Анимированный индикатор загрузки
-            AnimatedLoadingIndicator()
+            if (showTextLoading) {
+                // Анимированный индикатор загрузки
+                AnimatedLoadingIndicator()
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // Текст с анимацией пульсации
-            AnimatedText(message)
+                // Текст с анимацией пульсации
+                AnimatedText(message)
+            }
         }
     }
 }
@@ -194,6 +197,17 @@ private fun SplashLoadingScreenNoLogoPreview() {
         SplashLoadingScreen(
             message = "Загрузка данных...",
             showLogo = false
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(showBackground = true, name = "Splash Loading Screen - No Logo")
+@Composable
+private fun SplashLoadingScreenNoTextPreview() {
+    MaterialTheme {
+        SplashLoadingScreen(
+            message = "Загрузка данных...",
+            showTextLoading = false
         )
     }
 }

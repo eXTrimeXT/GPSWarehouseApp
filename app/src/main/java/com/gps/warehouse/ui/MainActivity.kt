@@ -405,45 +405,52 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                // Переход к типу актива
-                                composable("assets_list/{assetTypeId}/{assetTypeName}") { backStackEntry ->
-                                    val assetTypeId =
-                                        backStackEntry.arguments?.getString("assetTypeId")
-                                            ?.toIntOrNull() // Передаем null, чтобы показать активы без типа
-                                    val assetTypeName =
-                                        backStackEntry.arguments?.getString("assetTypeName")
-                                            .toString()
-                                    AssetsByTypeScreen(
-                                        assetTypeId = assetTypeId,
-                                        assetTypeName = assetTypeName,
-                                        navController = navController,
-                                        assetViewModel = assetViewModel,
-                                        mainViewModel = mainViewModel,
+                                // Переход к типу актива с параметрами (через Query Parameters)
+                                composable(
+                                    route = "assets_list?assetTypeId={assetTypeId}&assetTypeName={assetTypeName}&serialNumber={serialNumber}&inventoryId={inventoryId}&materialId={materialId}",
+                                    arguments = listOf(
+                                        navArgument("assetTypeId") {
+                                            type = NavType.StringType
+                                            nullable = true
+                                            defaultValue = null
+                                        },
+                                        navArgument("assetTypeName") {
+                                            type = NavType.StringType
+                                            nullable = true
+                                            defaultValue = null
+                                        },
+                                        navArgument("serialNumber") {
+                                            type = NavType.StringType
+                                            nullable = true
+                                            defaultValue = null
+                                        },
+                                        navArgument("inventoryId") {
+                                            type = NavType.StringType
+                                            nullable = true
+                                            defaultValue = null
+                                        },
+                                        navArgument("materialId") {
+                                            type = NavType.StringType
+                                            nullable = true
+                                            defaultValue = null
+                                        }
                                     )
-                                }
+                                ) { backStackEntry ->
+                                    val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull()
+                                    val assetTypeName = backStackEntry.arguments?.getString("assetTypeName")
+                                    val serialNumber = backStackEntry.arguments?.getString("serialNumber").orEmpty()
+                                    val inventoryId = backStackEntry.arguments?.getString("inventoryId").orEmpty()
+                                    val materialId = backStackEntry.arguments?.getString("materialId").orEmpty()
 
-                                // Переход к типу активу с параметрами
-                                composable("assets_list/{assetTypeId}/{assetTypeName}/{serialNumber}/{inventoryId}") { backStackEntry ->
-                                    val assetTypeId =
-                                        backStackEntry.arguments?.getString("assetTypeId")
-                                            ?.toIntOrNull() // Передаем null, чтобы показать активы без типа
-                                    val assetTypeName =
-                                        backStackEntry.arguments?.getString("assetTypeName")
-                                            .toString()
-                                    val serialNumber =
-                                        backStackEntry.arguments?.getString("serialNumber")
-                                            .toString()
-                                    val inventoryId =
-                                        backStackEntry.arguments?.getString("inventoryId")
-                                            .toString()
                                     AssetsByTypeScreen(
                                         assetTypeId = assetTypeId,
-                                        assetTypeName = assetTypeName,
+                                        assetTypeName = assetTypeName?.replace('+', ' ') ?: "Все активы",
                                         navController = navController,
                                         assetViewModel = assetViewModel,
                                         mainViewModel = mainViewModel,
                                         serialNumber = serialNumber,
                                         inventoryId = inventoryId,
+                                        materialId = materialId
                                     )
                                 }
 
@@ -491,7 +498,8 @@ class MainActivity : ComponentActivity() {
                                     AssetDetailsScreen(
                                         assetId = assetId,
                                         navController = navController,
-                                        assetViewModel = assetViewModel
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel
                                     )
                                 }
 
@@ -527,7 +535,8 @@ class MainActivity : ComponentActivity() {
                                         assetId = assetId,
                                         materialId = materialId,
                                         navController = navController,
-                                        assetViewModel = assetViewModel
+                                        assetViewModel = assetViewModel,
+                                        mainViewModel = mainViewModel
                                     )
                                 }
 
@@ -591,8 +600,7 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 composable("asset_notifications/asset/{assetId}") { backStackEntry ->
-                                    val assetId = backStackEntry.arguments?.getString("assetId")
-                                        ?.toIntOrNull()
+                                    val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull()
                                     val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
 
                                     NotificationsScreen(

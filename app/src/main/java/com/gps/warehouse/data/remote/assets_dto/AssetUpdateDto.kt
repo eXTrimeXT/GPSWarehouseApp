@@ -46,6 +46,10 @@ data class AssetUpdate(
     @SerializedName("next_service") val nextService: String? = null,
     @SerializedName("service_period") val servicePeriod: Int? = null,
 
+    // Информация о проверки
+    @SerializedName("next_check") val nextCheck: String?,
+    @SerializedName("check_period") val checkPeriod: Int?,
+
     // Мета
     @SerializedName("created_by") val createdBy: String? = null,
     @SerializedName("updated_by") val updatedBy: String? = null,

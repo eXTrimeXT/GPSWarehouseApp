@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.assets_screens.assets
 
+import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -35,9 +36,12 @@ import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.ErrorStateView
 import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SapBadge
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
 import kotlinx.coroutines.launch
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 
 private const val TAG = "ASSETS_SCREEN"
 
@@ -51,6 +55,7 @@ fun AssetsByTypeScreen(
     mainViewModel: MainViewModel,
     serialNumber: String = "",
     inventoryId: String = "",
+    materialId: String = "",
     onlyMy: Boolean = false
 ) {
     val uiState by assetViewModel.uiState.collectAsState()
@@ -67,6 +72,7 @@ fun AssetsByTypeScreen(
     var searchQuery by remember { mutableStateOf("") }
     var serialNumber by remember { mutableStateOf(serialNumber) }
     var inventoryId by remember { mutableStateOf(inventoryId) }
+    var materialId by remember { mutableStateOf(materialId) }
     var assetStatus by remember { mutableStateOf<String?>(null) }
     var modelId by remember { mutableStateOf("") }
     var parentId by remember { mutableStateOf("") }
@@ -82,44 +88,102 @@ fun AssetsByTypeScreen(
         assetViewModel.loadAssetStatuses()
     }
 
+//    fun processScannedData(scannedData: String) {
+//        if (scannedData.isEmpty()) return
+//        Log.d(TAG, "processScannedData: $scannedData")
+//
+//        val scannedValue = InventoryQrParser.parseAny(scannedData)
+//        if (scannedValue == null) {
+//            Toast.makeText(context, "Не удалось распознать код", Toast.LENGTH_SHORT).show()
+//            return
+//        }
+//
+//        // Запускаем серверный поиск в корутине
+//        scope.launch {
+//            isSearching = true
+//            try {
+//                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
+//
+//                if (foundAsset != null) {
+//                    Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
+//
+//                    serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
+//                        foundAsset.serialNumber
+//                    } else { "" }
+//
+//                    inventoryId = if (foundAsset.inventoryId?.isNotEmpty() == true) {
+//                        foundAsset.inventoryId
+//                    } else { "" }
+//
+//                    materialId = if (foundAsset.materialId?.isNotEmpty() == true) {
+//                        foundAsset.materialId
+//                    } else { "" }
+//
+//                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}/${serialNumber}/${inventoryId}/${materialId}")
+//                } else {
+//                    Toast.makeText(
+//                        context,
+//                        "Актив '$scannedValue' не найден (проверено как серийник, инвентарник, номер основного средства)",
+//                        Toast.LENGTH_LONG
+//                    ).show()
+//                }
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Ошибка поиска: ${e.message}")
+//                Toast.makeText(context, "Ошибка поиска: ${e.message}", Toast.LENGTH_SHORT).show()
+//            } finally {
+//                isSearching = false
+//            }
+//        }
+//    }
+
     fun processScannedData(scannedData: String) {
         if (scannedData.isEmpty()) return
-        Log.d(TAG, "processScannedData: $scannedData")
+        Log.d("AssetScan", "processScannedData: $scannedData")
 
         val scannedValue = InventoryQrParser.parseAny(scannedData)
         if (scannedValue == null) {
-            Toast.makeText(context, "Не удалось распознать код", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Не удалось распознать код", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Запускаем серверный поиск в корутине
         scope.launch {
             isSearching = true
             try {
-                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
+                val (foundAsset, _) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
-                    Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
+                    Log.d("AssetScan", "Scanned asset found: assetId=${foundAsset.assetId}, materialId=${foundAsset.materialId}")
 
-                    serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
-                        foundAsset.serialNumber
-                    } else { "" }
+                    // 1. Берем значения, заменяя null на пустую строку или дефолт
+                    val assetTypeIdStr = foundAsset.assetTypeId?.toString() ?: "0"
+                    val assetTypeNameStr = URLEncoder.encode(foundAsset.assetTypeName ?: "Без типа", "UTF-8")
+                    val serialNumberStr = URLEncoder.encode(foundAsset.serialNumber ?: "", "UTF-8")
+                    val inventoryIdStr = URLEncoder.encode(foundAsset.inventoryId ?: "", "UTF-8")
+                    val materialIdStr = URLEncoder.encode(foundAsset.materialId ?: "", "UTF-8")
 
-                    inventoryId = if (foundAsset.inventoryId?.isNotEmpty() == true) {
-                        foundAsset.inventoryId
-                    } else { "" }
+                    // 2. Формируем маршрут через Query Parameters (безопасно для пустых значений и пробелов)
+                    val route = "assets_list?assetTypeId=$assetTypeIdStr" +
+                            "&assetTypeName=$assetTypeNameStr" +
+                            "&serialNumber=$serialNumberStr" +
+                            "&inventoryId=$inventoryIdStr" +
+                            "&materialId=$materialIdStr"
 
-                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}/${serialNumber}/${inventoryId}")
+                    Log.d("AssetScan", "Navigating to route: $route")
+
+                    // 3. Выполняем навигацию
+                    navController.navigate(route) {
+                        launchSingleTop = true // Предотвращает дублирование экрана в стеке
+                    }
 
                 } else {
                     Toast.makeText(
                         context,
-                        "Актив '$scannedValue' не найден (проверено как серийник и инвентарник)",
+                        "Актив '$scannedValue' не найден",
                         Toast.LENGTH_LONG
                     ).show()
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Ошибка поиска: ${e.message}")
+                Log.e("AssetScan", "Ошибка поиска: ${e.message}", e)
                 Toast.makeText(context, "Ошибка поиска: ${e.message}", Toast.LENGTH_SHORT).show()
             } finally {
                 isSearching = false
@@ -148,8 +212,9 @@ fun AssetsByTypeScreen(
     // ЕДИНЫЙ источник запросов: срабатывает при изменении любого фильтра или currentPage
     LaunchedEffect(
         searchQuery,
-        inventoryId,
         serialNumber,
+        inventoryId,
+        materialId,
         assetStatus,
         modelId,
         parentId,
@@ -160,7 +225,7 @@ fun AssetsByTypeScreen(
         Log.d(
             TAG,
             "LaunchedEffect TRIGGERED -> page=$currentPage, " +
-                    "search='$searchQuery', inv='$inventoryId', sn='$serialNumber', " +
+                    "search='$searchQuery', inv='$inventoryId', materialId='$materialId', sn='$serialNumber', " +
                     "status=$assetStatus, modelId='$modelId', parentId='$parentId', " +
                     "locationId='$locationId', assetTypeId=$assetTypeId"
         )
@@ -170,8 +235,9 @@ fun AssetsByTypeScreen(
                 page = currentPage,
                 pageSize = 50,
                 name = searchQuery.takeIf { it.isNotBlank() },
-                inventoryId = inventoryId.takeIf { it.isNotBlank() },
                 serialNumber = serialNumber.takeIf { it.isNotBlank() },
+                inventoryId = inventoryId.takeIf { it.isNotBlank() },
+                materialId = materialId.takeIf { it.isNotBlank() },
                 assetStatus = assetStatus,
                 modelId = modelId.toIntOrNull(),
                 assetTypeId = assetTypeId,
@@ -214,16 +280,22 @@ fun AssetsByTypeScreen(
         },
         isFiltersExpanded = isFiltersExpanded,
         onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
+        serialNumber = serialNumber,
+        onSerialNumberChange = {
+            Log.d(TAG, "serialNumber changed: '$it'")
+            serialNumber = it
+            currentPage = 1
+        },
         inventoryId = inventoryId,
         onInventoryIdChange = {
             Log.d(TAG, "inventoryId changed: '$it'")
             inventoryId = it
             currentPage = 1
         },
-        serialNumber = serialNumber,
-        onSerialNumberChange = {
-            Log.d(TAG, "serialNumber changed: '$it'")
-            serialNumber = it
+        materialId = materialId,
+        onMaterialIdChange = {
+            Log.d(TAG, "materialId changed: '$it'")
+            materialId = it
             currentPage = 1
         },
         assetStatus = assetStatus,
@@ -235,8 +307,9 @@ fun AssetsByTypeScreen(
         onResetFilters = {
             Log.d(TAG, "Reset filters")
             searchQuery = ""
-            inventoryId = ""
             serialNumber = ""
+            inventoryId = ""
+            materialId = ""
             assetStatus = null
             modelId = ""
             parentId = ""
@@ -249,8 +322,9 @@ fun AssetsByTypeScreen(
                 page = currentPage,
                 pageSize = 50,
                 name = searchQuery.takeIf { it.isNotBlank() },
-                inventoryId = inventoryId.takeIf { it.isNotBlank() },
                 serialNumber = serialNumber.takeIf { it.isNotBlank() },
+                inventoryId = inventoryId.takeIf { it.isNotBlank() },
+                materialId = materialId.takeIf { it.isNotBlank() },
                 assetStatus = assetStatus,
                 modelId = modelId.toIntOrNull(),
                 assetTypeId = assetTypeId,
@@ -304,6 +378,8 @@ fun AssetsByTypeScreenContent(
     onToggleFilters: () -> Unit,
     inventoryId: String,
     onInventoryIdChange: (String) -> Unit,
+    materialId: String,
+    onMaterialIdChange: (String) -> Unit,
     serialNumber: String,
     onSerialNumberChange: (String) -> Unit,
     assetStatus: String?,
@@ -424,7 +500,12 @@ fun AssetsByTypeScreenContent(
                     IconButton(onClick = onToggleFilters) {
                         BadgedBox(
                             badge = {
-                                if (inventoryId.isNotBlank() || serialNumber.isNotBlank() || assetStatus != null) {
+                                if (
+                                    serialNumber.isNotBlank() ||
+                                    inventoryId.isNotBlank() ||
+                                    materialId.isNotBlank() ||
+                                    assetStatus != null
+                                ) {
                                     Badge(modifier = Modifier.size(8.dp))
                                 }
                             }
@@ -470,6 +551,15 @@ fun AssetsByTypeScreenContent(
                             value = inventoryId,
                             onValueChange = onInventoryIdChange,
                             label = { Text("Инвентарный номер") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        OutlinedTextField(
+                            value = materialId,
+                            onValueChange = onMaterialIdChange,
+                            label = { Text("Номер основного средства") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(8.dp)
@@ -564,10 +654,9 @@ fun AssetsByTypeScreenContent(
             }
 
             when (uiState) {
-                is AssetViewModel.AssetUiState.Loading -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
+                is AssetViewModel.AssetUiState.Loading -> {
+                    SplashLoadingScreen()
+                }
 
                 is AssetViewModel.AssetUiState.AssetsLoadedPaginated -> {
                     val assets = uiState.assets
@@ -635,10 +724,7 @@ fun AssetsByTypeScreenContent(
                                             .padding(vertical = 16.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(28.dp),
-                                            strokeWidth = 2.dp
-                                        )
+                                        SplashLoadingScreen()
                                     }
                                 }
                             }
@@ -663,7 +749,7 @@ fun AssetsByTypeScreenContent(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.3f)),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Card(
                     shape = RoundedCornerShape(16.dp),
@@ -672,12 +758,13 @@ fun AssetsByTypeScreenContent(
                     )
                 ) {
                     Column(
-                        modifier = Modifier.padding(24.dp),
+                        modifier = Modifier
+                            .padding(24.dp)
+                            .fillMaxWidth(0.35f)
+                            .fillMaxHeight(0.35f),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        CircularProgressIndicator()
-                        Spacer(Modifier.height(12.dp))
-                        Text("Поиск актива...", style = MaterialTheme.typography.bodyMedium)
+                        SplashLoadingScreen(message = "Поиск ...")
                     }
                 }
             }
@@ -724,7 +811,9 @@ fun AssetCardModern(asset: AssetResponseDto, onClick: () -> Unit) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f).padding(end = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -889,7 +978,7 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                     pageSize = 50,
                     totalPages = 1,
                     hasNext = true,
-                    hasPrevious = false
+                    hasPrevious = true
                 ),
                 cameraScanEnabled = true,
                 onCameraScanClick = {},
@@ -908,6 +997,8 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                 onInventoryIdChange = {},
                 serialNumber = "",
                 onSerialNumberChange = {},
+                materialId = "",
+                onMaterialIdChange = {},
                 assetStatus = null,
                 onAssetStatusChange = {},
                 onResetFilters = {},
@@ -944,7 +1035,7 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                     AssetStatusDto(7, "Списан")
                 ),
                 searchQuery = "",
-                isSearching = false,
+                isSearching = true,
                 onSearchQueryChange = {},
                 isFiltersExpanded = true,
                 onToggleFilters = {},
@@ -952,6 +1043,8 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                 onInventoryIdChange = {},
                 serialNumber = "",
                 onSerialNumberChange = {},
+                materialId = "",
+                onMaterialIdChange = {},
                 assetStatus = "Списан",
                 onAssetStatusChange = {},
                 onResetFilters = {},

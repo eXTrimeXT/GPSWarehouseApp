@@ -21,6 +21,7 @@ import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.AppIconProd
 import com.gps.warehouse.ui.components.AppIconTest
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.ui.components.UpdateDialog
 import com.gps.warehouse.ui.home.HomeTab
 import com.gps.warehouse.ui.home.isTabFilter
@@ -245,6 +246,7 @@ fun SettingsContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (isChecking) {
+                    // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
                         color = MaterialTheme.colorScheme.onPrimary

@@ -10,6 +10,8 @@ import com.gps.warehouse.data.remote.assets_dto.AssetResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.MyPcDto
 import com.gps.warehouse.data.remote.assets_dto.ApiErrorResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetConfirmationResponseDto
+import com.gps.warehouse.data.remote.assets_dto.AssetConfirmationStatus
 import com.gps.warehouse.data.remote.assets_dto.AssetHistoryDto
 import com.gps.warehouse.data.remote.assets_dto.AssetStatusDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTransferCancelResponseDto
@@ -20,16 +22,17 @@ import com.gps.warehouse.data.remote.assets_dto.AssetTransferRespondResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetTransferResponseDto
 import com.gps.warehouse.data.remote.assets_dto.AssetUpdate
 import com.gps.warehouse.data.remote.assets_dto.CheckItemRequest
+import com.gps.warehouse.data.remote.assets_dto.ConfirmAssetRequestDto
 import com.gps.warehouse.data.remote.assets_dto.EmployeeShortResponse
 import com.gps.warehouse.data.remote.assets_dto.InventorizationItemDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionCreateRequest
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionObj
 import com.gps.warehouse.data.remote.assets_dto.MvzDepartments
-import com.gps.warehouse.data.remote.assets_dto.MvzListResponseDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
+import com.gps.warehouse.data.remote.assets_dto.ProcessConfirmationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import com.gps.warehouse.utils.NetworkMonitor
@@ -37,7 +40,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
@@ -191,13 +193,19 @@ class AssetViewModel @Inject constructor(
 
     // Состояние для хранения информации о передаче
     private val _transferStatus = MutableStateFlow<TransferStatus>(TransferStatus.None)
-    val transferStatus: StateFlow<TransferStatus> = _transferStatus.asStateFlow()
+    val transferStatus = _transferStatus.asStateFlow()
 
     private val _transferInfo = MutableStateFlow<AssetTransferExistsResponseDto?>(null)
-    val transferInfo: StateFlow<AssetTransferExistsResponseDto?> = _transferInfo.asStateFlow()
+    val transferInfo = _transferInfo.asStateFlow()
 
     private val _assetTransfers = MutableStateFlow<List<AssetTransferDto>>(emptyList())
-    val assetTransfers: StateFlow<List<AssetTransferDto>> = _assetTransfers.asStateFlow()
+    val assetTransfers = _assetTransfers.asStateFlow()
+
+    private val _assetConfirmations = MutableStateFlow<List<AssetConfirmationResponseDto>>(emptyList())
+    val assetConfirmations = _assetConfirmations.asStateFlow()
+
+    private val _assetConfirmationLast = MutableStateFlow<AssetConfirmationResponseDto?>(null)
+    val assetConfirmationLast = _assetConfirmationLast.asStateFlow()
 
     private var eventSource: EventSource? = null
 
@@ -325,7 +333,7 @@ class AssetViewModel @Inject constructor(
                 val response = assetApiService.getMvzList("Bearer ${getToken()}")
                 _mvzDepartments.value = response.response.data
             } catch (e: Exception) {
-                // TODO: Дописать логику ошибок для цехов
+                // TODO: Дописать логику ошибок для департаментов
             }
         }
     }
@@ -335,11 +343,24 @@ class AssetViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
-                val updated = assetApiService.updateAsset("Bearer ${getToken()}", assetId, update)
+                val updated = assetApiService.updateAssetByAssetId("Bearer ${getToken()}", assetId, update)
                 _uiState.value = AssetUiState.AssetDetailsLoaded(updated)
-                loadAssetDetails(assetId)
+                loadAssetDetails(updated.assetId)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка обновления")
+            }
+        }
+    }
+    // Обновление актива
+    fun upsertAsset(update: AssetUpdate) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val updated = assetApiService.updateAssetByMaterialId("Bearer ${getToken()}", update)
+                _uiState.value = AssetUiState.AssetDetailsLoaded(updated)
+                loadAssetDetails(updated.assetId)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка создания-обновления")
             }
         }
     }
@@ -362,8 +383,9 @@ class AssetViewModel @Inject constructor(
         page: Int,
         pageSize: Int = 50,
         name: String? = null,
-        inventoryId: String? = null,
         serialNumber: String? = null,
+        inventoryId: String? = null,
+        materialId: String? = null,
         assetStatus: String? = null,
         modelId: Int? = null,
         assetTypeId: Int? = null,
@@ -400,7 +422,8 @@ class AssetViewModel @Inject constructor(
             try {
                 val response = assetApiService.getAssets(
                     token = "Bearer ${getToken()}", page = page, pageSize = pageSize,
-                    name = name, inventoryId = inventoryId, serialNumber = serialNumber,
+                    name = name, inventoryId = inventoryId,
+                    serialNumber = serialNumber, materialId = materialId,
                     assetStatus = assetStatus, modelId = modelId, assetTypeId = assetTypeId,
                     parentId = parentId, locationId = locationId, onlyMy = onlyMy
                 )
@@ -435,47 +458,62 @@ class AssetViewModel @Inject constructor(
      */
     suspend fun findAssetByScanValue(scannedValue: String): Pair<AssetResponseDto?, String> {
         return try {
-            // Сначала пробуем как СЕРИЙНЫЙ номер
-            Log.d("AssetViewModel", "Поиск по serialNumber: $scannedValue")
+            // === Пробуем поиск по СЕРИЙНОМУ номеру ===
+            var currentSerialNumber = scannedValue
+            // F2717NBP45 02103193
+            // 0000000000 02103193
+            if (currentSerialNumber.length > 18) currentSerialNumber = scannedValue.takeLast(18)
+            Log.d("AssetViewModel", "Поиск по serialNumber: $currentSerialNumber")
             val bySerial = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
-                serialNumber = scannedValue,
+                serialNumber = currentSerialNumber,
                 page = 1,
                 pageSize = 1
             )
             bySerial.items.firstOrNull()?.let {
-                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
                 // Если нашли по серийнику, возвращаем его и исходное значение
-                return Pair(it, scannedValue)
+                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
+                return Pair(it, currentSerialNumber)
             }
 
-            // Если не найдено — пробуем как ИНВЕНТАРНЫЙ номер
+            // === Если не нашли, пробуем поиск по ИНВЕНТАРНОМУ номеру ===
             var currentInventoryId = scannedValue
-
             // Валидация инвентарного номера по длине
             if (currentInventoryId.length == 11) {
                 currentInventoryId = "0$currentInventoryId"
                 Log.w("AssetViewModel", "Изменение inv.number: old=$scannedValue new=$currentInventoryId")
             }
-
             Log.d("AssetViewModel", "Поиск по inventoryId: inv. number=$currentInventoryId")
-
             val byInventory = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 inventoryId = currentInventoryId,
                 page = 1,
                 pageSize = 1,
             )
+            byInventory.items.firstOrNull()?.let {
+                // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
+                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${it.assetId}")
+                return Pair(it, currentInventoryId)
+            }
 
-            val found = byInventory.items.firstOrNull()
-            if (found != null) {
-                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${found.assetId}")
-            } else {
-                Log.d("AssetViewModel", "Актив не найден ни по одному параметру. Последнее значение поиска: $currentInventoryId")
+            // === Поиск по MATERIAL_ID ===
+            var materialId = scannedValue
+            if (materialId.length == 11) {
+                materialId = "0${materialId}0000"
+            }
+            val byMaterialId = assetApiService.getAssets(
+                token = "Bearer ${getToken()}",
+                materialId = materialId,
+                page = 1,
+                pageSize = 1
+            )
+            byMaterialId.items.firstOrNull()?.let {
+                Log.d("AssetViewModel", "Найдено по material_id: id=${it.materialId}")
+                return Pair(it, materialId)
             }
 
             // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
-            Pair(found, currentInventoryId)
+            Pair(null, materialId)
         } catch (e: Exception) {
             Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
             // В случае ошибки возвращаем null и исходное значение, чтобы не ломать логику
@@ -669,7 +707,7 @@ class AssetViewModel @Inject constructor(
                 _notificationItems.value = cachedNotifications
                 _uiState.value = AssetUiState.NotificationsLoaded(cachedNotifications)
             } else {
-                _uiState.value = AssetUiState.Loading
+//                _uiState.value = AssetUiState.Loading
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
@@ -796,12 +834,7 @@ class AssetViewModel @Inject constructor(
         page: Int = 1,
         pageSize: Int = 50,
         employeeId: String? = null,
-        lastName: String? = null,
-        firstName: String? = null,
-        middleName: String? = null,
-        lastNameEn: String? = null,
-        firstNameEn: String? = null,
-        middleNameEn: String? = null,
+        searchName: String? = null,
         departmentGuid: String? = null,
         positionGuid: String? = null,
         isActive: Boolean? = true,
@@ -815,12 +848,7 @@ class AssetViewModel @Inject constructor(
                     page = page,
                     pageSize = pageSize,
                     employeeId = employeeId,
-                    lastName = lastName,
-                    firstName = firstName,
-                    middleName = middleName,
-                    lastNameEn = lastNameEn,
-                    firstNameEn = firstNameEn,
-                    middleNameEn = middleNameEn,
+                    searchName = searchName,
                     departmentGuid = departmentGuid,
                     positionGuid = positionGuid,
                     isActive = isActive,
@@ -894,7 +922,7 @@ class AssetViewModel @Inject constructor(
                 onSuccess(response)
 
                 // Перезагружаем детали актива после успешной передачи
-                loadAssetDetails(assetId = assetId)
+                loadAssetDetails(assetId = response.asset.assetId)
 
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка передачи актива"
@@ -995,6 +1023,132 @@ class AssetViewModel @Inject constructor(
                 Log.e(TAG, "Ошибка отмены передачи: $errorMessage")
                 onError(errorMessage)
                 _uiState.value = AssetUiState.Error(errorMessage)
+            }
+        }
+    }
+
+    // ==================== Подтверждение наличия актива ====================
+    /**
+     * Подтверждает наличие актива (вручную или через отсканированный QR/штрих-код с ТСД Honeywell)
+     *
+     * @param request DTO с данными для подтверждения (assetId, serialNumber, inventoryId, status, comment)
+     * @param currentAssetId ID текущего актива на экране. Необходим для точечного обновления списка подтверждений.
+     * @param onSuccess Коллбек, возвращающий ProcessConfirmationResponseDto
+     * @param onError Коллбек с текстом ошибки для отображения пользователю
+     */
+    fun confirmAsset(
+        request: ConfirmAssetRequestDto,
+        currentAssetId: Int? = null,
+        onSuccess: (ProcessConfirmationResponseDto) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            // ВАЖНО: Мы НЕ меняем _uiState.value = AssetUiState.Loading здесь.
+            // Изменение глобального состояния экрана во вторичных запросах вызывает баг
+            // "затирания" данных при переключении вкладок.
+            // Состояние загрузки кнопки должно управляться локально в UI (Composable).
+
+            try {
+                val response = assetApiService.confirmAsset(
+                    token = "Bearer ${getToken()}",
+                    request = request
+                )
+
+                // Успешно передаем результат в UI (например, для показа Toast или закрытия диалога)
+                onSuccess(response)
+
+                // Точечно обновляем список подтверждений ИМЕННО для этого актива.
+                // Это гарантирует, что на вкладке "Люди" сразу появится новая запись.
+                if (currentAssetId != null) {
+                    loadConfirmationsList(assetId = currentAssetId, page = 1, pageSize = 50)
+                }
+
+                // Опционально: Если подтверждение меняет общий статус актива,
+                // можно также обновить детали актива, чтобы обновилась "шапка" экрана:
+                 if (currentAssetId != null) {
+                     loadAssetDetails(assetId = currentAssetId, materialId = null)
+                 }
+
+            } catch (e: Exception) {
+                // getErrorMessage должен извлекать поле "detail" из HTTP-ошибок Retrofit
+                val errorMessage = getErrorMessage(e) ?: "Ошибка подтверждения актива"
+                Log.e(TAG, "Ошибка подтверждения актива: $errorMessage", e)
+
+                onError(errorMessage)
+
+                // Тут _uiState.value = AssetUiState.Error(errorMessage)
+                // сломает отображение основного экрана. Ошибка обрабатывается только через onError.
+            }
+        }
+    }
+
+    // ==================== Список запросов на подтверждение ====================
+    /**
+     * Получает список запросов на подтверждение с фильтрацией и пагинацией
+     */
+    fun loadConfirmationsList(
+        assetId: Int?,
+        statusConfirmation: AssetConfirmationStatus? = null,
+        onlyMy: Boolean = false,
+        employeeId: String? = null,
+        page: Int = 1,
+        pageSize: Int = 50,
+        onSuccess: (PaginatedResponse<AssetConfirmationResponseDto>) -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val response = assetApiService.getConfirmationsList(
+                    token = "Bearer ${getToken()}",
+                    assetId = assetId,
+                    statusConfirmation = statusConfirmation,
+                    onlyMy = onlyMy,
+                    employeeId = employeeId,
+                    page = page,
+                    pageSize = pageSize
+                )
+                onSuccess(response)
+                _assetConfirmations.value = response.items
+            } catch (e: Exception) {
+                val errorMessage = getErrorMessage(e) ?: "Ошибка получения списка подтверждений"
+                Log.e(TAG, "Ошибка получения списка подтверждений: $errorMessage", e)
+                onError(errorMessage)
+                _uiState.value = AssetUiState.Error(errorMessage)
+            }
+        }
+    }
+
+    fun getLastConfirmation(assetId: Int) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val response = assetApiService.getLastConfirmation(
+                    token = "Bearer ${getToken()}",
+                    assetId = assetId,
+                )
+
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    _assetConfirmationLast.value = body   // может быть null
+                    if (body == null) {
+                        Log.d(TAG, "getLastConfirmation: тело ответа пустое (нет активных подтверждений)")
+                    }
+                } else if (response.code() == 404) {
+                    // 404 — нет запроса на подтверждение, это НЕ ошибка
+                    Log.d(TAG, "getLastConfirmation: 404 — активных подтверждений нет")
+                    _assetConfirmationLast.value = null
+                } else {
+                    // Другие HTTP-коды — реальная ошибка
+                    val errorMessage = "HTTP ${response.code()}: ${response.message()}"
+                    Log.e(TAG, "getLastConfirmation: $errorMessage")
+                    _assetConfirmationLast.value = null
+                    // Не ставим Error в uiState, чтобы не ломать экран
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Ошибка получения последнего подтверждения: ${e.message}", e)
+                _assetConfirmationLast.value = null
+                // Не ставим Error в uiState — отсутствие подтверждения не критично
             }
         }
     }
