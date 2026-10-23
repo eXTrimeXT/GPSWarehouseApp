@@ -225,6 +225,36 @@ fun CreateInventorySessionDialog(
         return "$dateStr, $timeStr"
     }
 
+    // ===== НОВОЕ: проверка диапазона дат =====
+    val startFullMillis = remember(
+        startDateTimeMillis,
+        startTimePickerState.hour,
+        startTimePickerState.minute
+    ) {
+        toDateTimeMillis(
+            startDateTimeMillis,
+            startTimePickerState.hour,
+            startTimePickerState.minute
+        )
+    }
+    val endFullMillis = remember(
+        endDateTimeMillis,
+        endTimePickerState.hour,
+        endTimePickerState.minute
+    ) {
+        toDateTimeMillis(
+            endDateTimeMillis,
+            endTimePickerState.hour,
+            endTimePickerState.minute
+        )
+    }
+    val isEndBeforeStart = startFullMillis != null
+            && endFullMillis != null
+            && endFullMillis < startFullMillis
+    val isDateRangeValid = startFullMillis != null
+            && endFullMillis != null
+            && !isEndBeforeStart
+
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         onDismissRequest = onDismiss,
@@ -347,12 +377,17 @@ fun CreateInventorySessionDialog(
                         label = { Text("Начало") },
                         trailingIcon = {
                             IconButton(onClick = { showStartDatePicker = true }) {
-                                Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(20.dp))
+                                Icon(
+                                    Icons.Default.CalendarToday,
+                                    null,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = MaterialTheme.shapes.small
+                        shape = MaterialTheme.shapes.small,
+                        isError = isEndBeforeStart,
                     )
 
                     OutlinedTextField(
@@ -362,30 +397,52 @@ fun CreateInventorySessionDialog(
                         label = { Text("Окончание") },
                         trailingIcon = {
                             IconButton(onClick = { showEndDatePicker = true }) {
-                                Icon(Icons.Default.CalendarToday, null, modifier = Modifier.size(20.dp))
+                                Icon(
+                                    Icons.Default.CalendarToday,
+                                    null,
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
-                        shape = MaterialTheme.shapes.small
+                        shape = MaterialTheme.shapes.small,
+                        isError = isEndBeforeStart,
                     )
+
+                    if (isEndBeforeStart) {
+                        Text(
+                            text = "Дата окончания не может быть раньше даты начала",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
+                    if (!isDateRangeValid) return@Button
                     onCreateSession(
                         if (selectedTabIndex == 0) selectedAssetTypeId else null,
-                        if (selectedTabIndex == 1 && selectedDepartmentCodes.isNotEmpty()) selectedDepartmentCodes.joinToString(";") else null,
-                        formatToIso(startDateTimeMillis, startTimePickerState.hour, startTimePickerState.minute),
-                        formatToIso(endDateTimeMillis, endTimePickerState.hour, endTimePickerState.minute)
+                        if (selectedTabIndex == 1 && selectedDepartmentCodes.isNotEmpty())
+                            selectedDepartmentCodes.joinToString(";") else null,
+                        formatToIso(
+                            startDateTimeMillis,
+                            startTimePickerState.hour,
+                            startTimePickerState.minute
+                        ),
+                        formatToIso(
+                            endDateTimeMillis,
+                            endTimePickerState.hour,
+                            endTimePickerState.minute
+                        )
                     )
                 },
-                // Кнопка активна, если в текущей вкладке сделан выбор
-                enabled = when (selectedTabIndex) {
-                    0 -> selectedAssetTypeId != null && startDateTimeMillis != null && endDateTimeMillis != null
-                    1 -> selectedDepartmentCodes.isNotEmpty() && startDateTimeMillis != null && endDateTimeMillis != null
+                enabled = isDateRangeValid && when (selectedTabIndex) {
+                    0 -> selectedAssetTypeId != null
+                    1 -> selectedDepartmentCodes.isNotEmpty()
                     else -> false
                 }
             ) {
@@ -443,6 +500,22 @@ fun CreateInventorySessionDialog(
             dismissButton = { TextButton(onClick = { showEndTimePicker = false }) { Text("Отмена") } }
         ) { TimePicker(state = endTimePickerState) }
     }
+}
+
+/** Собирает дату + время в epoch millis (UTC). */
+private fun toDateTimeMillis(
+    dateMillis: Long?,
+    hour: Int,
+    minute: Int
+): Long? {
+    if (dateMillis == null) return null
+    val instant = Instant.ofEpochMilli(dateMillis)
+    val zdt = instant.atZone(ZoneOffset.UTC)
+        .withHour(hour)
+        .withMinute(minute)
+        .withSecond(0)
+        .withNano(0)
+    return zdt.toInstant().toEpochMilli()
 }
 
 // ==================== ВСПОМОГАТЕЛЬНЫЕ COMPOSABLES ====================
