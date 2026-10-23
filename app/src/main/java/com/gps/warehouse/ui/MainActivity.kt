@@ -405,38 +405,6 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-                                // Переход к типу актива
-//                                composable("assets_list/{assetTypeId}/{assetTypeName}") { backStackEntry ->
-//                                    val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() // Передаем null, чтобы показать активы без типа
-//                                    val assetTypeName = backStackEntry.arguments?.getString("assetTypeName").toString()
-//                                    AssetsByTypeScreen(
-//                                        assetTypeId = assetTypeId,
-//                                        assetTypeName = assetTypeName,
-//                                        navController = navController,
-//                                        assetViewModel = assetViewModel,
-//                                        mainViewModel = mainViewModel,
-//                                    )
-//                                }
-
-                                // Переход к типу активу с параметрами
-//                                composable("assets_list/{assetTypeId}/{assetTypeName}/{serialNumber}/{inventoryId}/{materialId}") { backStackEntry ->
-//                                    val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull() // Передаем null, чтобы показать активы без типа
-//                                    val assetTypeName = backStackEntry.arguments?.getString("assetTypeName").toString()
-//                                    val serialNumber = backStackEntry.arguments?.getString("serialNumber").toString()
-//                                    val inventoryId = backStackEntry.arguments?.getString("inventoryId").toString()
-//                                    val materialId = backStackEntry.arguments?.getString("materialId").toString()
-//                                    AssetsByTypeScreen(
-//                                        assetTypeId = assetTypeId,
-//                                        assetTypeName = assetTypeName,
-//                                        navController = navController,
-//                                        assetViewModel = assetViewModel,
-//                                        mainViewModel = mainViewModel,
-//                                        serialNumber = serialNumber,
-//                                        inventoryId = inventoryId,
-//                                        materialId = materialId
-//                                    )
-//                                }
-
                                 // Переход к типу актива с параметрами (через Query Parameters)
                                 composable(
                                     route = "assets_list?assetTypeId={assetTypeId}&assetTypeName={assetTypeName}&serialNumber={serialNumber}&inventoryId={inventoryId}&materialId={materialId}",
@@ -632,8 +600,7 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 composable("asset_notifications/asset/{assetId}") { backStackEntry ->
-                                    val assetId = backStackEntry.arguments?.getString("assetId")
-                                        ?.toIntOrNull()
+                                    val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull()
                                     val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
 
                                     NotificationsScreen(

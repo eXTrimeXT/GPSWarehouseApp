@@ -79,9 +79,14 @@ fun NotificationsScreen(
     val listState = rememberLazyListState()
     var highlightedId by remember { mutableStateOf<Int?>(null) }
 
+    val inventorizationSessions by assetViewModel.inventorizationSessions.collectAsState()
+
     // Загружаем уведомления по активу или сессии инвентаризации
     LaunchedEffect(assetId, sessionId) {
         assetViewModel.loadNotifications(assetId = assetId, sessionId = sessionId)
+        if (sessionId != null) {
+            assetViewModel.loadInventorizationSessions()
+        }
     }
 
     // Обработка прокрутки и включения подсветки
@@ -140,7 +145,13 @@ fun NotificationsScreen(
                         navController.navigate("asset_details/${notification.assetId}")
                     }
                     notification.sessionId != null -> {
-                        navController.navigate("inventorization_items/${notification.sessionId}/false")
+                        val isCompleted =
+                            if (inventorizationSessions?.isNotEmpty() == true)
+                                inventorizationSessions?.filter {
+                                    it.sessionId == notification.sessionId &&
+                                    it.status == "completed"
+                                } else false
+                        navController.navigate("inventorization_items/${notification.sessionId}/${isCompleted}")
                     }
                 }
             }

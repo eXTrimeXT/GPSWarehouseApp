@@ -59,6 +59,8 @@ fun InventorizationItemsScreen(
     val focusManager = LocalFocusManager.current
     val quantityFocusRequester = remember { FocusRequester() }
 
+//    val inventorizationSessions by assetViewModel.inventorizationSessions.collectAsState()
+
     val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
     var showCameraDialog by remember { mutableStateOf(false) }
     var selectedAsset by remember { mutableStateOf<InventorizationItemDto?>(null) }
@@ -70,7 +72,11 @@ fun InventorizationItemsScreen(
         if (scannedData.isEmpty()) return
 
         if (isCompleted) {
-            Toast.makeText(context, "Инвентаризация завершена. Изменения невозможны.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                "Инвентаризация завершена. Изменения невозможны.",
+                Toast.LENGTH_SHORT
+            ).show()
             return
         }
 
@@ -82,10 +88,13 @@ fun InventorizationItemsScreen(
                 // Ищем по assetId, materialId, serialNumber или inventoryId
                 val foundAsset = currentState.items.find {
                     (it.assetId != null && it.assetId.toString() == scannedValue) ||
-                            (it.materialId != null && it.materialId.equals(scannedValue, ignoreCase = true)) ||
-                            (it.materialId != null && it.materialId.equals("0${scannedValue}0000", ignoreCase = true)) ||
-                            it.serialNumber.equals(scannedValue, ignoreCase = true) ||
-                            it.inventoryId.equals(scannedValue, ignoreCase = true)
+                    (it.materialId != null && it.materialId.equals(scannedValue, ignoreCase = true)) ||
+                    (it.materialId != null && it.materialId.equals("0${scannedValue}0000", ignoreCase = true)) ||
+                    it.serialNumber.equals(scannedValue, ignoreCase = true) ||
+                    it.serialNumber.equals(scannedValue.takeLast(18), ignoreCase = true) ||
+                    it.inventoryId.equals(scannedValue, ignoreCase = true) ||
+                    it.inventoryId.equals("0$scannedValue", ignoreCase = true) ||
+                    it.inventoryId.equals("1$scannedValue", ignoreCase = true)
                 }
 
                 if (foundAsset != null) {
@@ -97,7 +106,11 @@ fun InventorizationItemsScreen(
                         inputQty = foundAsset.quantityFact?.toString() ?: ""
                     }
                 } else {
-                    Toast.makeText(context, "Актив с номером '$scannedValue' не найден в сессии", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        "Актив с номером '$scannedValue' не найден в сессии",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             } else {
                 Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
@@ -136,6 +149,7 @@ fun InventorizationItemsScreen(
     }
 
     LaunchedEffect(sessionId) {
+        assetViewModel.loadInventorizationSessions()
         assetViewModel.loadInventorizationItems(sessionId)
     }
 
@@ -229,7 +243,11 @@ fun InventorizationItemsContent(
                 actionButton = if (!isCompleted) {
                     {
                         IconButton(onClick = { onShowCompleteDialogChange(true) }) {
-                            Icon(Icons.Default.DoneAll, contentDescription = "Завершить инвентаризацию", tint = MaterialTheme.colorScheme.primary)
+                            Icon(
+                                Icons.Default.DoneAll,
+                                contentDescription = "Завершить инвентаризацию",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
                         }
                     }
                 } else null
@@ -246,7 +264,14 @@ fun InventorizationItemsContent(
                     label = { Text("Поиск...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = if (searchQuery.isNotEmpty()) {
-                        { IconButton(onClick = { searchQuery = "" }) { Icon(Icons.Default.Clear, "Очистить") } }
+                        {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(
+                                    Icons.Default.Clear,
+                                    "Очистить"
+                                )
+                            }
+                        }
                     } else null,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -276,21 +301,29 @@ fun InventorizationItemsContent(
                 is AssetViewModel.AssetUiState.Loading -> {
                     SplashLoadingScreen()
                 }
+
                 is AssetViewModel.AssetUiState.InventorizationItemsLoaded -> {
                     val allItems = uiState.items
                     val filteredItems = if (searchQuery.isBlank()) allItems else {
                         val query = searchQuery.lowercase()
-                        allItems.filter { it.assetId.toString().contains(query) || it.assetName.lowercase().contains(query) }
+                        allItems.filter {
+                            it.assetId.toString().contains(query) || it.assetName.lowercase()
+                                .contains(query)
+                        }
                     }
 
                     if (filteredItems.isEmpty()) {
-                        Box(modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f), contentAlignment = Alignment.Center
+                        ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(if (allItems.isEmpty()) "Нет активов в сессии" else "Ничего не найдено")
                                 if (allItems.isNotEmpty() && searchQuery.isNotEmpty()) {
-                                    TextButton(onClick = { searchQuery = "" }) { Text("Сбросить поиск") }
+                                    TextButton(onClick = {
+                                        searchQuery = ""
+                                    }) { Text("Сбросить поиск") }
                                 }
                             }
                         }
@@ -330,13 +363,21 @@ fun InventorizationItemsContent(
                         }
                     }
                 }
+
                 is AssetViewModel.AssetUiState.Error -> {
-                    ErrorStateView(message = uiState.message, onRetry = onRetry, modifier = Modifier.weight(1f))
+                    ErrorStateView(
+                        message = uiState.message,
+                        onRetry = onRetry,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
+
                 else -> {
-                    Box(modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth(), contentAlignment = Alignment.Center
+                    ) {
                         SplashLoadingScreen()
                     }
                 }
@@ -355,12 +396,20 @@ fun InventorizationItemsContent(
     if (showCompleteDialog && !isCompleted) {
         AlertDialog(
             onDismissRequest = { onShowCompleteDialogChange(false) },
-            icon = { Icon(Icons.Default.DoneAll, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            icon = {
+                Icon(
+                    Icons.Default.DoneAll,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
             title = { Text("Завершить инвентаризацию?") },
             text = { Text("Вы уверены, что хотите завершить инвентаризацию сессии #$sessionId? После этого редактирование будет невозможно.") },
             confirmButton = {
-                Button(onClick = { onCompleteSession(); onShowCompleteDialogChange(false) },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)) {
+                Button(
+                    onClick = { onCompleteSession(); onShowCompleteDialogChange(false) },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
                     Text("Завершить")
                 }
             },
@@ -403,42 +452,87 @@ fun InventoryItemCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(item.assetName, modifier = Modifier.weight(0.75f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    item.assetName,
+                    modifier = Modifier.weight(0.75f),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
                 Spacer(Modifier.width(8.dp))
                 Icon(
                     imageVector = if (item.isChecked) Icons.Default.CheckCircle else Icons.Default.Error,
                     contentDescription = if (item.isChecked) "Сверено" else "Не сверено",
                     tint = if (item.isChecked) Color(0, 150, 0, 255) else Color.Red,
-                    modifier = Modifier.size(20.dp).weight(0.1f)
+                    modifier = Modifier
+                        .size(20.dp)
+                        .weight(0.1f)
                 )
                 if (item.assetId == null) SapBadge()
             }
 
-            // Показываем Material ID, если Asset ID отсутствует
             Text(
-                text = if (item.assetId != null) "Asset ID: ${item.assetId}" else "Material ID: ${item.materialId ?: "Не указан"}",
+                text = "Asset ID: ${item.assetId ?: "Не указан"}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
 
-            item.serialNumber?.let { Text("Серийный номер: $it", style = MaterialTheme.typography.bodyMedium) }
-            item.inventoryId?.let { Text("Инв. номер: $it", style = MaterialTheme.typography.bodyMedium) }
-            item.checkedByFullName?.let { Text("Отсканировал: $it", style = MaterialTheme.typography.bodyMedium) }
+            Text(
+                text = "Номер SAP: ${item.materialId ?: "Не указан"}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            item.serialNumber?.let {
+                Text(
+                    "Серийный номер: $it",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            item.inventoryId?.let {
+                Text(
+                    "Инв. номер: $it",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            item.checkedByFullName?.let {
+                Text(
+                    "Отсканировал: $it",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Text("План: ${item.quantity ?: 0}", style = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.width(16.dp))
 
                 if (isSelected) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Факт:", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "Факт:",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold
+                        )
                         OutlinedTextField(
                             value = textFieldValue,
-                            onValueChange = { newValue -> textFieldValue = newValue; onQtyChange(newValue.text) },
+                            onValueChange = { newValue ->
+                                textFieldValue = newValue; onQtyChange(
+                                newValue.text
+                            )
+                            },
                             placeholder = { Text("0", style = MaterialTheme.typography.bodySmall) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done
+                            ),
                             keyboardActions = KeyboardActions(onDone = { onConfirmClick() }),
                             modifier = Modifier
                                 .weight(1f)
@@ -451,7 +545,10 @@ fun InventoryItemCard(
                             enabled = !isLoading,
                             singleLine = true,
                             textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                            colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = MaterialTheme.colorScheme.surface, unfocusedContainerColor = MaterialTheme.colorScheme.surface),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surface
+                            ),
                             shape = MaterialTheme.shapes.small
                         )
                         IconButton(
@@ -459,12 +556,23 @@ fun InventoryItemCard(
                             enabled = textFieldValue.text.toIntOrNull() != null && !isLoading,
                             modifier = Modifier.size(32.dp)
                         ) {
-                            Icon(Icons.Default.Check, contentDescription = "Подтвердить", modifier = Modifier.size(18.dp),
-                                tint = if (textFieldValue.text.toIntOrNull() != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = "Подтвердить",
+                                modifier = Modifier.size(18.dp),
+                                tint = if (textFieldValue.text.toIntOrNull() != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(
+                                    alpha = 0.5f
+                                )
+                            )
                         }
                     }
                 } else {
-                    Text("Факт: ${item.quantityFact ?: "–"}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        "Факт: ${item.quantityFact ?: "–"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }

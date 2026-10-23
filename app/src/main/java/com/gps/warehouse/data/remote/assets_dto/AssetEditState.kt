@@ -6,6 +6,7 @@ enum class UserType {
 }
 
 data class AssetEditState(
+    val materialId: String?,
     val name: String? = null,
     val inventoryId: String? = null,
     val serialNumber: String? = null,
@@ -44,6 +45,7 @@ data class AssetEditState(
         /** Создаёт состояние из существующего актива */
         fun fromAsset(asset: AssetResponseDto): AssetEditState {
             return AssetEditState(
+                materialId = asset.materialId,
                 name = asset.name,
                 inventoryId = asset.inventoryId,
                 serialNumber = asset.serialNumber,
@@ -82,40 +84,87 @@ data class AssetEditState(
     }
 
     /** Преобразует в AssetUpdate, отправляя только изменённые поля */
-    fun toUpdate(original: AssetResponseDto): AssetUpdate {
-        return AssetUpdate(
-            name = name.takeIf { it != original.name },
-            inventoryId = inventoryId.takeIf { it != original.inventoryId },
-            serialNumber = serialNumber.takeIf { it != original.serialNumber },
-            assetStatusId = assetStatusId.takeIf { it != original.assetStatusId },
-            quantity = quantity.takeIf { it != original.quantity },
-            comment = comment.takeIf { it != original.comment },
-            dateIssue = dateIssue.takeIf { it != original.dateIssue },
-            datePurchasing = datePurchasing.takeIf { it != original.datePurchasing },
-            modelId = modelId.takeIf { it != original.modelId },
-            modelName = modelName.takeIf { it != original.modelName },
-            assetTypeId = assetTypeId.takeIf { it != original.assetTypeId },
-            parentId = parentId.takeIf { it != original.parentId },
-            everyWeekCheck = everyWeekCheck.takeIf { it != original.everyWeekCheck },
-            nextService = nextService.takeIf { it != original.nextService },
-            servicePeriod = servicePeriod.takeIf { it != original.servicePeriod },
-            nextCheck = nextCheck.takeIf { it != original.nextCheck },
-            checkPeriod = checkPeriod.takeIf { it != original.checkPeriod },
-            currentUser = currentUser.takeIf { it != original.currentUser },
-            location = location.takeIf { it != original.location },
+//    fun toUpdate(original: AssetResponseDto): AssetUpdate {
+//        return AssetUpdate(
+//            materialId = materialId.takeIf { it != original.materialId},
+////            name = name.takeIf { it != original.name },
+//            name = name,
+//            inventoryId = inventoryId.takeIf { it != original.inventoryId },
+//            serialNumber = serialNumber.takeIf { it != original.serialNumber },
+//            assetStatusId = assetStatusId.takeIf { it != original.assetStatusId },
+//            quantity = quantity.takeIf { it != original.quantity },
+//            comment = comment.takeIf { it != original.comment },
+//            dateIssue = dateIssue.takeIf { it != original.dateIssue },
+//            datePurchasing = datePurchasing.takeIf { it != original.datePurchasing },
+//            modelId = modelId.takeIf { it != original.modelId },
+//            modelName = modelName.takeIf { it != original.modelName },
+//            assetTypeId = assetTypeId.takeIf { it != original.assetTypeId },
+//            parentId = parentId.takeIf { it != original.parentId },
+//            everyWeekCheck = everyWeekCheck.takeIf { it != original.everyWeekCheck },
+//            nextService = nextService.takeIf { it != original.nextService },
+//            servicePeriod = servicePeriod.takeIf { it != original.servicePeriod },
+//            nextCheck = nextCheck.takeIf { it != original.nextCheck },
+//            checkPeriod = checkPeriod.takeIf { it != original.checkPeriod },
+//            currentUser = currentUser.takeIf { it != original.currentUser },
+//            location = location.takeIf { it != original.location },
+//
+//            // Отправляем полные списки пользователей, если они изменились
+//            users = currentUsers,
+//            responsibleUsers = currentResponsibleUsers,
+//            servingUsers = currentServingUsers,
+//
+//            // MVZ
+//            costCenterCodeFrom = costCenterCodeFrom.takeIf { it != original.costCenterCodeFrom },
+//            costCenterNameFrom = costCenterNameFrom.takeIf { it != original.costCenterNameFrom},
+//            costCenterShortnameFrom = costCenterShortnameFrom.takeIf { it != original.costCenterShortnameFrom},
+//            costCenterCode = costCenterCode.takeIf { it != original.costCenterCode},
+//            costCenterName = costCenterName.takeIf { it != original.costCenterName},
+//            costCenterShortname = costCenterShortname.takeIf { it != original.costCenterShortname},
+//        )
+//    }
 
-            // Отправляем полные списки пользователей, если они изменились
+    fun toUpdate(original: AssetResponseDto): AssetUpdate {
+        // Для update — только изменённые поля
+        return buildUpdate(original, forCreate = false)
+    }
+
+    fun toCreate(): AssetUpdate {
+        // Для create — все обязательные поля
+        return buildUpdate(null, forCreate = true)
+    }
+
+    private fun buildUpdate(original: AssetResponseDto?, forCreate: Boolean): AssetUpdate {
+        return AssetUpdate(
+            materialId = materialId,
+            name = name,                        // ← всегда (обязательное)
+            inventoryId = inventoryId,
+            serialNumber = serialNumber,
+            assetStatusId = assetStatusId,
+            quantity = quantity,
+            comment = comment,
+            dateIssue = dateIssue,
+            datePurchasing = datePurchasing,
+            modelId = modelId,
+            modelName = modelName,
+            assetTypeId = assetTypeId,
+            parentId = parentId,
+            everyWeekCheck = everyWeekCheck,
+            nextService = nextService,
+            servicePeriod = servicePeriod,
+            nextCheck = nextCheck,
+            checkPeriod = checkPeriod,
+            currentUser = currentUser,
+            location = location,
+
             users = currentUsers,
-            responsibleUsers = currentResponsibleUsers,
             servingUsers = currentServingUsers,
 
-            // MVZ
-            costCenterCodeFrom = costCenterCodeFrom.takeIf { it != original.costCenterCodeFrom },
-            costCenterNameFrom = costCenterNameFrom.takeIf { it != original.costCenterNameFrom},
-            costCenterShortnameFrom = costCenterShortnameFrom.takeIf { it != original.costCenterShortnameFrom},
-            costCenterCode = costCenterCode.takeIf { it != original.costCenterCode},
-            costCenterName = costCenterName.takeIf { it != original.costCenterName},
-            costCenterShortname = costCenterShortname.takeIf { it != original.costCenterShortname},
+            costCenterCodeFrom = costCenterCodeFrom,
+            costCenterNameFrom = costCenterNameFrom,
+            costCenterShortnameFrom = costCenterShortnameFrom,
+            costCenterCode = costCenterCode,
+            costCenterName = costCenterName,
+            costCenterShortname = costCenterShortname,
         )
     }
 

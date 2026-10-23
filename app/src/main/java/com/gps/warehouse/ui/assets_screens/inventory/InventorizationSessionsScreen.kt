@@ -211,7 +211,7 @@ fun CreateInventorySessionDialog(
         if (dateMillis == null) return null
         val instant = Instant.ofEpochMilli(dateMillis)
         val zdt = instant.atZone(ZoneOffset.UTC)
-        return String.format("%04d-%02d-%02dT%02d:%02d:00.000Z", zdt.year, zdt.monthValue, zdt.dayOfMonth, hour, minute)
+        return String.format("%04d-%02d-%02dT%02d:%02d", zdt.year, zdt.monthValue, zdt.dayOfMonth, hour, minute)
     }
 
     // Вспомогательная функция для отображения текста в поле (компактный формат)

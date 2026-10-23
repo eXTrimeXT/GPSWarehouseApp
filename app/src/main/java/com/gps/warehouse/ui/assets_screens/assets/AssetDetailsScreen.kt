@@ -17,8 +17,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -54,24 +52,13 @@ import com.gps.warehouse.ui.components.MyCustomActionBar
 import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.ui.focus.onFocusChanged
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.fadeOut
+import androidx.compose.material.icons.automirrored.filled.FactCheck
 import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.utils.InventoryQrParser
@@ -111,6 +98,7 @@ fun AssetDetailsScreen(
 
     var isEditing by remember { mutableStateOf(false) }
     var showNextServiceDatePicker by remember { mutableStateOf(false) }
+    var showNextCheckDatePicker by remember { mutableStateOf(false) }
     var userPendingRemoval by remember { mutableStateOf<Pair<UserType, AssetUserFullResponse>?>(null) }
 
     var editState by remember { mutableStateOf<AssetEditState?>(null) }
@@ -256,6 +244,32 @@ fun AssetDetailsScreen(
             dismissButton = {
                 TextButton(onClick = {
                     showNextServiceDatePicker = false
+                }) { Text("Отмена") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    if (showNextCheckDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = editState?.nextCheck?.let {
+                LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }
+        )
+        DatePickerDialog(
+            onDismissRequest = { showNextCheckDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val isoDate = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneId.systemDefault()).toLocalDate().toString()
+                        editState?.let { editState = it.copy(nextCheck = isoDate) }
+                    }
+                    showNextCheckDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showNextCheckDatePicker = false
                 }) { Text("Отмена") }
             }
         ) { DatePicker(state = datePickerState) }
@@ -500,8 +514,12 @@ fun AssetDetailsScreen(
             editState?.let { state ->
                 (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)?.asset?.let { original ->
                     val idToUpdate = original.assetId ?: assetId
+                    val materialIdToUpdate = original.materialId ?: materialId
+
                     if (idToUpdate != null) {
                         assetViewModel.updateAsset(idToUpdate, state.toUpdate(original))
+                    } else if (materialIdToUpdate != null) {
+                        assetViewModel.upsertAsset(state.toUpdate(original))
                     } else {
                         Log.e("AssetDetailsScreen", "Невозможно обновить: assetId отсутствует")
                     }
@@ -532,6 +550,7 @@ fun AssetDetailsScreen(
             userPendingRemoval = Pair(userType, user)
         },
         onNextServiceClick = { showNextServiceDatePicker = true },
+        onNextCheckClick = { showNextCheckDatePicker = true },
         onTransferClick = {
             showEmployeeSearchForTransfer = true
             assetViewModel.loadEmployees(page = 1, pageSize = 20)
@@ -591,6 +610,7 @@ fun AssetDetailsContent(
     onAddUser: ((UserType) -> Unit)? = null,
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)? = null,
     onNextServiceClick: (() -> Unit)? = null,
+    onNextCheckClick: (() -> Unit)? = null,
     onTransferClick: () -> Unit,
     assetTransfers: List<AssetTransferDto>,
     confirmations: List<AssetConfirmationResponseDto>,
@@ -692,7 +712,8 @@ fun AssetDetailsContent(
                                 editState = editState,
                                 onEditStateChange = onEditStateChange,
                                 onNavigateToParent = onNavigateToParent,
-                                onNextServiceClick = onNextServiceClick
+                                onNextServiceClick = onNextServiceClick,
+                                onNextCheckClick = onNextCheckClick
                             )
 
                             1 -> UsersTab(
@@ -881,7 +902,8 @@ fun MainInfoTab(
     editState: AssetEditState?,
     onEditStateChange: (AssetEditState) -> Unit,
     onNavigateToParent: (Int) -> Unit,
-    onNextServiceClick: (() -> Unit)?
+    onNextServiceClick: (() -> Unit)?,
+    onNextCheckClick: (() -> Unit)?
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -949,7 +971,7 @@ fun MainInfoTab(
                 isEditing = isEditing,
                 editState = editState,
                 onEditStateChange = onEditStateChange,
-                onNextServiceClick = onNextServiceClick
+                onNextCheckClick = onNextCheckClick
             )
         }
         item {
@@ -1029,48 +1051,119 @@ fun UsersTab(
         } else {
             // ОБЫЧНЫЙ КОНТЕНТ
 
-            // Кнопка «Передать актив» — только если мы владелец
-            if (!isEditing && isCurrentUserOwner) {
-                item {
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = onTransferClick,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Передать актив",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
-            }
+//            // Кнопка "Передать актив" — только если мы владелец
+//            if (!isEditing && isCurrentUserOwner) {
+//                item {
+//                    Spacer(Modifier.height(8.dp))
+//                    Button(
+//                        onClick = onTransferClick,
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .height(56.dp),
+//                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+//                    ) {
+//                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+//                        Spacer(Modifier.width(8.dp))
+//                        Text(
+//                            "Передать актив",
+//                            style = MaterialTheme.typography.bodyLarge,
+//                            fontWeight = FontWeight.SemiBold
+//                        )
+//                    }
+//                    Spacer(Modifier.height(16.dp))
+//                }
+//            }
+//
+//            // Кнопка "Подтвердить наличие актива"
+//            if (!isEditing && lastConfirmation != null && lastConfirmation.status == "pending") {
+//                item {
+//                    Spacer(Modifier.height(8.dp))
+//                    Button(
+//                        onClick = onConformationClick,
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .height(56.dp),
+//                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+//                    ) {
+//                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+//                        Spacer(Modifier.width(8.dp))
+//                        Text(
+//                            "Подтвердить наличие актива",
+//                            style = MaterialTheme.typography.bodyLarge,
+//                            fontWeight = FontWeight.SemiBold
+//                        )
+//                    }
+//                    Spacer(Modifier.height(16.dp))
+//                }
+//            }
 
-            if (!isEditing && lastConfirmation != null && lastConfirmation.status == "pending") {
+            // === Карточка «Управление» — все действия с людьми ===
+            val hasPendingConfirmation = !isEditing &&
+                    lastConfirmation != null &&
+                    lastConfirmation.status.equals("pending", ignoreCase = true)
+
+            val showActionsCard = !isEditing && (isCurrentUserOwner || hasPendingConfirmation)
+
+            if (showActionsCard) {
                 item {
-                    Spacer(Modifier.height(8.dp))
-                    Button(
-                        onClick = onConformationClick,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Подтвердить наличие актива",
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Кнопка «Подтвердить наличие актива» — только если есть pending
+                            if (hasPendingConfirmation) {
+                                Button(
+                                    onClick = onConformationClick,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.FactCheck, null, Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Подтвердить наличие",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+
+                            // Кнопка «Передать актив» — только если мы владелец
+                            if (isCurrentUserOwner) {
+                                Button(
+                                    onClick = onTransferClick,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(52.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    ),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.Send, null, Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        "Передать актив",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            // Если ни одно условие не сработало — не рендерим карточку (showActionsCard = false)
+                        }
                     }
-                    Spacer(Modifier.height(16.dp))
+                    Spacer(Modifier.height(12.dp))
                 }
             }
 
@@ -1338,6 +1431,7 @@ fun ReadOnlyInfoSection(asset: AssetResponseDto, onNavigateToParent: (Int) -> Un
     InfoSectionCard(icon = Icons.Default.Info, title = "Основная информация") {
         InfoRow(label = "Название", value = asset.name)
         InfoRow(label = "Инв. номер", value = asset.inventoryId)
+        InfoRow(label = "Номер SAP", value = asset.materialId)
         InfoRow(label = "Серийный номер", value = asset.serialNumber)
         InfoRow(label = "Тип", value = asset.assetTypeName)
         InfoRow(label = "Модель", value = asset.modelName)
@@ -1416,6 +1510,13 @@ fun EditableInfoSection(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
+        OutlinedTextField(
+            value = editState.materialId ?: "",
+            onValueChange = { onEditStateChange(editState.copy(materialId = it)) },
+            label = { Text("Номер SAP") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = editState.serialNumber ?: "",
@@ -1489,19 +1590,43 @@ fun DepartmentFromCard(
 ) {
     InfoSectionCard(icon = Icons.Default.Business, title = "Ответственное МВЗ") {
         if (!isEditing) {
-            if (name?.startsWith("#") ?: false) {
-                Text("Удален", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            val isDeleted = name?.startsWith("#") == true
+
+            if (!isDeleted) {
+                Text(
+                    text = name?.takeIf { it.isNotBlank() } ?: "Без названия",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             } else {
-                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall)
-                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Удален",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = name.takeIf { it.isNotBlank() } ?: "Без названия",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         } else {
             var expanded by remember { mutableStateOf(false) }
             val currentCode = editState?.costCenterCodeFrom ?: code
-            val displayText = mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
-                ?: (if (currentCode.isNullOrEmpty()) "Выберите МВЗ" else "Неизвестный МВЗ ($currentCode)")
+            val displayText = if (currentCode.isNullOrBlank()) {
+                "Выберите МВЗ"
+            } else {
+                mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
+                    ?: "Неизвестный МВЗ ($currentCode)"
+            }
 
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -1526,16 +1651,25 @@ fun DepartmentFromCard(
                         DropdownMenuItem(
                             text = {
                                 Column {
-                                    Text(dept.departmentName ?: "", style = MaterialTheme.typography.bodyMedium)
-                                    Text(dept.departmentCode ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = dept.departmentName?.takeIf { it.isNotBlank() }
+                                            ?: "Без названия",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = dept.departmentCode?.takeIf { it.isNotBlank() }
+                                            ?: "Без кода",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             },
                             onClick = {
                                 editState?.let { state ->
                                     onEditStateChange(
                                         state.copy(
-                                            costCenterCodeFrom = dept.departmentCode,
-                                            costCenterNameFrom = dept.departmentName
+                                            costCenterCodeFrom = dept.departmentCode ?: "",
+                                            costCenterNameFrom = dept.departmentName ?: ""
                                         )
                                     )
                                 }
@@ -1561,19 +1695,43 @@ fun DepartmentToCard(
 ) {
     InfoSectionCard(icon = Icons.Default.AccountTree, title = "МВЗ Пользователь") {
         if (!isEditing) {
-            if (name?.startsWith("#") ?: false) {
-                Text("Удален", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+            val isDeleted = name?.startsWith("#") == true
+
+            if (!isDeleted) {
+                Text(
+                    text = name?.takeIf { it.isNotBlank() } ?: "Без названия",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
+                    style = MaterialTheme.typography.bodySmall,
+                )
             } else {
-                Text(name ?: "Без названия", style = MaterialTheme.typography.bodySmall)
-                Text(code ?: "Без кода", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "Удален",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = name.takeIf { it.isNotBlank() } ?: "Без названия",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         } else {
             var expanded by remember { mutableStateOf(false) }
             val currentCode = editState?.costCenterCode ?: code
-            val displayText = mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
-                ?: (if (currentCode.isNullOrEmpty()) "Выберите МВЗ" else "Неизвестный МВЗ ($currentCode)")
+            val displayText = if (currentCode.isNullOrBlank()) {
+                "Выберите МВЗ"
+            } else {
+                mvzDepartments.find { it.departmentCode == currentCode }?.departmentName
+                    ?: "Неизвестный МВЗ ($currentCode)"
+            }
 
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -1598,16 +1756,25 @@ fun DepartmentToCard(
                         DropdownMenuItem(
                             text = {
                                 Column {
-                                    Text(dept.departmentName ?: "", style = MaterialTheme.typography.bodyMedium)
-                                    Text(dept.departmentCode ?: "", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text(
+                                        text = dept.departmentName?.takeIf { it.isNotBlank() }
+                                            ?: "Без названия",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        text = dept.departmentCode?.takeIf { it.isNotBlank() }
+                                            ?: "Без кода",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                             },
                             onClick = {
                                 editState?.let { state ->
                                     onEditStateChange(
                                         state.copy(
-                                            costCenterCode = dept.departmentCode,
-                                            costCenterName = dept.departmentName
+                                            costCenterCode = dept.departmentCode ?: "",
+                                            costCenterName = dept.departmentName ?: ""
                                         )
                                     )
                                 }
@@ -1760,12 +1927,6 @@ fun ServiceCard(
 ) {
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
-//            InfoRow(
-//                label = "Еженедельная проверка",
-//                value = if ((editState?.everyWeekCheck
-//                        ?: asset.everyWeekCheck) == true
-//                ) "Да" else "Нет"
-//            )
             InfoRow(
                 label = "Следующая обслуживание",
                 value = asset.nextService?.formatIsoToReadable()
@@ -1775,26 +1936,6 @@ fun ServiceCard(
                 value = (editState?.servicePeriod ?: asset.servicePeriod)?.toString()
             )
         } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "Еженедельная проверка",
-                    style = MaterialTheme.typography.labelMedium
-                )
-                val currentCheck = editState?.everyWeekCheck ?: asset.everyWeekCheck ?: false
-                Switch(
-                    checked = currentCheck,
-                    onCheckedChange = { newValue ->
-                        editState?.let { state ->
-                            onEditStateChange(state.copy(everyWeekCheck = newValue))
-                        }
-                    }
-                )
-            }
-            Spacer(Modifier.height(8.dp))
             OutlinedTextField(
                 value = editState?.nextService ?: asset.nextService ?: "",
                 onValueChange = { },
@@ -1840,7 +1981,7 @@ fun CheckCard(
     isEditing: Boolean,
     editState: AssetEditState?,
     onEditStateChange: (AssetEditState) -> Unit,
-    onNextServiceClick: (() -> Unit)?
+    onNextCheckClick: (() -> Unit)?
 ) {
     InfoSectionCard(icon = Icons.Default.LibraryAddCheck, title = "Проверка") {
         if (!isEditing) {
@@ -1854,16 +1995,16 @@ fun CheckCard(
             )
         } else {
             OutlinedTextField(
-                value = editState?.nextService ?: asset.nextService ?: "",
+                value = editState?.nextCheck ?: asset.nextCheck ?: "",
                 onValueChange = { },
                 label = { Text("След. обслуживание") },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onNextServiceClick?.invoke() },
+                    .clickable { onNextCheckClick?.invoke() },
                 readOnly = true,
                 placeholder = { Text("ДД.ММ.ГГГГ") },
                 trailingIcon = {
-                    IconButton(onClick = { onNextServiceClick?.invoke() }) {
+                    IconButton(onClick = { onNextCheckClick?.invoke() }) {
                         Icon(Icons.Default.CalendarToday, "Выбрать дату")
                     }
                 },
@@ -1871,14 +2012,14 @@ fun CheckCard(
             )
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
-                value = (editState?.servicePeriod ?: asset.servicePeriod ?: 0).toString(),
+                value = (editState?.checkPeriod ?: asset.checkPeriod ?: 0).toString(),
                 onValueChange = { input ->
-                    val current = editState?.servicePeriod ?: asset.servicePeriod ?: 0
+                    val current = editState?.checkPeriod ?: asset.checkPeriod ?: 0
                     val period = if (current == 0 && input.isNotEmpty() && input != "0") {
                         input.toIntOrNull() ?: 0
                     } else input.toIntOrNull() ?: 0
                     editState?.let { state ->
-                        onEditStateChange(state.copy(servicePeriod = period))
+                        onEditStateChange(state.copy(checkPeriod = period))
                     }
                 },
                 label = { Text("Период (дни)") },
@@ -1899,6 +2040,7 @@ fun UsersSection(
     icon: ImageVector,
     color: Color = MaterialTheme.colorScheme.surfaceVariant,
     isEditing: Boolean = false,
+    initiallyExpanded: Boolean = false,
     onAddUser: ((UserType) -> Unit)? = null,
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)? = null
 ) {
@@ -1910,7 +2052,19 @@ fun UsersSection(
         else -> UserType.USER
     }
 
-    InfoSectionCard(icon = icon, title = title) {
+    val count = users?.size ?: 0
+
+    CollapsibleSectionCard(
+        icon = icon,
+        title = title,
+        subtitle = if (count > 0) {
+            "$count ${pluralize(count, "сотрудник", "сотрудника", "сотрудников")}"
+        } else if (isEditing) {
+            "Нет сотрудников"
+        } else null,
+        initiallyExpanded = initiallyExpanded
+    ) {
+        // Список пользователей
         users?.forEach { user ->
             ExpandableUserCard(
                 user = user,
@@ -1922,17 +2076,31 @@ fun UsersSection(
                 } else null
             )
         }
+
+        // Кнопка «Добавить» — только в режиме редактирования
         if (onAddUser != null && isEditing) {
             Spacer(Modifier.height(8.dp))
             OutlinedButton(
                 onClick = { onAddUser(userType) },
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
             ) {
                 Icon(Icons.Default.Add, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text("Добавить")
             }
+        }
+
+        // Если в режиме редактирования и список пуст — показать подсказку
+        if (isEditing && users.isNullOrEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Сотрудники не назначены. Нажмите «Добавить», чтобы добавить.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -2060,9 +2228,18 @@ private fun AssetTransfersSection(
     onCancelTransfer: (Int) -> Unit,
     onRespondTransfer: (AssetTransferDto) -> Unit
 ) {
-    InfoSectionCard(
+    // Считаем сколько ещё «в ожидании» — покажем в шапке
+    val pendingCount = transfers.count { it.status.equals("PENDING", ignoreCase = true) }
+
+    CollapsibleSectionCard(
         icon = Icons.Default.SwapHoriz,
-        title = "История передач"
+        title = "История передач",
+        subtitle = buildString {
+            append("${transfers.size} ")
+            append(pluralize(transfers.size, "запись", "записи", "записей"))
+            if (pendingCount > 0) append(" · $pendingCount в ожидании")
+        },
+        initiallyExpanded = false
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -2326,10 +2503,20 @@ private fun AssetTransferCard(
 private fun AssetConfirmationsSection(
     confirmations: List<AssetConfirmationResponseDto>
 ) {
-    // Если пусто - ничего не рендерим (требование ТЗ)
     if (confirmations.isEmpty()) return
 
-    InfoSectionCard(icon = Icons.Default.VerifiedUser, title = "Подтверждения актива") {
+    val pendingCount = confirmations.count { it.status.equals("pending", ignoreCase = true) }
+
+    CollapsibleSectionCard(
+        icon = Icons.Default.VerifiedUser,
+        title = "Подтверждения наличия",
+        subtitle = buildString {
+            append("${confirmations.size} ")
+            append(pluralize(confirmations.size, "запись", "записи", "записей"))
+            if (pendingCount > 0) append(" · $pendingCount в ожидании")
+        },
+        initiallyExpanded = false
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -2337,13 +2524,6 @@ private fun AssetConfirmationsSection(
             confirmations.forEach { confirmation ->
                 ConfirmationCard(confirmation = confirmation)
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Всего записей: ${confirmations.size}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.align(Alignment.End)
-            )
         }
     }
 }
@@ -2841,299 +3021,59 @@ fun TransferActionDialog(
     )
 }
 
-// ================= ДИАЛОГ ПОДТВЕРЖДЕНИЯ НАЛИЧИЯ =================
-//@OptIn(ExperimentalMaterial3Api::class)
-//@Composable
-//fun ConfirmAssetDialog(
-//    asset: AssetResponseDto,
-//    scannerManager: ScannerManager,
-//    cameraScanEnabled: Boolean,
-//    isLoading: Boolean = false,
-//    onDismiss: () -> Unit,
-//    onConfirm: (status: String, comment: String?) -> Unit,
-//) {
-//    // "not_found" | "damaged" | "confirmed"
-//    var selectedStatus by remember { mutableStateOf("") }
-//    var comment by remember { mutableStateOf("") }
-//
-//    // Результат сканирования
-//    var scannedValue by remember { mutableStateOf<String?>(null) }
-//    var scanError by remember { mutableStateOf<String?>(null) }
-//
-//    // Совпадает ли скан с инвентарным или серийным номером
-//    val isScanMatched = remember(scannedValue, asset) {
-//        val code = scannedValue?.trim()?.takeIf { it.isNotEmpty() } ?: return@remember false
-//        code.equals(asset.inventoryId, ignoreCase = true) ||
-//                code.equals(asset.serialNumber, ignoreCase = true)
-//    }
-//
-//    // Комментарий обязателен для not_found / damaged
-//    val isCommentRequired = selectedStatus == "not_found" || selectedStatus == "damaged"
-//    val isCommentValid = !isCommentRequired || comment.isNotBlank()
-//
-//    // Кнопка "Подтвердить" активна только если:
-//    // - выбран not_found / damaged (комментарий валиден)
-//    // - или выбран confirmed И скан совпал
-//    val isConfirmEnabled = when (selectedStatus) {
-//        "confirmed" -> isScanMatched
-//        "not_found", "damaged" -> isCommentValid
-//        else -> false
-//    }
-//
-//    var showCameraDialog by remember { mutableStateOf(false) }
-//
-//    // Функция обработки отсканированного значения
-//    fun handleScanned(raw: String) {
-//        if (raw.isBlank()) return
-//        val code = raw.trim()
-//        scannedValue = code
-//        val matches = code.equals(asset.inventoryId, ignoreCase = true) ||
-//                code.equals(asset.serialNumber, ignoreCase = true)
-//        scanError = if (matches) null
-//        else "Код '$code' не совпадает с инвентарным или серийным номером"
-//        if (matches) {
-//            selectedStatus = "confirmed"
-//            comment = ""
-//        }
-//    }
-//
-//    if (showCameraDialog) {
-//        CameraScannerDialog(
-//            onDismiss = { showCameraDialog = false },
-//            onBarcodeDetected = { scannedCode ->
-//                handleScanned(scannedCode)
-//                showCameraDialog = false
-//            }
-//        )
-//    }
-//
-//    // Слушаем сканер, пока диалог открыт
-//    LaunchedEffect(Unit) {
-//        scannerManager.barcodeFlow.collect { scannedCode ->
-//            handleScanned(scannedCode)
-//        }
-//    }
-//
-//    val bringIntoViewRequester = remember { BringIntoViewRequester() }
-//    val scope = rememberCoroutineScope()
-//
-//    AlertDialog(
-//        onDismissRequest = { if (!isLoading) onDismiss() },
-//        properties = DialogProperties(
-//            usePlatformDefaultWidth = false,
-//            dismissOnBackPress = !isLoading,
-//            dismissOnClickOutside = !isLoading
-//        ),
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .padding(horizontal = 16.dp)
-//            .imePadding(),
-//        title = {
-//            Row(verticalAlignment = Alignment.CenterVertically) {
-//                Icon(
-//                    Icons.Default.FactCheck,
-//                    contentDescription = null,
-//                    tint = MaterialTheme.colorScheme.primary,
-//                    modifier = Modifier.size(22.dp)
-//                )
-//                Spacer(Modifier.width(8.dp))
-//                Text(
-//                    "Подтверждение наличия",
-//                    style = MaterialTheme.typography.titleMedium,
-//                    fontWeight = FontWeight.SemiBold
-//                )
-//            }
-//        },
-//        text = {
-//            Column(
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//                    .verticalScroll(rememberScrollState()),
-//                verticalArrangement = Arrangement.spacedBy(10.dp)
-//            ) {
-//                // === Карточка актива ===
-//                Surface(
-//                    shape = RoundedCornerShape(8.dp),
-//                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-//                    modifier = Modifier.fillMaxWidth()
-//                ) {
-//                    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-//                        Text(
-//                            asset.name,
-//                            style = MaterialTheme.typography.bodyMedium,
-//                            fontWeight = FontWeight.SemiBold,
-//                            maxLines = 1,
-//                            overflow = TextOverflow.Ellipsis
-//                        )
-//                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-//                            Text(
-//                                "Инв: ${asset.inventoryId ?: "—"}",
-//                                style = MaterialTheme.typography.labelSmall,
-//                                color = MaterialTheme.colorScheme.onSurfaceVariant
-//                            )
-//                            asset.serialNumber?.takeIf { it.isNotBlank() }?.let { serial ->
-//                                Text(
-//                                    "SN: $serial",
-//                                    style = MaterialTheme.typography.labelSmall,
-//                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-//                                    maxLines = 1,
-//                                    overflow = TextOverflow.Ellipsis
-//                                )
-//                            }
-//                        }
-//                    }
-//                }
-//
-//                // === Статусы ===
-//                // 1) Не найден
-//                ConfirmStatusChip(
-//                    label = "Не найден",
-//                    selected = selectedStatus == "not_found",
-//                    color = MaterialTheme.colorScheme.error,
-//                    icon = Icons.Default.SearchOff,
-//                    enabled = !isLoading,
-//                    onClick = {
-//                        selectedStatus = "not_found"
-//                        scannedValue = null
-//                        scanError = null
-//                    }
-//                )
-//
-//                // 2) Повреждён
-//                ConfirmStatusChip(
-//                    label = "Повреждён",
-//                    selected = selectedStatus == "damaged",
-//                    color = MaterialTheme.colorScheme.tertiary,
-//                    icon = Icons.Default.Warning,
-//                    enabled = !isLoading,
-//                    onClick = {
-//                        selectedStatus = "damaged"
-//                        scannedValue = null
-//                        scanError = null
-//                    }
-//                )
-//
-//                // 3) Подтверждён — только через скан
-//                ConfirmStatusChip(
-//                    label = if (isScanMatched) "Подтверждён (отсканирован)"
-//                    else "Подтверждён (отсканируйте код)",
-//                    selected = selectedStatus == "confirmed" && isScanMatched,
-//                    color = MaterialTheme.colorScheme.primary,
-//                    icon = if (isScanMatched) Icons.Default.CheckCircle else Icons.Default.QrCodeScanner,
-//                    enabled = false,   // нельзя выбрать вручную
-//                    onClick = { }
-//                )
-//
-//                // === Блок сканирования ===
-//                if (selectedStatus == "confirmed" || scannedValue != null || scanError != null) {
-//                    ScanResultBlock(
-//                        scannedValue = scannedValue,
-//                        isMatched = isScanMatched,
-//                        error = scanError,
-//                        expectedInventoryId = asset.inventoryId,
-//                        expectedSerialNumber = asset.serialNumber
-//                    )
-//                } else {
-//                    // Подсказка, что для confirmed надо сканировать
-//                    Surface(
-//                        shape = RoundedCornerShape(8.dp),
-//                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-//                        modifier = Modifier.fillMaxWidth()
-//                    ) {
-//                        Row(
-//                            modifier = Modifier.padding(10.dp),
-//                            verticalAlignment = Alignment.CenterVertically
-//                        ) {
-//                            Icon(
-//                                Icons.Default.QrCodeScanner,
-//                                contentDescription = null,
-//                                tint = MaterialTheme.colorScheme.primary,
-//                                modifier = Modifier.size(18.dp)
-//                            )
-//                            Spacer(Modifier.width(8.dp))
-//                            Text(
-//                                "Чтобы поставить «Подтверждён», отсканируйте QR/штрихкод актива",
-//                                style = MaterialTheme.typography.labelSmall,
-//                                color = MaterialTheme.colorScheme.onPrimaryContainer
-//                            )
-//                        }
-//                    }
-//                }
-//
-//                // === Комментарий (для not_found / damaged) ===
-//                AnimatedVisibility(
-//                    visible = isCommentRequired,
-//                    enter = expandVertically() + fadeIn(),
-//                    exit = shrinkVertically() + fadeOut()
-//                ) {
-//                    androidx.compose.animation.AnimatedVisibility(
-//                        visible = isCommentRequired && selectedStatus != "pending",
-//                        enter = expandVertically() + fadeIn(),
-//                        exit = shrinkVertically() + fadeOut()
-//                    ) {
-//                        OutlinedTextField(
-//                            value = comment,
-//                            onValueChange = { comment = it },
-//                            label = { Text("Причина") },
-//                            placeholder = { Text("Опишите причину") },
-//                            modifier = Modifier.fillMaxWidth(),
-//                            enabled = !isLoading,
-//                            minLines = 2,
-//                            maxLines = 3,
-//                            isError = comment.isBlank(),
-//                            textStyle = MaterialTheme.typography.bodySmall
-//                        )
-//                    }
-//                }
-//            }
-//        },
-//        confirmButton = {
-//            Button(
-//                onClick = {
-//                    onConfirm(selectedStatus, comment.takeIf { it.isNotBlank() })
-//                },
-//                enabled = !isLoading && isConfirmEnabled,
-//                modifier = Modifier.height(40.dp),
-//                contentPadding = PaddingValues(horizontal = 16.dp),
-//                colors = ButtonDefaults.buttonColors(
-//                    containerColor = when (selectedStatus) {
-//                        "not_found" -> MaterialTheme.colorScheme.error
-//                        "damaged" -> MaterialTheme.colorScheme.tertiary
-//                        else -> MaterialTheme.colorScheme.primary
-//                    }
-//                )
-//            ) {
-//                if (isLoading) {
-//                    CircularProgressIndicator(
-//                        Modifier.size(14.dp),
-//                        strokeWidth = 2.dp,
-//                        color = MaterialTheme.colorScheme.onPrimary
-//                    )
-//                    Spacer(Modifier.width(6.dp))
-//                }
-//                Text(
-//                    text = when (selectedStatus) {
-//                        "not_found" -> "Не найден"
-//                        "damaged" -> "Повреждён"
-//                        "confirmed" -> "Подтвердить"
-//                        else -> "Выберите статус"
-//                    },
-//                    style = MaterialTheme.typography.labelLarge
-//                )
-//            }
-//        },
-//        dismissButton = {
-//            TextButton(
-//                onClick = onDismiss,
-//                enabled = !isLoading,
-//                modifier = Modifier.height(40.dp)
-//            ) {
-//                Text("Отмена", style = MaterialTheme.typography.labelLarge)
-//            }
-//        }
-//    )
-//}
+@Composable
+fun CollapsibleSectionCard(
+    icon: ImageVector,
+    title: String,
+    subtitle: String? = null,
+    initiallyExpanded: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var expanded by rememberSaveable(title) { mutableStateOf(initiallyExpanded) }
 
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    subtitle?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Свернуть" else "Развернуть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            AnimatedVisibility(
+                visible = expanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column {
+                    Spacer(Modifier.height(12.dp))
+                    content()
+                }
+            }
+        }
+    }
+}
+
+// ================= ДИАЛОГ ПОДТВЕРЖДЕНИЯ НАЛИЧИЯ =================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfirmAssetDialog(
@@ -3623,6 +3563,18 @@ private fun StatusRadioOption(
         }
     }
 }
+
+// Хелпер для раскрытия/скрытия карточек
+private fun pluralize(count: Int, one: String, few: String, many: String): String {
+    val mod10 = count % 10
+    val mod100 = count % 100
+    return when {
+        mod10 == 1 && mod100 != 11 -> one
+        mod10 in 2..4 && mod100 !in 12..14 -> few
+        else -> many
+    }
+}
+
 
 // ================= PREVIEWS =================
 @Preview(
@@ -4124,10 +4076,10 @@ fun getSampleAsset(): AssetResponseDto {
         costCenterCodeFrom = "RU01050007",
         costCenterNameFrom = "#Отдел поддержки базовых сервисов",
         costCenterShortnameFrom = "BSSS",
-//        costCenterCode = "RU01860089",
-//        costCenterName = "Департамент производ систем трансмис TM",
-        costCenterCode = null,
-        costCenterName = null,
+//        costCenterCodeFrom = "",
+//        costCenterNameFrom = "",
+        costCenterCode = "",
+        costCenterName = "",
         costCenterShortname = "TM",
     )
 }

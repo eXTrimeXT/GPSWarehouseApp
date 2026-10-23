@@ -343,11 +343,24 @@ class AssetViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AssetUiState.Loading
             try {
-                val updated = assetApiService.updateAsset("Bearer ${getToken()}", assetId, update)
+                val updated = assetApiService.updateAssetByAssetId("Bearer ${getToken()}", assetId, update)
                 _uiState.value = AssetUiState.AssetDetailsLoaded(updated)
-                loadAssetDetails(assetId)
+                loadAssetDetails(updated.assetId)
             } catch (e: Exception) {
                 _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка обновления")
+            }
+        }
+    }
+    // Обновление актива
+    fun upsertAsset(update: AssetUpdate) {
+        viewModelScope.launch {
+            _uiState.value = AssetUiState.Loading
+            try {
+                val updated = assetApiService.updateAssetByMaterialId("Bearer ${getToken()}", update)
+                _uiState.value = AssetUiState.AssetDetailsLoaded(updated)
+                loadAssetDetails(updated.assetId)
+            } catch (e: Exception) {
+                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка создания-обновления")
             }
         }
     }
@@ -446,17 +459,21 @@ class AssetViewModel @Inject constructor(
     suspend fun findAssetByScanValue(scannedValue: String): Pair<AssetResponseDto?, String> {
         return try {
             // === Пробуем поиск по СЕРИЙНОМУ номеру ===
-            Log.d("AssetViewModel", "Поиск по serialNumber: $scannedValue")
+            var currentSerialNumber = scannedValue
+            // F2717NBP45 02103193
+            // 0000000000 02103193
+            if (currentSerialNumber.length > 18) currentSerialNumber = scannedValue.takeLast(18)
+            Log.d("AssetViewModel", "Поиск по serialNumber: $currentSerialNumber")
             val bySerial = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
-                serialNumber = scannedValue,
+                serialNumber = currentSerialNumber,
                 page = 1,
                 pageSize = 1
             )
             bySerial.items.firstOrNull()?.let {
                 // Если нашли по серийнику, возвращаем его и исходное значение
                 Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
-                return Pair(it, scannedValue)
+                return Pair(it, currentSerialNumber)
             }
 
             // === Если не нашли, пробуем поиск по ИНВЕНТАРНОМУ номеру ===
@@ -905,7 +922,7 @@ class AssetViewModel @Inject constructor(
                 onSuccess(response)
 
                 // Перезагружаем детали актива после успешной передачи
-                loadAssetDetails(assetId = assetId)
+                loadAssetDetails(assetId = response.asset.assetId)
 
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка передачи актива"

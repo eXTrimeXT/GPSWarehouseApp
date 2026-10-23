@@ -185,9 +185,15 @@ interface AssetApiService {
 
     // Обновление актива
     @PATCH("assets/{assetId}")
-    suspend fun updateAsset(
+    suspend fun updateAssetByAssetId(
         @Header("Authorization") token: String,
         @Path("assetId") assetId: Int,
+        @Body update: AssetUpdate
+    ): AssetResponseDto
+
+    @POST("assets/")
+    suspend fun updateAssetByMaterialId(
+        @Header("Authorization") token: String,
         @Body update: AssetUpdate
     ): AssetResponseDto
 
