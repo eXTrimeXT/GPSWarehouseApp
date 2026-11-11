@@ -180,7 +180,7 @@ fun WarehouseMaterialsContent(
                     val storageMatch = selectedStorage == null || mat.storage == selectedStorage
                     val query = searchQuery.lowercase()
                     val searchMatch = query.isEmpty() ||
-                            mat.material.lowercase().contains(query) ||
+                            mat.material?.lowercase()?.contains(query) == true ||
                             (mat.name?.lowercase()?.contains(query) ?: false)
                     storageMatch && searchMatch
                 }
@@ -226,7 +226,7 @@ fun WarehouseMaterialsContent(
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Text(
-                                            text = mat.material,
+                                            text = mat.material ?: "null",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold
                                         )
