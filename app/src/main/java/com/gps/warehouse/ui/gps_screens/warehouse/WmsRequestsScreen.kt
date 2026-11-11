@@ -520,9 +520,9 @@ fun WmsRequestActionDialog(
                     onClick = { onConfirm("cancel") },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) { Text("Отклонить") }
-                if (request.isIncoming == "1") {
+//                if (request.isIncoming == "1") {
                     Button(onClick = { onConfirm("accept") }) { Text("Принять") }
-                }
+//                }
             }
         },
         dismissButton = {
@@ -609,7 +609,7 @@ fun ConfirmWmsRequestActionDialog(
                 }
                 if (!isAccept) {
                     Text(
-                        text = "Отклонение необратимо. Запрос будет закрыт без навсегда.",
+                        text = "Отклонение необратимо. Запрос будет закрыт навсегда!",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -690,4 +690,20 @@ fun WmsRequestsPreviewWithFilters() {
             )
         }
     }
+}
+
+
+@Preview
+@Composable
+fun WmsRequestActionDialogPreview(){
+    WmsRequestActionDialog(
+        request = WmsRequestDto(
+            id = "34", fromId = "gw07015370", userAccept = null,
+            material = "TEST-MAT", fromStorage = "BUFF", toStorage = "ARCHIVE",
+            qty = "1", name = "Тестовый материал", isActive = "1",
+            type = "stock", isIncoming = "0"
+        ),
+        onConfirm = {},
+        onDismiss = {}
+    )
 }
