@@ -603,13 +603,84 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    fun loadInventorizationItems(sessionId: Int) {
+//    fun loadInventorizationItems(
+//        sessionId: Int,
+//        materialId: String? = null,
+//        name: String? = null,
+//        serialNumber: String? = null,
+//        inventoryId: String? = null,
+//        isChecked: String? = null,
+//    ) {
+//        viewModelScope.launch {
+//            val cachedItems = localStorage.getCachedInventoryItems(sessionId)
+//
+//            if (cachedItems.isNotEmpty()) {
+//                _inventorizationItems.value = cachedItems
+//                _uiState.value = AssetUiState.InventorizationItemsLoaded(cachedItems, sessionId)
+//            }
+//
+//            if (!networkMonitor.isCurrentlyConnected()) {
+//                if (cachedItems.isEmpty()) {
+//                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+//                }
+//                return@launch
+//            }
+//
+//            try {
+//                val response = assetApiService.getInventorizationSessionItems(
+//                    token = "Bearer ${getToken()}",
+//                    sessionId = sessionId,
+//                    page = 1,
+//                    pageSize = 100,
+//                    materialId = materialId,
+//                    name = name,
+//                    serialNumber = serialNumber,
+//                    inventoryId = inventoryId,
+//                    isChecked = isChecked,
+//                )
+//                _inventorizationItems.value = response.items
+//                localStorage.saveInventoryItemsCache(sessionId, response.items)
+//                _uiState.value = AssetUiState.InventorizationItemsLoaded(response.items, sessionId)
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Ошибка загрузки элементов инвентаризации (используем кэш)", e)
+//                if (cachedItems.isEmpty()) {
+//                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
+//                }
+//            }
+//        }
+//    }
+
+    fun loadInventorizationItems(
+        sessionId: Int,
+        page: Int = 1,
+        pageSize: Int = 50,
+        materialId: String? = null,
+        name: String? = null,
+        serialNumber: String? = null,
+        inventoryId: String? = null,
+        isChecked: String? = null,
+        append: Boolean = false,
+        showCacheOnStart: Boolean = true,   // показывать кэш только при первом открытии без фильтров
+    ) {
         viewModelScope.launch {
-            val cachedItems = localStorage.getCachedInventoryItems(sessionId)
+            val hasFilters = !name.isNullOrBlank() ||
+                    !inventoryId.isNullOrBlank() ||
+                    !serialNumber.isNullOrBlank() ||
+                    !materialId.isNullOrBlank() ||
+                    !isChecked.isNullOrBlank()
+
+            // Кэш показываем только если это первая загрузка без фильтров
+            val cachedItems = if (showCacheOnStart && page == 1 && !append && !hasFilters) {
+                localStorage.getCachedInventoryItems(sessionId)
+            } else {
+                emptyList()
+            }
 
             if (cachedItems.isNotEmpty()) {
                 _inventorizationItems.value = cachedItems
                 _uiState.value = AssetUiState.InventorizationItemsLoaded(cachedItems, sessionId)
+            } else if (page == 1 && !append) {
+                _uiState.value = AssetUiState.Loading
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
@@ -620,13 +691,38 @@ class AssetViewModel @Inject constructor(
             }
 
             try {
-                val response = assetApiService.getInventorizationSessionItems("Bearer ${getToken()}", sessionId)
-                _inventorizationItems.value = response.items
-                localStorage.saveInventoryItemsCache(sessionId, response.items)
-                _uiState.value = AssetUiState.InventorizationItemsLoaded(response.items, sessionId)
+                val response = assetApiService.getInventorizationSessionItems(
+                    token = "Bearer ${getToken()}",
+                    sessionId = sessionId,
+                    page = page,
+                    pageSize = pageSize,
+                    materialId = materialId?.takeIf { it.isNotBlank() },
+                    name = name?.takeIf { it.isNotBlank() },
+                    serialNumber = serialNumber?.takeIf { it.isNotBlank() },
+                    inventoryId = inventoryId?.takeIf { it.isNotBlank() },
+                    isChecked = isChecked?.takeIf { it.isNotBlank() },
+                )
+
+                // Объединяем с уже загруженными (при append)
+                val currentState = _uiState.value
+                val oldItems = if (append && currentState is AssetUiState.InventorizationItemsLoaded) {
+                    currentState.items
+                } else {
+                    emptyList()
+                }
+
+                val updatedItems = oldItems + response.items
+
+                // Сохраняем в кэш ТОЛЬКО если нет фильтров (чтобы не затереть полный список)
+                if (!hasFilters && page == 1) {
+                    localStorage.saveInventoryItemsCache(sessionId, updatedItems)
+                }
+
+                _inventorizationItems.value = updatedItems
+                _uiState.value = AssetUiState.InventorizationItemsLoaded(updatedItems, sessionId)
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки элементов инвентаризации (используем кэш)", e)
-                if (cachedItems.isEmpty()) {
+                if (cachedItems.isEmpty() && page == 1 && !append) {
                     _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
                 }
             }

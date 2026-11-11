@@ -335,22 +335,18 @@ fun InventoryCheckContent(
                             }
                         }
                     } else {
+                        Text(
+                            text = "Найдено: ${filteredMaterials.size} из ${allMaterials.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
+                        )
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.weight(1f),
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            item {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Найдено: ${filteredMaterials.size} из ${allMaterials.size}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.align(Alignment.End)
-                                )
-                            }
-
                             items(filteredMaterials) { material ->
                                 InventoryMaterialCard(
                                     material = material,

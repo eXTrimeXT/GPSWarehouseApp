@@ -1,16 +1,24 @@
 package com.gps.warehouse.ui.assets_screens.inventory
 
+import android.util.Log
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.style.styleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Inventory
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +52,162 @@ import com.gps.warehouse.utils.ScannerManager
 import com.gps.warehouse.utils.InventoryQrParser // Добавляем импорт
 
 // ==================== SCREEN: Логика + Навигация ====================
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//fun InventorizationItemsScreen(
+//    sessionId: Int,
+//    isCompleted: Boolean,
+//    navController: NavHostController,
+//    assetViewModel: AssetViewModel,
+//    mainViewModel: MainViewModel
+//) {
+//    val uiState by assetViewModel.uiState.collectAsState()
+//    val context = LocalContext.current
+//    val scannerManager = remember { ScannerManager(context) }
+//    val focusManager = LocalFocusManager.current
+//    val quantityFocusRequester = remember { FocusRequester() }
+//
+////    val inventorizationSessions by assetViewModel.inventorizationSessions.collectAsState()
+//
+//    val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
+//    var showCameraDialog by remember { mutableStateOf(false) }
+//    var selectedAsset by remember { mutableStateOf<InventorizationItemDto?>(null) }
+//    var inputQty by remember { mutableStateOf("") }
+//    var showCompleteDialog by remember { mutableStateOf(false) }
+//
+//    // Используем вынесенный парсер
+//    fun processScannedData(scannedData: String) {
+//        if (scannedData.isEmpty()) return
+//
+//        if (isCompleted) {
+//            Toast.makeText(
+//                context,
+//                "Инвентаризация завершена. Изменения невозможны.",
+//                Toast.LENGTH_SHORT
+//            ).show()
+//            return
+//        }
+//
+//        val scannedValue = InventoryQrParser.parseAny(scannedData)
+//
+//        if (scannedValue != null) {
+//            val currentState = uiState
+//            if (currentState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
+//                // Ищем по assetId, materialId, serialNumber или inventoryId
+//                val foundAsset = currentState.items.find {
+//                    (it.assetId != null && it.assetId.toString() == scannedValue) ||
+//                    (it.materialId != null && it.materialId.equals(scannedValue, ignoreCase = true)) ||
+//                    (it.materialId != null && it.materialId.equals("0${scannedValue}0000", ignoreCase = true)) ||
+//                    it.serialNumber.equals(scannedValue, ignoreCase = true) ||
+//                    it.serialNumber.equals(scannedValue.takeLast(18), ignoreCase = true) ||
+//                    it.inventoryId.equals(scannedValue, ignoreCase = true) ||
+//                    it.inventoryId.equals("0$scannedValue", ignoreCase = true) ||
+//                    it.inventoryId.equals("1$scannedValue", ignoreCase = true)
+//                }
+//
+//                if (foundAsset != null) {
+//                    if (selectedAsset?.assetId == foundAsset.assetId && selectedAsset?.materialId == foundAsset.materialId) {
+//                        selectedAsset = null
+//                        focusManager.clearFocus()
+//                    } else {
+//                        selectedAsset = foundAsset
+//                        inputQty = foundAsset.quantityFact?.toString() ?: ""
+//                    }
+//                } else {
+//                    Toast.makeText(
+//                        context,
+//                        "Актив с номером '$scannedValue' не найден в сессии",
+//                        Toast.LENGTH_SHORT
+//                    ).show()
+//                }
+//            } else {
+//                Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
+//            }
+//        } else {
+//            Toast.makeText(context, "Не удалось распознать QR-код", Toast.LENGTH_SHORT).show()
+//        }
+//    }
+//
+//    if (showCameraDialog) {
+//        CameraScannerDialog(
+//            onDismiss = { showCameraDialog = false },
+//            onBarcodeDetected = { scannedCode ->
+//                processScannedData(scannedCode)
+//                showCameraDialog = false
+//            }
+//        )
+//    }
+//
+//    LaunchedEffect(selectedAsset) {
+//        if (selectedAsset != null) {
+//            kotlinx.coroutines.delay(50)
+//            quantityFocusRequester.requestFocus()
+//        }
+//    }
+//
+//    LaunchedEffect(Unit) {
+//        scannerManager.barcodeFlow.collect { scannedData ->
+//            processScannedData(scannedData)
+//        }
+//    }
+//
+//    DisposableEffect(Unit) {
+//        scannerManager.init()
+//        onDispose { scannerManager.release() }
+//    }
+//
+//    LaunchedEffect(sessionId) {
+//        assetViewModel.loadInventorizationSessions()
+//        assetViewModel.loadInventorizationItems(sessionId)
+//    }
+//
+//    InventorizationItemsContent(
+//        sessionId = sessionId,
+//        uiState = uiState,
+//        cameraScanEnabled = cameraScanEnabled,
+//        onCameraScanClick = { showCameraDialog = true },
+//        isCompleted = isCompleted,
+//        selectedAsset = selectedAsset,
+//        inputQty = inputQty,
+//        showCompleteDialog = showCompleteDialog,
+//        quantityFocusRequester = quantityFocusRequester,
+//        onQtyChange = { inputQty = it },
+//        onAssetSelect = { asset ->
+//            if (selectedAsset?.inventorizationId == asset.inventorizationId) {
+//                selectedAsset = null
+//                focusManager.clearFocus()
+//            } else {
+//                selectedAsset = asset
+//                inputQty = asset.quantityFact?.toString() ?: ""
+//            }
+//        },
+//        onConfirmClick = {
+//            selectedAsset?.let { asset ->
+//                val qty = inputQty.toIntOrNull() ?: 0
+//                if (qty >= 0) {
+//                    // Передаем и assetId, и materialId. Бэкенд сам выберет нужный (валидатор API)
+//                    assetViewModel.checkInventorizationItem(
+//                        sessionId = sessionId,
+//                        assetId = asset.assetId,
+//                        materialId = asset.materialId,
+//                        quantityFact = qty
+//                    )
+//                    selectedAsset = null
+//                    focusManager.clearFocus()
+//                }
+//            }
+//        },
+//        onShowCompleteDialogChange = { showCompleteDialog = it },
+//        onCompleteSession = {
+//            assetViewModel.completeInventorizationSession(sessionId)
+//            navController.popBackStack()
+//        },
+//        onDetailsClick = { assetId -> navController.navigate("asset_details/$assetId") },
+//        onRetry = { assetViewModel.loadInventorizationItems(sessionId) },
+//        onBackClick = { navController.popBackStack() }
+//    )
+//}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventorizationItemsScreen(
@@ -59,64 +223,70 @@ fun InventorizationItemsScreen(
     val focusManager = LocalFocusManager.current
     val quantityFocusRequester = remember { FocusRequester() }
 
-//    val inventorizationSessions by assetViewModel.inventorizationSessions.collectAsState()
-
     val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
     var showCameraDialog by remember { mutableStateOf(false) }
     var selectedAsset by remember { mutableStateOf<InventorizationItemDto?>(null) }
     var inputQty by remember { mutableStateOf("") }
     var showCompleteDialog by remember { mutableStateOf(false) }
 
-    // Используем вынесенный парсер
+    // === ФИЛЬТРЫ (как в AssetsByTypeScreen) ===
+    var searchQuery by remember { mutableStateOf("") }
+    var inventoryId by remember { mutableStateOf("") }
+    var serialNumber by remember { mutableStateOf("") }
+    var materialId by remember { mutableStateOf("") }
+    var isCheckedFilter by remember { mutableStateOf<String?>(null) }   // null | "true" | "false"
+    var isFiltersExpanded by remember { mutableStateOf(false) }
+
+    // === ПАГИНАЦИЯ ===
+    var currentPage by remember { mutableIntStateOf(1) }
+    var isRequestInFlight by remember { mutableStateOf(false) }
+    var hasMore by remember { mutableStateOf(false) }
+
+    // === СКАНЕР ===
     fun processScannedData(scannedData: String) {
         if (scannedData.isEmpty()) return
-
         if (isCompleted) {
-            Toast.makeText(
-                context,
-                "Инвентаризация завершена. Изменения невозможны.",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(context, "Инвентаризация завершена. Изменения невозможны.", Toast.LENGTH_SHORT).show()
             return
         }
 
         val scannedValue = InventoryQrParser.parseAny(scannedData)
+        if (scannedValue == null) {
+            Toast.makeText(context, "Не удалось распознать QR-код", Toast.LENGTH_SHORT).show()
+            return
+        }
 
-        if (scannedValue != null) {
-            val currentState = uiState
-            if (currentState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
-                // Ищем по assetId, materialId, serialNumber или inventoryId
-                val foundAsset = currentState.items.find {
-                    (it.assetId != null && it.assetId.toString() == scannedValue) ||
-                    (it.materialId != null && it.materialId.equals(scannedValue, ignoreCase = true)) ||
-                    (it.materialId != null && it.materialId.equals("0${scannedValue}0000", ignoreCase = true)) ||
-                    it.serialNumber.equals(scannedValue, ignoreCase = true) ||
-                    it.serialNumber.equals(scannedValue.takeLast(18), ignoreCase = true) ||
-                    it.inventoryId.equals(scannedValue, ignoreCase = true) ||
-                    it.inventoryId.equals("0$scannedValue", ignoreCase = true) ||
-                    it.inventoryId.equals("1$scannedValue", ignoreCase = true)
-                }
+        val currentState = uiState
+        if (currentState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
+            // Ищем по всем полям в ТЕКУЩЕМ списке (может быть отфильтрован)
+            val foundAsset = currentState.items.find {
+                (it.assetId != null && it.assetId.toString() == scannedValue) ||
+                        (it.materialId != null && it.materialId.equals(scannedValue, ignoreCase = true)) ||
+                        (it.materialId != null && it.materialId.equals("0${scannedValue}0000", ignoreCase = true)) ||
+                        it.serialNumber.equals(scannedValue, ignoreCase = true) ||
+                        it.serialNumber.equals(scannedValue.takeLast(18), ignoreCase = true) ||
+                        it.inventoryId.equals(scannedValue, ignoreCase = true) ||
+                        it.inventoryId.equals("0$scannedValue", ignoreCase = true) ||
+                        it.inventoryId.equals("1$scannedValue", ignoreCase = true)
+            }
 
-                if (foundAsset != null) {
-                    if (selectedAsset?.assetId == foundAsset.assetId && selectedAsset?.materialId == foundAsset.materialId) {
-                        selectedAsset = null
-                        focusManager.clearFocus()
-                    } else {
-                        selectedAsset = foundAsset
-                        inputQty = foundAsset.quantityFact?.toString() ?: ""
-                    }
+            if (foundAsset != null) {
+                if (selectedAsset?.inventorizationId == foundAsset.inventorizationId) {
+                    selectedAsset = null
+                    focusManager.clearFocus()
                 } else {
-                    Toast.makeText(
-                        context,
-                        "Актив с номером '$scannedValue' не найден в сессии",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    selectedAsset = foundAsset
+                    inputQty = foundAsset.quantityFact?.toString() ?: ""
                 }
             } else {
-                Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "Актив '$scannedValue' не найден (проверьте фильтры)",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         } else {
-            Toast.makeText(context, "Не удалось распознать QR-код", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Список активов ещё не загружен", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -148,9 +318,43 @@ fun InventorizationItemsScreen(
         onDispose { scannerManager.release() }
     }
 
-    LaunchedEffect(sessionId) {
-        assetViewModel.loadInventorizationSessions()
-        assetViewModel.loadInventorizationItems(sessionId)
+    // === ЕДИНЫЙ ИСТОЧНИК ЗАПРОСОВ (аналог AssetsByTypeScreen) ===
+    LaunchedEffect(
+        sessionId,
+        searchQuery,
+        inventoryId,
+        serialNumber,
+        materialId,
+        isCheckedFilter,
+        currentPage
+    ) {
+        Log.d(
+            "INVENTORY_FILTERS",
+            "LaunchedEffect -> page=$currentPage, search='$searchQuery', inv='$inventoryId', " +
+                    "sn='$serialNumber', materialId='$materialId', isChecked=$isCheckedFilter"
+        )
+        isRequestInFlight = true
+        try {
+            assetViewModel.loadInventorizationItems(
+                sessionId = sessionId,
+                page = currentPage,
+                pageSize = 50,
+                name = searchQuery.takeIf { it.isNotBlank() },
+                inventoryId = inventoryId.takeIf { it.isNotBlank() },
+                serialNumber = serialNumber.takeIf { it.isNotBlank() },
+                materialId = materialId.takeIf { it.isNotBlank() },
+                isChecked = isCheckedFilter,
+                append = currentPage > 1,
+                showCacheOnStart = currentPage == 1 &&
+                        searchQuery.isBlank() &&
+                        inventoryId.isBlank() &&
+                        serialNumber.isBlank() &&
+                        materialId.isBlank() &&
+                        isCheckedFilter == null,
+            )
+        } finally {
+            isRequestInFlight = false
+        }
     }
 
     InventorizationItemsContent(
@@ -163,6 +367,43 @@ fun InventorizationItemsScreen(
         inputQty = inputQty,
         showCompleteDialog = showCompleteDialog,
         quantityFocusRequester = quantityFocusRequester,
+
+        // Фильтры
+        searchQuery = searchQuery,
+        onSearchQueryChange = { searchQuery = it; currentPage = 1 },
+        inventoryId = inventoryId,
+        onInventoryIdChange = { inventoryId = it; currentPage = 1 },
+        serialNumber = serialNumber,
+        onSerialNumberChange = { serialNumber = it; currentPage = 1 },
+        materialId = materialId,
+        onMaterialIdChange = { materialId = it; currentPage = 1 },
+        isCheckedFilter = isCheckedFilter,
+        onIsCheckedFilterChange = { isCheckedFilter = it; currentPage = 1 },
+        isFiltersExpanded = isFiltersExpanded,
+        onToggleFilters = { isFiltersExpanded = !isFiltersExpanded },
+        onResetFilters = {
+            searchQuery = ""
+            inventoryId = ""
+            serialNumber = ""
+            materialId = ""
+            isCheckedFilter = null
+            currentPage = 1
+        },
+
+        // Пагинация
+        onLoadMore = {
+            val state = uiState as? AssetViewModel.AssetUiState.InventorizationItemsLoaded
+            if (state == null) return@InventorizationItemsContent
+            if (isRequestInFlight) return@InventorizationItemsContent
+            // Если пришло меньше pageSize — считаем, что страниц больше нет
+            val pageSize = 50
+            val loadedOnPage = state.items.size % pageSize
+            // Проще: переключаем страницу, если последний запрос пришёл полным
+            // Но для надёжности просто инкрементим, а ViewModel сам решит
+            currentPage += 1
+        },
+
+        // Обработчики выбора / подтверждения / завершения
         onQtyChange = { inputQty = it },
         onAssetSelect = { asset ->
             if (selectedAsset?.inventorizationId == asset.inventorizationId) {
@@ -177,7 +418,6 @@ fun InventorizationItemsScreen(
             selectedAsset?.let { asset ->
                 val qty = inputQty.toIntOrNull() ?: 0
                 if (qty >= 0) {
-                    // Передаем и assetId, и materialId. Бэкенд сам выберет нужный (валидатор API)
                     assetViewModel.checkInventorizationItem(
                         sessionId = sessionId,
                         assetId = asset.assetId,
@@ -186,6 +426,19 @@ fun InventorizationItemsScreen(
                     )
                     selectedAsset = null
                     focusManager.clearFocus()
+                    // Перезагружаем ТЕКУЩУЮ страницу, чтобы обновить isChecked
+                    assetViewModel.loadInventorizationItems(
+                        sessionId = sessionId,
+                        page = currentPage,
+                        pageSize = 50,
+                        name = searchQuery.takeIf { it.isNotBlank() },
+                        inventoryId = inventoryId.takeIf { it.isNotBlank() },
+                        serialNumber = serialNumber.takeIf { it.isNotBlank() },
+                        materialId = materialId.takeIf { it.isNotBlank() },
+                        isChecked = isCheckedFilter,
+                        append = false,
+                        showCacheOnStart = false,
+                    )
                 }
             }
         },
@@ -195,12 +448,243 @@ fun InventorizationItemsScreen(
             navController.popBackStack()
         },
         onDetailsClick = { assetId -> navController.navigate("asset_details/$assetId") },
-        onRetry = { assetViewModel.loadInventorizationItems(sessionId) },
-        onBackClick = { navController.popBackStack() }
+        onRetry = {
+            assetViewModel.loadInventorizationItems(
+                sessionId = sessionId,
+                page = currentPage,
+                pageSize = 50,
+                name = searchQuery.takeIf { it.isNotBlank() },
+                inventoryId = inventoryId.takeIf { it.isNotBlank() },
+                serialNumber = serialNumber.takeIf { it.isNotBlank() },
+                materialId = materialId.takeIf { it.isNotBlank() },
+                isChecked = isCheckedFilter,
+                append = false,
+                showCacheOnStart = false,
+            )
+        },
+        onBackClick = { navController.popBackStack() },
+        currentPage = currentPage,
     )
 }
 
 // ==================== CONTENT: UI ====================
+//@OptIn(ExperimentalMaterial3Api::class)
+//@Composable
+//fun InventorizationItemsContent(
+//    sessionId: Int,
+//    uiState: AssetViewModel.AssetUiState,
+//    cameraScanEnabled: Boolean,
+//    onCameraScanClick: () -> Unit,
+//    isCompleted: Boolean,
+//    selectedAsset: InventorizationItemDto?,
+//    inputQty: String,
+//    showCompleteDialog: Boolean,
+//    quantityFocusRequester: FocusRequester,
+//    onQtyChange: (String) -> Unit,
+//    onAssetSelect: (InventorizationItemDto) -> Unit,
+//    onConfirmClick: () -> Unit,
+//    onShowCompleteDialogChange: (Boolean) -> Unit,
+//    onCompleteSession: () -> Unit,
+//    onDetailsClick: (assetId: Int) -> Unit,
+//    onRetry: () -> Unit,
+//    onBackClick: () -> Unit
+//) {
+//    var searchQuery by remember { mutableStateOf("") }
+//    val listState = rememberLazyListState()
+//
+//    LaunchedEffect(selectedAsset) {
+//        if (selectedAsset != null && uiState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
+//            val index = uiState.items.indexOfFirst {
+//                it.assetId != null && it.assetId == selectedAsset.assetId ||
+//                        it.materialId != null && it.materialId == selectedAsset.materialId
+//            }
+//            if (index != -1) listState.animateScrollToItem(index)
+//        }
+//    }
+//
+//    Box(modifier = Modifier.fillMaxSize()) {
+//        Column(modifier = Modifier.fillMaxSize()) {
+//            MyCustomActionBar(
+//                onBackClick = onBackClick,
+//                text = "Сверка: #$sessionId",
+//                actionButton = if (!isCompleted) {
+//                    {
+//                        IconButton(onClick = { onShowCompleteDialogChange(true) }) {
+//                            Icon(
+//                                Icons.Default.DoneAll,
+//                                contentDescription = "Завершить инвентаризацию",
+//                                tint = MaterialTheme.colorScheme.primary
+//                            )
+//                        }
+//                    }
+//                } else null
+//            )
+//
+//            Surface(
+//                modifier = Modifier.fillMaxWidth(),
+//                color = MaterialTheme.colorScheme.surfaceVariant,
+//                tonalElevation = 1.dp
+//            ) {
+//                OutlinedTextField(
+//                    value = searchQuery,
+//                    onValueChange = { searchQuery = it },
+//                    label = { Text("Поиск...") },
+//                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+//                    trailingIcon = if (searchQuery.isNotEmpty()) {
+//                        {
+//                            IconButton(onClick = { searchQuery = "" }) {
+//                                Icon(
+//                                    Icons.Default.Clear,
+//                                    "Очистить"
+//                                )
+//                            }
+//                        }
+//                    } else null,
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(8.dp),
+//                    singleLine = true
+//                )
+//            }
+//
+//            if (isCompleted) {
+//                Card(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(8.dp),
+//                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+//                ) {
+//                    Text(
+//                        text = "Инвентаризация завершена.\nРедактирование запрещено.",
+//                        modifier = Modifier.padding(16.dp),
+//                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                        fontWeight = FontWeight.Bold,
+//                        textAlign = TextAlign.Center
+//                    )
+//                }
+//            }
+//
+//            when (uiState) {
+//                is AssetViewModel.AssetUiState.Loading -> {
+//                    SplashLoadingScreen()
+//                }
+//
+//                is AssetViewModel.AssetUiState.InventorizationItemsLoaded -> {
+//                    val allItems = uiState.items
+//                    val filteredItems = if (searchQuery.isBlank()) allItems else {
+//                        val query = searchQuery.lowercase()
+//                        allItems.filter {
+//                            it.assetId.toString().contains(query) || it.assetName.lowercase()
+//                                .contains(query)
+//                        }
+//                    }
+//
+//                    if (filteredItems.isEmpty()) {
+//                        Box(
+//                            modifier = Modifier
+//                                .fillMaxWidth()
+//                                .weight(1f), contentAlignment = Alignment.Center
+//                        ) {
+//                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+//                                Text(if (allItems.isEmpty()) "Нет активов в сессии" else "Ничего не найдено")
+//                                if (allItems.isNotEmpty() && searchQuery.isNotEmpty()) {
+//                                    TextButton(onClick = {
+//                                        searchQuery = ""
+//                                    }) { Text("Сбросить поиск") }
+//                                }
+//                            }
+//                        }
+//                    } else {
+//                        val bottomPadding = if (cameraScanEnabled) 80.dp else 16.dp
+//                        LazyColumn(
+//                            state = listState,
+//                            modifier = Modifier.weight(1f),
+//                            contentPadding = PaddingValues(
+//                                start = 16.dp,
+//                                end = 16.dp,
+//                                top = 16.dp,
+//                                bottom = bottomPadding
+//                            ),
+//                            verticalArrangement = Arrangement.spacedBy(8.dp)
+//                        ) {
+//                            item {
+//                                Spacer(modifier = Modifier.height(8.dp))
+//                                Text(
+//                                    text = "Найдено: ${filteredItems.size} из ${allItems.size}",
+//                                    style = MaterialTheme.typography.bodySmall,
+//                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+//                                    modifier = Modifier.align(Alignment.End)
+//                                )
+//                            }
+//                            items(filteredItems) { item ->
+//                                InventoryItemCard(
+//                                    item = item,
+//                                    isSelected = selectedAsset?.inventorizationId == item.inventorizationId,
+//                                    onClick = { if (!isCompleted) onAssetSelect(item) },
+//                                    inputQty = if (selectedAsset?.inventorizationId == item.inventorizationId) inputQty else "",
+//                                    onQtyChange = if (selectedAsset?.inventorizationId == item.inventorizationId) onQtyChange else { _ -> },
+//                                    onConfirmClick = onConfirmClick,
+//                                    focusRequester = if (selectedAsset?.inventorizationId == item.inventorizationId) quantityFocusRequester else null
+//                                )
+//                            }
+//                        }
+//                    }
+//                }
+//
+//                is AssetViewModel.AssetUiState.Error -> {
+//                    ErrorStateView(
+//                        message = uiState.message,
+//                        onRetry = onRetry,
+//                        modifier = Modifier.weight(1f)
+//                    )
+//                }
+//
+//                else -> {
+//                    Box(
+//                        modifier = Modifier
+//                            .weight(1f)
+//                            .fillMaxWidth(), contentAlignment = Alignment.Center
+//                    ) {
+//                        SplashLoadingScreen()
+//                    }
+//                }
+//            }
+//        }
+//
+//        if (!isCompleted) {
+//            CameraScanButton(
+//                onClick = onCameraScanClick,
+//                cameraScanEnabled = cameraScanEnabled,
+//                modifier = Modifier.align(Alignment.BottomEnd)
+//            )
+//        }
+//    }
+//
+//    if (showCompleteDialog && !isCompleted) {
+//        AlertDialog(
+//            onDismissRequest = { onShowCompleteDialogChange(false) },
+//            icon = {
+//                Icon(
+//                    Icons.Default.DoneAll,
+//                    contentDescription = null,
+//                    tint = MaterialTheme.colorScheme.primary
+//                )
+//            },
+//            title = { Text("Завершить инвентаризацию?") },
+//            text = { Text("Вы уверены, что хотите завершить инвентаризацию сессии #$sessionId? После этого редактирование будет невозможно.") },
+//            confirmButton = {
+//                Button(
+//                    onClick = { onCompleteSession(); onShowCompleteDialogChange(false) },
+//                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+//                ) {
+//                    Text("Завершить")
+//                }
+//            },
+//            dismissButton = { TextButton(onClick = { onShowCompleteDialogChange(false) }) { Text("Отмена") } }
+//        )
+//    }
+//}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventorizationItemsContent(
@@ -213,6 +697,27 @@ fun InventorizationItemsContent(
     inputQty: String,
     showCompleteDialog: Boolean,
     quantityFocusRequester: FocusRequester,
+
+    // Фильтры
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    inventoryId: String,
+    onInventoryIdChange: (String) -> Unit,
+    serialNumber: String,
+    onSerialNumberChange: (String) -> Unit,
+    materialId: String,
+    onMaterialIdChange: (String) -> Unit,
+    isCheckedFilter: String?,
+    onIsCheckedFilterChange: (String?) -> Unit,
+    isFiltersExpanded: Boolean,
+    onToggleFilters: () -> Unit,
+    onResetFilters: () -> Unit,
+
+    // Пагинация
+    onLoadMore: () -> Unit,
+    currentPage: Int,
+
+    // Обработчики
     onQtyChange: (String) -> Unit,
     onAssetSelect: (InventorizationItemDto) -> Unit,
     onConfirmClick: () -> Unit,
@@ -222,16 +727,32 @@ fun InventorizationItemsContent(
     onRetry: () -> Unit,
     onBackClick: () -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
+    // Скролл к выбранному ассету
     LaunchedEffect(selectedAsset) {
         if (selectedAsset != null && uiState is AssetViewModel.AssetUiState.InventorizationItemsLoaded) {
             val index = uiState.items.indexOfFirst {
-                it.assetId != null && it.assetId == selectedAsset.assetId ||
-                        it.materialId != null && it.materialId == selectedAsset.materialId
+                it.inventorizationId == selectedAsset.inventorizationId
             }
             if (index != -1) listState.animateScrollToItem(index)
+        }
+    }
+
+    // Триггер пагинации в конце списка
+    LaunchedEffect(listState, uiState) {
+        snapshotFlow {
+            val layoutInfo = listState.layoutInfo
+            val visibleItems = layoutInfo.visibleItemsInfo
+            if (visibleItems.isEmpty()) return@snapshotFlow false
+            val lastVisibleItem = visibleItems.last()
+            val totalItems = layoutInfo.totalItemsCount
+            lastVisibleItem.index >= totalItems - 3
+        }.collect { isNearEnd ->
+            val state = uiState as? AssetViewModel.AssetUiState.InventorizationItemsLoaded
+            if (isNearEnd && state != null && state.items.size >= currentPage * 50) {
+                onLoadMore()
+            }
         }
     }
 
@@ -253,39 +774,151 @@ fun InventorizationItemsContent(
                 } else null
             )
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                tonalElevation = 1.dp
-            ) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    label = { Text("Поиск...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    trailingIcon = if (searchQuery.isNotEmpty()) {
-                        {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(
-                                    Icons.Default.Clear,
-                                    "Очистить"
-                                )
+            // === Поле поиска + иконка фильтров (как в AssetsByTypeScreen) ===
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Поиск...") },
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Search,
+                        "Поиск",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingIcon = {
+                    IconButton(onClick = onToggleFilters) {
+                        BadgedBox(
+                            badge = {
+                                if (
+                                    inventoryId.isNotBlank() ||
+                                    serialNumber.isNotBlank() ||
+                                    materialId.isNotBlank() ||
+                                    isCheckedFilter != null
+                                ) {
+                                    Badge(modifier = Modifier.size(8.dp))
+                                }
                             }
+                        ) {
+                            Icon(
+                                imageVector = if (isFiltersExpanded) Icons.Default.ExpandLess
+                                else Icons.Default.FilterList,
+                                contentDescription = "Фильтры"
+                            )
                         }
-                    } else null,
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                enabled = !isCompleted
+            )
+
+            // === Раскрывающиеся фильтры ===
+            AnimatedVisibility(
+                visible = isFiltersExpanded,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
-                    singleLine = true
-                )
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = inventoryId,
+                            onValueChange = onInventoryIdChange,
+                            label = { Text("Инвентарный номер") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        OutlinedTextField(
+                            value = serialNumber,
+                            onValueChange = onSerialNumberChange,
+                            label = { Text("Серийный номер") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+                        OutlinedTextField(
+                            value = materialId,
+                            onValueChange = onMaterialIdChange,
+                            label = { Text("Номер основного средства") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(8.dp)
+                        )
+
+                        // Фильтр по checked
+                        Text("Статус сверки", style = MaterialTheme.typography.labelMedium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = isCheckedFilter == null,
+                                onClick = { onIsCheckedFilterChange(null) },
+                                label = { Text("Все") }
+                            )
+                            FilterChip(
+                                selected = isCheckedFilter == "true",
+                                onClick = { onIsCheckedFilterChange("checked") },
+                                label = { Text("Сверено") }
+                            )
+                            FilterChip(
+                                selected = isCheckedFilter == "false",
+                                onClick = { onIsCheckedFilterChange("not_checked") },
+                                label = { Text("Не сверено") }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // === Кнопка "Сбросить" — если есть активные фильтры ===
+            val hasActiveFilters = inventoryId.isNotBlank() ||
+                    serialNumber.isNotBlank() ||
+                    materialId.isNotBlank() ||
+                    isCheckedFilter != null
+
+            AnimatedVisibility(
+                visible = hasActiveFilters,
+                enter = fadeIn() + expandVertically(),
+                exit = fadeOut() + shrinkVertically()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    OutlinedButton(
+                        onClick = onResetFilters,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                        modifier = Modifier.height(32.dp)
+                    ) {
+                        Icon(Icons.Default.Close, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Сбросить фильтры", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
             }
 
             if (isCompleted) {
                 Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                    modifier = Modifier.fillMaxWidth().padding(8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 ) {
                     Text(
                         text = "Инвентаризация завершена.\nРедактирование запрещено.",
@@ -298,37 +931,43 @@ fun InventorizationItemsContent(
             }
 
             when (uiState) {
-                is AssetViewModel.AssetUiState.Loading -> {
-                    SplashLoadingScreen()
-                }
+                is AssetViewModel.AssetUiState.Loading -> SplashLoadingScreen()
 
                 is AssetViewModel.AssetUiState.InventorizationItemsLoaded -> {
-                    val allItems = uiState.items
-                    val filteredItems = if (searchQuery.isBlank()) allItems else {
-                        val query = searchQuery.lowercase()
-                        allItems.filter {
-                            it.assetId.toString().contains(query) || it.assetName.lowercase()
-                                .contains(query)
-                        }
-                    }
-
-                    if (filteredItems.isEmpty()) {
+                    val items = uiState.items
+                    if (items.isEmpty()) {
                         Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f), contentAlignment = Alignment.Center
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(if (allItems.isEmpty()) "Нет активов в сессии" else "Ничего не найдено")
-                                if (allItems.isNotEmpty() && searchQuery.isNotEmpty()) {
-                                    TextButton(onClick = {
-                                        searchQuery = ""
-                                    }) { Text("Сбросить поиск") }
+                                Icon(
+                                    Icons.Outlined.Inventory,
+                                    null,
+                                    Modifier.size(72.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    "Активы не найдены",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (hasActiveFilters) {
+                                    TextButton(onClick = onResetFilters) {
+                                        Text("Сбросить фильтры")
+                                    }
                                 }
                             }
                         }
                     } else {
                         val bottomPadding = if (cameraScanEnabled) 80.dp else 16.dp
+                        Text(
+                            text = "Загружено: ${items.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
+                        )
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.weight(1f),
@@ -340,16 +979,7 @@ fun InventorizationItemsContent(
                             ),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            item {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Найдено: ${filteredItems.size} из ${allItems.size}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.align(Alignment.End)
-                                )
-                            }
-                            items(filteredItems) { item ->
+                            items(items, key = { it.inventorizationId }) { item ->
                                 InventoryItemCard(
                                     item = item,
                                     isSelected = selectedAsset?.inventorizationId == item.inventorizationId,
@@ -360,27 +990,34 @@ fun InventorizationItemsContent(
                                     focusRequester = if (selectedAsset?.inventorizationId == item.inventorizationId) quantityFocusRequester else null
                                 )
                             }
+
+                            // Индикатор подгрузки
+                            if (items.size >= currentPage * 50) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 16.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
 
-                is AssetViewModel.AssetUiState.Error -> {
-                    ErrorStateView(
-                        message = uiState.message,
-                        onRetry = onRetry,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
+                is AssetViewModel.AssetUiState.Error -> ErrorStateView(
+                    message = uiState.message,
+                    onRetry = onRetry,
+                    modifier = Modifier.weight(1f)
+                )
 
-                else -> {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth(), contentAlignment = Alignment.Center
-                    ) {
-                        SplashLoadingScreen()
-                    }
-                }
+                else -> Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) { SplashLoadingScreen() }
             }
         }
 
@@ -396,24 +1033,18 @@ fun InventorizationItemsContent(
     if (showCompleteDialog && !isCompleted) {
         AlertDialog(
             onDismissRequest = { onShowCompleteDialogChange(false) },
-            icon = {
-                Icon(
-                    Icons.Default.DoneAll,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            },
+            icon = { Icon(Icons.Default.DoneAll, null, tint = MaterialTheme.colorScheme.primary) },
             title = { Text("Завершить инвентаризацию?") },
             text = { Text("Вы уверены, что хотите завершить инвентаризацию сессии #$sessionId? После этого редактирование будет невозможно.") },
             confirmButton = {
                 Button(
                     onClick = { onCompleteSession(); onShowCompleteDialogChange(false) },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Text("Завершить")
-                }
+                ) { Text("Завершить") }
             },
-            dismissButton = { TextButton(onClick = { onShowCompleteDialogChange(false) }) { Text("Отмена") } }
+            dismissButton = {
+                TextButton(onClick = { onShowCompleteDialogChange(false) }) { Text("Отмена") }
+            }
         )
     }
 }
@@ -657,7 +1288,22 @@ private fun InventorizationItemsContentPreview() {
                 onCompleteSession = {},
                 onDetailsClick = {},
                 onRetry = {},
-                onBackClick = {}
+                onBackClick = {},
+                materialId = "",
+                inventoryId = "",
+                serialNumber = "",
+                onResetFilters = {},
+                searchQuery = "",
+                onLoadMore = {},
+                onToggleFilters = {},
+                isFiltersExpanded = true,
+                onSearchQueryChange = {_ -> },
+                currentPage = 1,
+                isCheckedFilter = null,
+                onMaterialIdChange = {},
+                onInventoryIdChange = {},
+                onSerialNumberChange = {},
+                onIsCheckedFilterChange = {}
             )
         }
     }
@@ -697,7 +1343,22 @@ private fun InventorizationItemsContentPreviewLoading() {
                 onCompleteSession = {},
                 onDetailsClick = {},
                 onRetry = {},
-                onBackClick = {}
+                onBackClick = {},
+                onIsCheckedFilterChange = {},
+                onLoadMore = {},
+                onMaterialIdChange = {},
+                onInventoryIdChange = {},
+                currentPage = 1,
+                isCheckedFilter = null,
+                isFiltersExpanded = false,
+                searchQuery = "",
+                materialId = "",
+                inventoryId = "",
+                serialNumber = "",
+                onSerialNumberChange = {},
+                onResetFilters = {},
+                onToggleFilters = {},
+                onSearchQueryChange = {}
             )
         }
     }

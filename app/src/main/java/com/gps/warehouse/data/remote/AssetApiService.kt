@@ -132,7 +132,15 @@ interface AssetApiService {
     @GET("inventorization/sessions/{session_id}/items/")
     suspend fun getInventorizationSessionItems(
         @Header("Authorization") token: String,
-        @Path("session_id") sessionId: Int
+        @Path("session_id") sessionId: Int,
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 50,
+        @Query("material_id") materialId: String? = null,
+        @Query("name") name: String? = null,
+        @Query("serial_number") serialNumber: String? = null,
+        @Query("inventory_id") inventoryId: String? = null,
+        @Query("is_checked") isChecked: String? = null,
+
     ): PaginatedResponse<InventorizationItemDto>
 
     @POST("inventorization/sessions/")

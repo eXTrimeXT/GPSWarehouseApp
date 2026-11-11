@@ -377,10 +377,22 @@ fun WmsRequestsContent(
                         }
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item { Spacer(modifier = Modifier.height(8.dp)); Text("Найдено: ${filteredRequests.size} из ${allRequests.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) }
+                    Text(
+                        "Найдено: ${filteredRequests.size} из ${allRequests.size}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
+                    )
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         items(filteredRequests.reversed()) { request ->
-                            WmsRequestCard(request = request, onClick = { if (request.isActive == "1") onRequestClick(request) })
+                            WmsRequestCard(
+                                request = request,
+                                onClick = { if (request.isActive == "1") onRequestClick(request) }
+                            )
                         }
                     }
                 }

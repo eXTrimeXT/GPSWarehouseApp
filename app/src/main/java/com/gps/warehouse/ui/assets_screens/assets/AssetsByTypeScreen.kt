@@ -681,6 +681,12 @@ fun AssetsByTypeScreenContent(
                             }
                         }
                     } else {
+                        Text(
+                            text = "Найдено: ${assets.size} из ${uiState.total} (стр. ${uiState.page}/${uiState.totalPages})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp)
+                        )
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
@@ -692,15 +698,6 @@ fun AssetsByTypeScreenContent(
                             ),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            item {
-                                Text(
-                                    text = "Найдено: ${assets.size} из ${uiState.total} (стр. ${uiState.page}/${uiState.totalPages})",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                )
-                            }
-
                             items(
                                 items = assets,
                                 key = { asset ->
