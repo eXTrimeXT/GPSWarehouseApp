@@ -27,6 +27,7 @@ import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.PlaySoundResponse
 import com.gps.warehouse.data.remote.assets_dto.ProcessConfirmationResponseDto
+import com.gps.warehouse.data.remote.assets_dto.SapAssetClassResponseDto
 import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.data.remote.assets_dto.map.AssetPosition
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
@@ -126,7 +127,7 @@ interface AssetApiService {
     suspend fun getInventorizationSessions(
         @Header("Authorization") token: String,
         @Query("skip") skip: Int = 0,
-        @Query("limit") limit: Int = 50
+        @Query("limit") limit: Int = 100
     ): List<InventorizationSessionDto>
 
     @GET("inventorization/sessions/{session_id}/items/")
@@ -134,7 +135,7 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Path("session_id") sessionId: Int,
         @Query("page") page: Int = 1,
-        @Query("page_size") pageSize: Int = 50,
+        @Query("page_size") pageSize: Int = 100,
         @Query("material_id") materialId: String? = null,
         @Query("name") name: String? = null,
         @Query("serial_number") serialNumber: String? = null,
@@ -147,7 +148,7 @@ interface AssetApiService {
     suspend fun startInventorizationSession(
         @Header("Authorization") token: String,
         @Body request: InventorizationSessionCreateRequest
-    ): InventorizationSessionDto
+    ): List<InventorizationSessionDto>
 
     @POST("inventorization/sessions/{session_id}/check")
     suspend fun checkInventorizationItem(
@@ -293,4 +294,13 @@ interface AssetApiService {
         @Header("Authorization") token: String,
         @Query("asset_id") assetId: Int,
     ): Response<AssetConfirmationResponseDto>
+
+    // ==================== SAP: Классы активов ====================
+    @GET("sap/asset-classes")
+    suspend fun getAssetClasses(
+        @Header("Authorization") token: String,
+        @Query("limit") limit: Int = 200,
+        @Query("offset") offset: Int = 0,
+        @Query("language") language: String = "R"
+    ): SapAssetClassResponseDto
 }

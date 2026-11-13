@@ -1,6 +1,5 @@
 package com.gps.warehouse.ui.assets_screens.assets
 
-import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -41,7 +40,6 @@ import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 private const val TAG = "ASSETS_SCREEN"
 
@@ -87,54 +85,6 @@ fun AssetsByTypeScreen(
         Log.d(TAG, "Initial load: requesting asset statuses")
         assetViewModel.loadAssetStatuses()
     }
-
-//    fun processScannedData(scannedData: String) {
-//        if (scannedData.isEmpty()) return
-//        Log.d(TAG, "processScannedData: $scannedData")
-//
-//        val scannedValue = InventoryQrParser.parseAny(scannedData)
-//        if (scannedValue == null) {
-//            Toast.makeText(context, "Не удалось распознать код", Toast.LENGTH_SHORT).show()
-//            return
-//        }
-//
-//        // Запускаем серверный поиск в корутине
-//        scope.launch {
-//            isSearching = true
-//            try {
-//                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
-//
-//                if (foundAsset != null) {
-//                    Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
-//
-//                    serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
-//                        foundAsset.serialNumber
-//                    } else { "" }
-//
-//                    inventoryId = if (foundAsset.inventoryId?.isNotEmpty() == true) {
-//                        foundAsset.inventoryId
-//                    } else { "" }
-//
-//                    materialId = if (foundAsset.materialId?.isNotEmpty() == true) {
-//                        foundAsset.materialId
-//                    } else { "" }
-//
-//                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}/${serialNumber}/${inventoryId}/${materialId}")
-//                } else {
-//                    Toast.makeText(
-//                        context,
-//                        "Актив '$scannedValue' не найден (проверено как серийник, инвентарник, номер основного средства)",
-//                        Toast.LENGTH_LONG
-//                    ).show()
-//                }
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Ошибка поиска: ${e.message}")
-//                Toast.makeText(context, "Ошибка поиска: ${e.message}", Toast.LENGTH_SHORT).show()
-//            } finally {
-//                isSearching = false
-//            }
-//        }
-//    }
 
     fun processScannedData(scannedData: String) {
         if (scannedData.isEmpty()) return

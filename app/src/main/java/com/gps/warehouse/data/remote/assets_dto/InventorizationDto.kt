@@ -42,8 +42,9 @@ data class InventorizationSessionCreateRequest(
 )
 
 data class InventorizationSessionObj(
-    @SerializedName("asset_type_id") val assetTypeId: Int? = null,
-    @SerializedName("department_code") val departmentCode: String? = null,
+    @SerializedName("asset_type_ids") val assetTypeIds: List<Int>? = null,
+    @SerializedName("department_codes") val departmentCodes: List<String>? = null,
+    @SerializedName("material_classes") val materialClasses: List<String>? = null,
     @SerializedName("start_date") val startDate: String? = null,
     @SerializedName("end_date") val endDate: String? = null
 )

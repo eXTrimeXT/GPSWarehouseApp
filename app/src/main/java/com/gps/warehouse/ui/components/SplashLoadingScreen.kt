@@ -32,8 +32,8 @@ fun SplashLoadingScreen(
 ) {
     Box(
         modifier = Modifier
-            .fillMaxSize(),
-//            .background(MaterialTheme.colorScheme.background),
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Column(

@@ -33,6 +33,7 @@ import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.ProcessConfirmationResponseDto
+import com.gps.warehouse.data.remote.assets_dto.SapAssetClassDto
 import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import com.gps.warehouse.utils.NetworkMonitor
@@ -87,6 +88,8 @@ class AssetViewModel @Inject constructor(
 
         data class InventorizationItemsLoaded(
             val items: List<InventorizationItemDto>,
+            val total: Int = items.size,
+            val hasNext: Boolean,
             val sessionId: Int
         ) : AssetUiState()
 
@@ -131,6 +134,13 @@ class AssetViewModel @Inject constructor(
             val comment: String?,
             val createdAt: String
         ) : TransferStatus()
+    }
+
+    sealed class AssetClassesUiState {
+        object Idle : AssetClassesUiState()
+        object Loading : AssetClassesUiState()
+        data class Loaded(val classes: List<SapAssetClassDto>) : AssetClassesUiState()
+        data class Error(val message: String) : AssetClassesUiState()
     }
 
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
@@ -206,6 +216,13 @@ class AssetViewModel @Inject constructor(
 
     private val _assetConfirmationLast = MutableStateFlow<AssetConfirmationResponseDto?>(null)
     val assetConfirmationLast = _assetConfirmationLast.asStateFlow()
+
+    // ==================== SAP: Классы активов ====================
+    private val _assetClasses = MutableStateFlow<List<SapAssetClassDto>>(emptyList())
+    val assetClasses = _assetClasses.asStateFlow()
+
+    private val _assetClassesUiState = MutableStateFlow<AssetClassesUiState>(AssetClassesUiState.Idle)
+    val assetClassesUiState = _assetClassesUiState.asStateFlow()
 
     private var eventSource: EventSource? = null
 
@@ -460,8 +477,6 @@ class AssetViewModel @Inject constructor(
         return try {
             // === Пробуем поиск по СЕРИЙНОМУ номеру ===
             var currentSerialNumber = scannedValue
-            // F2717NBP45 02103193
-            // 0000000000 02103193
             if (currentSerialNumber.length > 18) currentSerialNumber = scannedValue.takeLast(18)
             Log.d("AssetViewModel", "Поиск по serialNumber: $currentSerialNumber")
             val bySerial = assetApiService.getAssets(
@@ -555,7 +570,7 @@ class AssetViewModel @Inject constructor(
                 if (response.items.isNotEmpty()) {
                     val asset = response.items.first()
 
-                    // ИСПРАВЛЕНИЕ: Сохраняем детали с уникальным ключом для этого ID
+                    // Сохраняем детали с уникальным ключом для этого ID
                     localStorage.saveAssetDetailCache(assetId, materialId, asset)
 
                     _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
@@ -603,52 +618,66 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-//    fun loadInventorizationItems(
-//        sessionId: Int,
-//        materialId: String? = null,
-//        name: String? = null,
-//        serialNumber: String? = null,
-//        inventoryId: String? = null,
-//        isChecked: String? = null,
-//    ) {
-//        viewModelScope.launch {
-//            val cachedItems = localStorage.getCachedInventoryItems(sessionId)
-//
-//            if (cachedItems.isNotEmpty()) {
-//                _inventorizationItems.value = cachedItems
-//                _uiState.value = AssetUiState.InventorizationItemsLoaded(cachedItems, sessionId)
-//            }
-//
-//            if (!networkMonitor.isCurrentlyConnected()) {
-//                if (cachedItems.isEmpty()) {
-//                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
-//                }
-//                return@launch
-//            }
-//
-//            try {
-//                val response = assetApiService.getInventorizationSessionItems(
-//                    token = "Bearer ${getToken()}",
-//                    sessionId = sessionId,
-//                    page = 1,
-//                    pageSize = 100,
-//                    materialId = materialId,
-//                    name = name,
-//                    serialNumber = serialNumber,
-//                    inventoryId = inventoryId,
-//                    isChecked = isChecked,
-//                )
-//                _inventorizationItems.value = response.items
-//                localStorage.saveInventoryItemsCache(sessionId, response.items)
-//                _uiState.value = AssetUiState.InventorizationItemsLoaded(response.items, sessionId)
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Ошибка загрузки элементов инвентаризации (используем кэш)", e)
-//                if (cachedItems.isEmpty()) {
-//                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
-//                }
-//            }
-//        }
-//    }
+    /**
+     * Ищет строку инвентаризации в сессии по найденному на сервере активу.
+     * Пробует несколько идентификаторов, т.к. getInventorizationSessionItems
+     * не поддерживает фильтр по assetId.
+     */
+    suspend fun findInventorizationItemByAsset(
+        sessionId: Int,
+        asset: AssetResponseDto,
+        usedValue: String
+    ): InventorizationItemDto? {
+        // 1. Если у актива есть materialId — самый надёжный ключ для API
+        asset.materialId?.takeIf { it.isNotBlank() }?.let { matId ->
+            val resp = assetApiService.getInventorizationSessionItems(
+                token = "Bearer ${getToken()}",
+                sessionId = sessionId,
+                page = 1,
+                pageSize = 5,
+                materialId = matId
+            )
+            resp.items.firstOrNull()?.let { return it }
+        }
+
+        // 2. По serialNumber
+        asset.serialNumber?.takeIf { it.isNotBlank() }?.let { sn ->
+            val resp = assetApiService.getInventorizationSessionItems(
+                token = "Bearer ${getToken()}",
+                sessionId = sessionId,
+                page = 1,
+                pageSize = 5,
+                serialNumber = sn
+            )
+            resp.items.firstOrNull()?.let { return it }
+        }
+
+        // 3. По inventoryId
+        asset.inventoryId?.takeIf { it.isNotBlank() }?.let { inv ->
+            val resp = assetApiService.getInventorizationSessionItems(
+                token = "Bearer ${getToken()}",
+                sessionId = sessionId,
+                page = 1,
+                pageSize = 5,
+                inventoryId = inv
+            )
+            resp.items.firstOrNull()?.let { return it }
+        }
+
+        // 4. Fallback — по значению, которым искали на сервере
+        if (usedValue.isNotBlank()) {
+            val resp = assetApiService.getInventorizationSessionItems(
+                token = "Bearer ${getToken()}",
+                sessionId = sessionId,
+                page = 1,
+                pageSize = 5,
+                inventoryId = usedValue
+            )
+            resp.items.firstOrNull()?.let { return it }
+        }
+
+        return null
+    }
 
     fun loadInventorizationItems(
         sessionId: Int,
@@ -678,7 +707,11 @@ class AssetViewModel @Inject constructor(
 
             if (cachedItems.isNotEmpty()) {
                 _inventorizationItems.value = cachedItems
-                _uiState.value = AssetUiState.InventorizationItemsLoaded(cachedItems, sessionId)
+                _uiState.value = AssetUiState.InventorizationItemsLoaded(
+                    items = cachedItems,
+                    hasNext = true,
+                    sessionId = sessionId
+                )
             } else if (page == 1 && !append) {
                 _uiState.value = AssetUiState.Loading
             }
@@ -719,7 +752,12 @@ class AssetViewModel @Inject constructor(
                 }
 
                 _inventorizationItems.value = updatedItems
-                _uiState.value = AssetUiState.InventorizationItemsLoaded(updatedItems, sessionId)
+                _uiState.value = AssetUiState.InventorizationItemsLoaded(
+                    items = updatedItems,
+                    total = response.total,
+                    hasNext = response.hasNext,
+                    sessionId = sessionId
+                )
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки элементов инвентаризации (используем кэш)", e)
                 if (cachedItems.isEmpty() && page == 1 && !append) {
@@ -730,27 +768,35 @@ class AssetViewModel @Inject constructor(
     }
 
     fun startInventorizationSession(
-        assetTypeId: Int? = null,
-        departmentCode: String? = null,
+        assetTypeIds: List<Int>? = null,
+        departmentCodes: List<String>? = null,
+        materialClasses: List<String>? = null,
         startDate: String? = null,
-        endDate: String? = null
+        endDate: String? = null,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
             try {
-                assetApiService.startInventorizationSession(
+                val sessions = assetApiService.startInventorizationSession(
                     "Bearer ${getToken()}",
                     InventorizationSessionCreateRequest(
                         obj = InventorizationSessionObj(
-                        assetTypeId = assetTypeId,
-                        departmentCode = departmentCode,
-                        startDate = startDate,
-                        endDate = endDate
+                            assetTypeIds = assetTypeIds?.takeIf { it.isNotEmpty() },
+                            departmentCodes = departmentCodes?.takeIf { it.isNotEmpty() },
+                            materialClasses = materialClasses?.takeIf { it.isNotEmpty() },
+                            startDate = startDate,
+                            endDate = endDate
                         )
                     )
                 )
-                loadInventorizationSessions() // Перезагружаем список
+                onSuccess()
+                loadInventorizationSessions()
             } catch (e: Exception) {
-                _inventorizationUiState.value = InventorizationUiState.Error(getErrorMessage(e) ?: "Ошибка создания")
+                val msg = getErrorMessage(e) ?: "Ошибка создания"
+                Log.e(TAG, "startInventorizationSession: $msg", e)
+                onError(msg)
+                _inventorizationUiState.value = InventorizationUiState.Error(msg)
             }
         }
     }
@@ -759,7 +805,9 @@ class AssetViewModel @Inject constructor(
         sessionId: Int,
         assetId: Int?,
         materialId: String?,
-        quantityFact: Int?
+        quantityFact: Int?,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
             try {
@@ -772,9 +820,11 @@ class AssetViewModel @Inject constructor(
                         quantityFact = quantityFact
                     )
                 )
-                loadInventorizationItems(sessionId) // Перезагружаем элементы
+                onSuccess()
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка проверки актива")
+                val msg = getErrorMessage(e) ?: "Ошибка проверки актива"
+                Log.e(TAG, "checkInventorizationItem: $msg", e)
+                onError(msg)
             }
         }
     }
@@ -1245,6 +1295,30 @@ class AssetViewModel @Inject constructor(
                 Log.e(TAG, "Ошибка получения последнего подтверждения: ${e.message}", e)
                 _assetConfirmationLast.value = null
                 // Не ставим Error в uiState — отсутствие подтверждения не критично
+            }
+        }
+    }
+
+    // ==================== SAP: Классы активов ====================
+    fun loadAssetClasses() {
+        viewModelScope.launch {
+            _assetClassesUiState.value = AssetClassesUiState.Loading
+            try {
+                val response = assetApiService.getAssetClasses(
+                    token = "Bearer ${getToken()}",
+                    limit = 200,
+                    offset = 0,
+                    language = "R"
+                )
+                val classes = response.response?.data.orEmpty()
+                _assetClasses.value = classes
+                _assetClassesUiState.value = AssetClassesUiState.Loaded(classes)
+                Log.d(TAG, "loadAssetClasses: загружено ${classes.size} классов")
+            } catch (e: Exception) {
+                val msg = getErrorMessage(e) ?: "Ошибка загрузки классов активов"
+                Log.e(TAG, "loadAssetClasses: $msg", e)
+                _assetClassesUiState.value = AssetClassesUiState.Error(msg)
+                // Не сбрасываем _assetClasses — если что-то было загружено ранее, оставляем
             }
         }
     }

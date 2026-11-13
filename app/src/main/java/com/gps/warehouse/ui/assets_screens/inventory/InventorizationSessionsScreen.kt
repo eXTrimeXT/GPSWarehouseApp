@@ -13,7 +13,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
@@ -22,6 +21,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavHostController
 import com.gps.warehouse.data.remote.assets_dto.AssetTypeDto
 import com.gps.warehouse.data.remote.assets_dto.InventorizationSessionDto
+import com.gps.warehouse.data.remote.assets_dto.SapAssetClassDto
 import com.gps.warehouse.data.remote.gps_dto.PermissionDepartmentDto
 import com.gps.warehouse.ui.AssetViewModel
 import com.gps.warehouse.ui.MainViewModel
@@ -43,43 +43,74 @@ fun InventorizationSessionsScreen(
 ) {
     val inventorizationSessions by assetViewModel.inventorizationSessions.collectAsState()
     val assetTypes by assetViewModel.assetTypes.collectAsState()
+    val assetClasses by assetViewModel.assetClasses.collectAsState()
+    val assetClassesUiState by assetViewModel.assetClassesUiState.collectAsState()
     val inventorizationUiState by assetViewModel.inventorizationUiState.collectAsState()
-
-    // Получаем права по департаментам из getinfouser (gps-api)
     val permissionDepartments by mainViewModel.permissionDepartments.collectAsState()
 
     LaunchedEffect(Unit) {
         assetViewModel.loadAssetTypes()
+        assetViewModel.loadAssetClasses()
         assetViewModel.loadInventorizationSessions()
         mainViewModel.loadPermissionDepartments()
     }
 
     var showCreateDialog by remember { mutableStateOf(false) }
-    // используем Int? чтобы null означал "Отсутствие типа"
-    var selectedAssetTypeId by remember { mutableStateOf<Int?>(null) }
+
+    // === НОВЫЕ множественные выборы ===
+    var selectedAssetTypeIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
+    var selectedDepartmentCodes by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var selectedMaterialClasses by remember { mutableStateOf<Set<String>>(emptySet()) }
+
+    // === Состояние создания сессии (для спиннера/ошибки) ===
+    var isCreating by remember { mutableStateOf(false) }
 
     InventorizationSessionsContent(
         sessions = inventorizationSessions,
         assetTypes = assetTypes,
+        assetClasses = assetClasses,
+        assetClassesUiState = assetClassesUiState,
         permissionDepartments = permissionDepartments,
         uiState = inventorizationUiState,
         showCreateDialog = showCreateDialog,
-        selectedAssetTypeId = selectedAssetTypeId,
+        selectedAssetTypeIds = selectedAssetTypeIds,
+        selectedDepartmentCodes = selectedDepartmentCodes,
+        selectedMaterialClasses = selectedMaterialClasses,
+        isCreating = isCreating,
         onSessionClick = { sessionId, isCompleted ->
             navController.navigate("inventorization_items/$sessionId/$isCompleted")
         },
         onShowCreateDialogChange = { showCreateDialog = it },
-        onSelectedAssetTypeIdChange = { selectedAssetTypeId = it },
-        onCreateSession = { assetTypeId, departmentCode, startDate, endDate ->
+        onSelectedAssetTypeIdsChange = { selectedAssetTypeIds = it },
+        onSelectedDepartmentCodesChange = { selectedDepartmentCodes = it },
+        onSelectedMaterialClassesChange = { selectedMaterialClasses = it },
+        onCreateSession = { assetTypeIds, departmentCodes, materialClasses, startDate, endDate ->
+            isCreating = true
             assetViewModel.startInventorizationSession(
-                assetTypeId = assetTypeId,
-                departmentCode = departmentCode,
+                assetTypeIds = assetTypeIds,
+                departmentCodes = departmentCodes,
+                materialClasses = materialClasses,
                 startDate = startDate,
-                endDate = endDate
+                endDate = endDate,
+                onSuccess = {
+                    isCreating = false
+                    showCreateDialog = false
+                    // Сбрасываем выбор
+                    selectedAssetTypeIds = emptySet()
+                    selectedDepartmentCodes = emptySet()
+                    selectedMaterialClasses = emptySet()
+                },
+                onError = {
+                    isCreating = false
+                    // Ошибку покажет ViewModel через inventorizationUiState,
+                    // но диалог оставим открытым, чтобы можно было поправить
+                }
             )
-            showCreateDialog = false
         },
-        onRetry = { assetViewModel.loadInventorizationSessions() },
+        onRetry = {
+            assetViewModel.loadInventorizationSessions()
+            assetViewModel.loadAssetClasses()
+        },
         onBackClick = { navController.popBackStack() }
     )
 }
@@ -90,14 +121,27 @@ fun InventorizationSessionsScreen(
 fun InventorizationSessionsContent(
     sessions: List<InventorizationSessionDto>?,
     assetTypes: List<AssetTypeDto>,
+    assetClasses: List<SapAssetClassDto>,
+    assetClassesUiState: AssetViewModel.AssetClassesUiState,
     permissionDepartments: List<PermissionDepartmentDto>,
     uiState: AssetViewModel.InventorizationUiState,
     showCreateDialog: Boolean,
-    selectedAssetTypeId: Int?, // ИЗМЕНЕНО на Int?
+    selectedAssetTypeIds: Set<Int>,
+    selectedDepartmentCodes: Set<String>,
+    selectedMaterialClasses: Set<String>,
+    isCreating: Boolean,
     onSessionClick: (sessionId: Int, isCompleted: Boolean) -> Unit,
     onShowCreateDialogChange: (Boolean) -> Unit,
-    onSelectedAssetTypeIdChange: (Int?) -> Unit,
-    onCreateSession: (assetTypeId: Int?, departmentCode: String?, startDate: String?, endDate: String?) -> Unit,
+    onSelectedAssetTypeIdsChange: (Set<Int>) -> Unit,
+    onSelectedDepartmentCodesChange: (Set<String>) -> Unit,
+    onSelectedMaterialClassesChange: (Set<String>) -> Unit,
+    onCreateSession: (
+        assetTypeIds: List<Int>?,
+        departmentCodes: List<String>?,
+        materialClasses: List<String>?,
+        startDate: String?,
+        endDate: String?
+    ) -> Unit,
     onRetry: () -> Unit,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -160,61 +204,80 @@ fun InventorizationSessionsContent(
     if (showCreateDialog) {
         CreateInventorySessionDialog(
             assetTypes = assetTypes,
-            selectedAssetTypeId = selectedAssetTypeId,
+            selectedAssetTypeIds = selectedAssetTypeIds,
+            assetClasses = assetClasses,
+            assetClassesUiState = assetClassesUiState,
             permissionDepartments = permissionDepartments,
-            onDismiss = { onShowCreateDialogChange(false) },
-            onSelectedTypeChange = { onSelectedAssetTypeIdChange(it) }, // Передаем Int? напрямую
-            onCreateSession = { assetTypeId, deptCode, start, end ->
-                onCreateSession(assetTypeId, deptCode, start, end)
-                onShowCreateDialogChange(false)
-            }
+            selectedDepartmentCodes = selectedDepartmentCodes,
+            selectedMaterialClasses = selectedMaterialClasses,
+            isCreating = isCreating,
+            onDismiss = { if (!isCreating) onShowCreateDialogChange(false) },
+            onSelectedAssetTypeIdsChange = onSelectedAssetTypeIdsChange,
+            onSelectedDepartmentCodesChange = onSelectedDepartmentCodesChange,
+            onSelectedMaterialClassesChange = onSelectedMaterialClassesChange,
+            onCreateSession = { assetTypeIds, departmentCodes, materialClasses, start, end ->
+                onCreateSession(assetTypeIds, departmentCodes, materialClasses, start, end)
+            },
+            onRetry = { onRetry }
         )
     }
 }
 
-// ==================== ДИАЛОГ: Отдельный Composable ====================
+// ==================== ДИАЛОГ ====================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateInventorySessionDialog(
     assetTypes: List<AssetTypeDto>,
-    selectedAssetTypeId: Int?,
+    selectedAssetTypeIds: Set<Int>,
+    assetClasses: List<SapAssetClassDto>,
+    assetClassesUiState: AssetViewModel.AssetClassesUiState,
     permissionDepartments: List<PermissionDepartmentDto>,
+    selectedDepartmentCodes: Set<String>,
+    selectedMaterialClasses: Set<String>,
+    isCreating: Boolean,
     onDismiss: () -> Unit,
-    onSelectedTypeChange: (Int?) -> Unit,
-    onCreateSession: (assetTypeId: Int?, departmentCode: String?, startDate: String?, endDate: String?) -> Unit
+    onSelectedAssetTypeIdsChange: (Set<Int>) -> Unit,
+    onSelectedDepartmentCodesChange: (Set<String>) -> Unit,
+    onSelectedMaterialClassesChange: (Set<String>) -> Unit,
+    onCreateSession: (
+        assetTypeIds: List<Int>?,
+        departmentCodes: List<String>?,
+        materialClasses: List<String>?,
+        startDate: String?,
+        endDate: String?
+    ) -> Unit,
+    onRetry: () -> Unit,
 ) {
-    // Состояния выбора
-    var selectedDepartmentCodes by remember { mutableStateOf<Set<String>>(emptySet()) }
-
-    // Состояние активной вкладки (0 = Тип актива, 1 = Департаменты)
+    // Активная вкладка (0 = Типы активов, 1 = Департаменты)
     var selectedTabIndex by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Тип актива", "Департаменты")
+    val tabs = listOf("Типы активов", "Департаменты", "Классы SAP")
 
-    // Состояния для даты и времени
+    // Даты/время
     var startDateTimeMillis by remember { mutableStateOf<Long?>(null) }
     var endDateTimeMillis by remember { mutableStateOf<Long?>(null) }
     val startTimePickerState = rememberTimePickerState()
     val endTimePickerState = rememberTimePickerState()
 
-    // Флаги видимости пикеров
+    // Видимость пикеров
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
 
-    // ФИЛЬТР: Только департаменты с правом записи
+    // Только департаменты с правом записи
     val writableDepartments = permissionDepartments.filter { it.write }
 
-    // Вспомогательная функция форматирования в ISO 8601
     @SuppressLint("DefaultLocale")
     fun formatToIso(dateMillis: Long?, hour: Int, minute: Int): String? {
         if (dateMillis == null) return null
         val instant = Instant.ofEpochMilli(dateMillis)
         val zdt = instant.atZone(ZoneOffset.UTC)
-        return String.format("%04d-%02d-%02dT%02d:%02d", zdt.year, zdt.monthValue, zdt.dayOfMonth, hour, minute)
+        return String.format(
+            "%04d-%02d-%02dT%02d:%02d",
+            zdt.year, zdt.monthValue, zdt.dayOfMonth, hour, minute
+        )
     }
 
-    // Вспомогательная функция для отображения текста в поле (компактный формат)
     @SuppressLint("DefaultLocale")
     fun getDisplayText(dateMillis: Long?, timeState: TimePickerState): String {
         if (dateMillis == null) return "Не выбрано"
@@ -225,39 +288,24 @@ fun CreateInventorySessionDialog(
         return "$dateStr, $timeStr"
     }
 
-    // ===== НОВОЕ: проверка диапазона дат =====
-    val startFullMillis = remember(
-        startDateTimeMillis,
-        startTimePickerState.hour,
-        startTimePickerState.minute
-    ) {
-        toDateTimeMillis(
-            startDateTimeMillis,
-            startTimePickerState.hour,
-            startTimePickerState.minute
-        )
+    // Валидация дат
+    val startFullMillis = remember(startDateTimeMillis, startTimePickerState.hour, startTimePickerState.minute) {
+        toDateTimeMillis(startDateTimeMillis, startTimePickerState.hour, startTimePickerState.minute)
     }
-    val endFullMillis = remember(
-        endDateTimeMillis,
-        endTimePickerState.hour,
-        endTimePickerState.minute
-    ) {
-        toDateTimeMillis(
-            endDateTimeMillis,
-            endTimePickerState.hour,
-            endTimePickerState.minute
-        )
+    val endFullMillis = remember(endDateTimeMillis, endTimePickerState.hour, endTimePickerState.minute) {
+        toDateTimeMillis(endDateTimeMillis, endTimePickerState.hour, endTimePickerState.minute)
     }
-    val isEndBeforeStart = startFullMillis != null
-            && endFullMillis != null
-            && endFullMillis < startFullMillis
-    val isDateRangeValid = startFullMillis != null
-            && endFullMillis != null
-            && !isEndBeforeStart
+    val isEndBeforeStart = startFullMillis != null && endFullMillis != null && endFullMillis < startFullMillis
+    val isDateRangeValid = startFullMillis != null && endFullMillis != null && !isEndBeforeStart
+
+    // Что выбрано — хотя бы что-то одно должно быть
+    val hasAnySelection = selectedAssetTypeIds.isNotEmpty() ||
+            selectedDepartmentCodes.isNotEmpty() ||
+            selectedMaterialClasses.isNotEmpty()
 
     AlertDialog(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!isCreating) onDismiss() },
         icon = { Icon(Icons.Default.AddBox, null, tint = MaterialTheme.colorScheme.primary) },
         title = { Text("Новая инвентаризация", style = MaterialTheme.typography.titleLarge) },
         text = {
@@ -276,15 +324,7 @@ fun CreateInventorySessionDialog(
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTabIndex == index,
-                            onClick = {
-                                selectedTabIndex = index
-                                // При переключении вкладки очищаем выбор в другой категории для гарантии
-                                if (index == 0) {
-                                    selectedDepartmentCodes = emptySet()
-                                } else {
-                                    onSelectedTypeChange(null)
-                                }
-                            },
+                            onClick = { if (!isCreating) selectedTabIndex = index },
                             text = {
                                 Text(
                                     title,
@@ -298,38 +338,60 @@ fun CreateInventorySessionDialog(
 
                 // ================= КОНТЕНТ ВКЛАДОК =================
                 when (selectedTabIndex) {
-                    0 -> {
-                        // Вкладка: Тип актива
-                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                            FlowRow(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(1.dp),
-                            ) {
-                                if (assetTypes.isEmpty()) {
-                                    Text(
-                                        "Нет доступных типов активов!",
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier
-                                    )
-                                }
-                                assetTypes.forEach { type ->
-                                    FilterChip(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        selected = selectedAssetTypeId == type.assetTypeId,
-                                        onClick = {
-                                            selectedDepartmentCodes = emptySet()
-                                            onSelectedTypeChange(type.assetTypeId)
-                                        },
 
-                                        label = { Text(type.name, softWrap = false) }
-                                    )
+                    // ============ 0: ТИПЫ АКТИВОВ ============
+                    0 -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (assetTypes.isEmpty()) {
+                                Text(
+                                    "Нет доступных типов активов!",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            } else {
+                                // «Выбрать всё / Снять всё»
+                                SelectionButtonsRow(
+                                    total = assetTypes.size,
+                                    selected = selectedAssetTypeIds.size,
+                                    enabled = !isCreating,
+                                    onSelectAll = {
+                                        onSelectedAssetTypeIdsChange(assetTypes.map { it.assetTypeId }.toSet())
+                                    },
+                                    onClearAll = {
+                                        onSelectedAssetTypeIdsChange(emptySet())
+                                    }
+                                )
+
+                                FlowRow(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    assetTypes.forEach { type ->
+                                        val isSelected = selectedAssetTypeIds.contains(type.assetTypeId)
+                                        FilterChip(
+                                            selected = isSelected,
+                                            enabled = !isCreating,
+                                            onClick = {
+                                                val newSet = if (isSelected) {
+                                                    selectedAssetTypeIds - type.assetTypeId
+                                                } else {
+                                                    selectedAssetTypeIds + type.assetTypeId
+                                                }
+                                                onSelectedAssetTypeIdsChange(newSet)
+                                            },
+                                            label = { Text(type.name, softWrap = false) },
+                                            leadingIcon = if (isSelected) {
+                                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                                            } else null
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+
+                    // ============ 1: ДЕПАРТАМЕНТЫ ============
                     1 -> {
-                        // Вкладка: Департаменты
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (writableDepartments.isEmpty()) {
                                 Text(
@@ -339,24 +401,140 @@ fun CreateInventorySessionDialog(
                                     modifier = Modifier.padding(vertical = 8.dp)
                                 )
                             } else {
+                                val allDeptCodes = writableDepartments
+                                    .mapNotNull { it.departmentCode }
+                                    .toSet()
+
+                                SelectionButtonsRow(
+                                    total = allDeptCodes.size,
+                                    selected = selectedDepartmentCodes.size,
+                                    enabled = !isCreating,
+                                    onSelectAll = {
+                                        onSelectedDepartmentCodesChange(allDeptCodes)
+                                    },
+                                    onClearAll = {
+                                        onSelectedDepartmentCodesChange(emptySet())
+                                    }
+                                )
+
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     writableDepartments.forEach { dept ->
                                         val code = dept.departmentCode ?: return@forEach
+                                        val isSelected = selectedDepartmentCodes.contains(code)
                                         FilterChip(
-                                            selected = selectedDepartmentCodes.contains(code),
+                                            selected = isSelected,
+                                            enabled = !isCreating,
                                             onClick = {
-                                                onSelectedTypeChange(null) // Очищаем тип при выборе департамента
-                                                if (selectedDepartmentCodes.contains(code)) {
-                                                    selectedDepartmentCodes = selectedDepartmentCodes - code
+                                                val newSet = if (isSelected) {
+                                                    selectedDepartmentCodes - code
                                                 } else {
-                                                    selectedDepartmentCodes = selectedDepartmentCodes + code
+                                                    selectedDepartmentCodes + code
                                                 }
+                                                onSelectedDepartmentCodesChange(newSet)
                                             },
-                                            label = { Text(dept.nameGroup ?: dept.department ?: code) }
+                                            label = { Text(dept.nameGroup ?: dept.department ?: code) },
+                                            leadingIcon = if (isSelected) {
+                                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                                            } else null
                                         )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // ============ 2: КЛАССЫ SAP ============
+                    2 -> {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            when (assetClassesUiState) {
+                                is AssetViewModel.AssetClassesUiState.Loading -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                                    }
+                                }
+                                is AssetViewModel.AssetClassesUiState.Error -> {
+                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            "Ошибка загрузки классов: ${assetClassesUiState.message}",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.error
+                                        )
+                                        OutlinedButton(
+                                            onClick = { onRetry() },
+                                            enabled = !isCreating
+                                        ) {
+                                            Icon(Icons.Default.Refresh, null, Modifier.size(16.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Повторить")
+                                        }
+                                    }
+                                }
+                                else -> {
+                                    if (assetClasses.isEmpty()) {
+                                        Text(
+                                            "Классы SAP не найдены",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(vertical = 8.dp)
+                                        )
+                                    } else {
+                                        val allClassCodes = assetClasses.map { it.materialClass }.toSet()
+
+                                        SelectionButtonsRow(
+                                            total = allClassCodes.size,
+                                            selected = selectedMaterialClasses.size,
+                                            enabled = !isCreating,
+                                            onSelectAll = {
+                                                onSelectedMaterialClassesChange(allClassCodes)
+                                            },
+                                            onClearAll = {
+                                                onSelectedMaterialClassesChange(emptySet())
+                                            }
+                                        )
+
+                                        Text(
+                                            "Если выбрать и типы, и классы — сессии создадутся на их пересечение.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+
+                                        FlowRow(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        ) {
+                                            assetClasses.forEach { cls ->
+                                                val isSelected = selectedMaterialClasses.contains(cls.materialClass)
+                                                FilterChip(
+                                                    selected = isSelected,
+                                                    enabled = !isCreating,
+                                                    onClick = {
+                                                        val newSet = if (isSelected) {
+                                                            selectedMaterialClasses - cls.materialClass
+                                                        } else {
+                                                            selectedMaterialClasses + cls.materialClass
+                                                        }
+                                                        onSelectedMaterialClassesChange(newSet)
+                                                    },
+                                                    label = {
+                                                        Text(
+                                                            text = cls.materialClassShort ?: cls.materialClassName,
+                                                            softWrap = false
+                                                        )
+                                                    },
+                                                    leadingIcon = if (isSelected) {
+                                                        { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                                                    } else null
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -368,20 +546,24 @@ fun CreateInventorySessionDialog(
 
                 // ================= ДАТЫ И ВРЕМЯ =================
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Период инвентаризации:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Период инвентаризации:",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     OutlinedTextField(
                         value = getDisplayText(startDateTimeMillis, startTimePickerState),
                         onValueChange = {},
                         readOnly = true,
+                        enabled = !isCreating,
                         label = { Text("Начало") },
                         trailingIcon = {
-                            IconButton(onClick = { showStartDatePicker = true }) {
-                                Icon(
-                                    Icons.Default.CalendarToday,
-                                    null,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            IconButton(
+                                onClick = { showStartDatePicker = true },
+                                enabled = !isCreating
+                            ) {
+                                Icon(Icons.Default.CalendarToday, null, Modifier.size(20.dp))
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -394,14 +576,14 @@ fun CreateInventorySessionDialog(
                         value = getDisplayText(endDateTimeMillis, endTimePickerState),
                         onValueChange = {},
                         readOnly = true,
+                        enabled = !isCreating,
                         label = { Text("Окончание") },
                         trailingIcon = {
-                            IconButton(onClick = { showEndDatePicker = true }) {
-                                Icon(
-                                    Icons.Default.CalendarToday,
-                                    null,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            IconButton(
+                                onClick = { showEndDatePicker = true },
+                                enabled = !isCreating
+                            ) {
+                                Icon(Icons.Default.CalendarToday, null, Modifier.size(20.dp))
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -423,38 +605,39 @@ fun CreateInventorySessionDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (!isDateRangeValid) return@Button
+                    if (!isDateRangeValid || !hasAnySelection || isCreating) return@Button
                     onCreateSession(
-                        if (selectedTabIndex == 0) selectedAssetTypeId else null,
-                        if (selectedTabIndex == 1 && selectedDepartmentCodes.isNotEmpty())
-                            selectedDepartmentCodes.joinToString(";") else null,
-                        formatToIso(
-                            startDateTimeMillis,
-                            startTimePickerState.hour,
-                            startTimePickerState.minute
-                        ),
-                        formatToIso(
-                            endDateTimeMillis,
-                            endTimePickerState.hour,
-                            endTimePickerState.minute
-                        )
+                        selectedAssetTypeIds.toList().takeIf { it.isNotEmpty() },
+                        selectedDepartmentCodes.toList().takeIf { it.isNotEmpty() },
+                        selectedMaterialClasses.toList().takeIf { it.isNotEmpty() },   // ← новое
+                        formatToIso(startDateTimeMillis, startTimePickerState.hour, startTimePickerState.minute),
+                        formatToIso(endDateTimeMillis, endTimePickerState.hour, endTimePickerState.minute)
                     )
                 },
-                enabled = isDateRangeValid && when (selectedTabIndex) {
-                    0 -> selectedAssetTypeId != null
-                    1 -> selectedDepartmentCodes.isNotEmpty()
-                    else -> false
-                }
+                enabled = isDateRangeValid && hasAnySelection && !isCreating
             ) {
-                Text("Создать")
+                if (isCreating) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Создание…")
+                } else {
+                    Text("Создать")
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Отмена") }
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isCreating
+            ) { Text("Отмена") }
         }
     )
 
-    // ================= ДИАЛОГИ ВЫБОРА ДАТЫ И ВРЕМЕНИ =================
+    // ================= ПИКЕРЫ ДАТ И ВРЕМЕНИ =================
     if (showStartDatePicker) {
         val state = rememberDatePickerState(initialSelectedDateMillis = startDateTimeMillis)
         DatePickerDialog(
@@ -499,6 +682,57 @@ fun CreateInventorySessionDialog(
             confirmButton = { TextButton(onClick = { showEndTimePicker = false }) { Text("OK") } },
             dismissButton = { TextButton(onClick = { showEndTimePicker = false }) { Text("Отмена") } }
         ) { TimePicker(state = endTimePickerState) }
+    }
+}
+
+/**
+ * Строка с кнопкой "Выбрать всё" / "Снять всё" + счётчик выбранных.
+ *
+ * Показывает:
+ *  - "Выбрать всё (N)" — если выбрано не всё
+ *  - "Снять всё (N)"   — если выбрано всё
+ *  - "Выбрано: X из N" — справа от кнопки, мелким шрифтом
+ */
+@Composable
+private fun SelectionButtonsRow(
+    total: Int,
+    selected: Int,
+    enabled: Boolean,
+    onSelectAll: () -> Unit,
+    onClearAll: () -> Unit,
+) {
+    val isAllSelected = total > 0 && selected == total
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        OutlinedButton(
+            onClick = {
+                if (isAllSelected) onClearAll() else onSelectAll()
+            },
+            enabled = enabled && total > 0,
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+            modifier = Modifier.height(32.dp)
+        ) {
+            Icon(
+                imageVector = if (isAllSelected) Icons.Default.ClearAll else Icons.Default.SelectAll,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = if (isAllSelected) "Снять всё ($total)" else "Выбрать всё ($total)",
+                style = MaterialTheme.typography.labelMedium
+            )
+        }
+
+        Text(
+            text = "Выбрано: $selected из $total",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -659,8 +893,8 @@ private fun InventorizationSessionsContentPreview_Loaded() {
             sessionId = 1,
             assetTypeId = null,
             departmentCodes = null,
-            assetTypeName = "Без типа",
-            assetTypeEnName = "without_type",
+            assetTypeName = "Департамент: RU10050099 | Тип: Компьютеры",
+            assetTypeEnName = "computers",
             status = "pending",
             statusRu = "В ожидании",
             createdAt = "2026-07-23T08:59:53.158615Z",
@@ -673,24 +907,10 @@ private fun InventorizationSessionsContentPreview_Loaded() {
             sessionId = 2,
             assetTypeId = null,
             departmentCodes = null,
-            assetTypeName = "Без типа",
+            assetTypeName = "Департамент: RU10050020 | Тип: Без типа",
             assetTypeEnName = "without_type",
             status = "in_progress",
             statusRu = "В работе",
-            createdAt = "2026-07-23T08:59:53.158615Z",
-            startDate = "2026-07-23T08:59:53.158615Z",
-            endDate = "2026-07-30T08:59:53.158615Z",
-            createdBy = "0000015370",
-            createdByFullName = "ФИО"
-        ),
-        InventorizationSessionDto(
-            sessionId = 3,
-            assetTypeId = null,
-            departmentCodes = null,
-            assetTypeName = "Без типа",
-            assetTypeEnName = "without_type",
-            status = "completed",
-            statusRu = "Завершено",
             createdAt = "2026-07-23T08:59:53.158615Z",
             startDate = "2026-07-23T08:59:53.158615Z",
             endDate = "2026-07-30T08:59:53.158615Z",
@@ -703,8 +923,8 @@ private fun InventorizationSessionsContentPreview_Loaded() {
             InventorizationSessionsContent(
                 sessions = mockSessions,
                 assetTypes = listOf(
-                    AssetTypeDto(assetTypeId = 1, name = "Компьютеры", enName = "computers", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null),
-                    AssetTypeDto(assetTypeId = 13, name = "Без типа", enName = "without_type", createdBy = null, createdAt = "2026-07-06T07:18:41.873769", updatedAt = null)
+                    AssetTypeDto(1, "Компьютеры", "computers", null, "2026-07-06T07:18:41.873769", null),
+                    AssetTypeDto(13, "Без типа", "without_type", null, "2026-07-06T07:18:41.873769", null)
                 ),
                 permissionDepartments = listOf(
                     PermissionDepartmentDto(
@@ -713,15 +933,29 @@ private fun InventorizationSessionsContentPreview_Loaded() {
                         departmentCode = "RU10050099",
                         read = true,
                         write = true
+                    ),
+                    PermissionDepartmentDto(
+                        department = "MSG",
+                        nameGroup = "Активы MSG",
+                        departmentCode = "RU10050020",
+                        read = true,
+                        write = true
                     )
                 ),
                 uiState = AssetViewModel.InventorizationUiState.SessionsLoaded(mockSessions),
                 showCreateDialog = false,
-                selectedAssetTypeId = null, // null вместо 0
+                assetClasses = emptyList(),
+                assetClassesUiState = AssetViewModel.AssetClassesUiState.Idle,
+                selectedMaterialClasses = emptySet(),
+                onSelectedMaterialClassesChange = {},
+                selectedAssetTypeIds = emptySet(),
+                selectedDepartmentCodes = emptySet(),
+                isCreating = false,
                 onSessionClick = { _, _ -> },
                 onShowCreateDialogChange = {},
-                onSelectedAssetTypeIdChange = {},
-                onCreateSession = { _, _, _, _ -> },
+                onSelectedAssetTypeIdsChange = {},
+                onSelectedDepartmentCodesChange = {},
+                onCreateSession = { _, _, _, _, _ -> },
                 onRetry = {},
                 onBackClick = {}
             )
@@ -735,17 +969,12 @@ private fun CreateInventorySessionDialogPreview() {
     MaterialTheme {
         CreateInventorySessionDialog(
             assetTypes = listOf(
-                AssetTypeDto(0, "Без типа", "computers", null, "2026-07-06T07:18:41.873769", null),
+                AssetTypeDto(0, "Без типа", "without_type", null, "2026-07-06T07:18:41.873769", null),
                 AssetTypeDto(1, "Компьютеры", "computers", null, "2026-07-06T07:18:41.873769", null),
-                AssetTypeDto(2, "MES оборудование", "computers", null, "2026-07-06T07:18:41.873769", null),
-                AssetTypeDto(3, "Расходные материалы", "computers", null, "2026-07-06T07:18:41.873769", null),
-                AssetTypeDto(4, "Адаптер питания", "computers", null, "2026-07-06T07:18:41.873769", null),
-                AssetTypeDto(5, "Оборудование сбора данных", "computers", null, "2026-07-06T07:18:41.873769", null),
-                AssetTypeDto(6, "Комплектующие", "computers", null, "2026-07-06T07:18:41.873769", null),
-                AssetTypeDto(7, "Сетевое оборудование", "computers", null, "2026-07-06T07:18:41.873769", null),
-                AssetTypeDto(8, "Печатное оборудование", "without_type", null, "2026-07-06T07:21:39.334371", null),
-                AssetTypeDto(9, "Серверное оборудование", "without_type", null, "2026-07-06T07:21:39.334371", null),
-                AssetTypeDto(10, "Оборудование M&U", "without_type", null, "2026-07-06T07:21:39.334371", null),
+                AssetTypeDto(2, "MES оборудование", "mes", null, "2026-07-06T07:18:41.873769", null),
+                AssetTypeDto(3, "Расходные материалы", "supplies", null, "2026-07-06T07:18:41.873769", null),
+                AssetTypeDto(7, "Сетевое оборудование", "network", null, "2026-07-06T07:18:41.873769", null),
+                AssetTypeDto(8, "Печатное оборудование", "printing", null, "2026-07-06T07:21:39.334371", null),
             ),
             permissionDepartments = listOf(
                 PermissionDepartmentDto(
@@ -757,23 +986,31 @@ private fun CreateInventorySessionDialogPreview() {
                 ),
                 PermissionDepartmentDto(
                     department = "MSG",
-                    nameGroup = "Активы RDC",
+                    nameGroup = "Активы MSG",
                     departmentCode = "RU01050020",
                     read = true,
                     write = true
                 ),
                 PermissionDepartmentDto(
                     department = null,
-                    nameGroup = "Активы ",
+                    nameGroup = "Активы (только чтение)",
                     departmentCode = "RU01000098",
                     read = true,
                     write = false
                 )
             ),
-            selectedAssetTypeId = null, // null вместо 1
+            selectedAssetTypeIds = setOf(1, 2),
+            selectedDepartmentCodes = setOf("RU01050099", "RU01050020"),
+            isCreating = false,
             onDismiss = {},
-            onSelectedTypeChange = {},
-            onCreateSession = { _, _, _, _ -> },
+            assetClasses = emptyList(),
+            assetClassesUiState = AssetViewModel.AssetClassesUiState.Idle,
+            selectedMaterialClasses = emptySet(),
+            onSelectedMaterialClassesChange = {},
+            onSelectedAssetTypeIdsChange = {},
+            onSelectedDepartmentCodesChange = {},
+            onCreateSession = { _, _, _, _, _ -> },
+            onRetry = {}
         )
     }
 }
