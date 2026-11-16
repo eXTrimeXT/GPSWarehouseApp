@@ -1,19 +1,29 @@
 package com.gps.warehouse.ui.assets_screens.inventory
 
 import android.annotation.SuppressLint
+import android.text.Layout
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.AccountTree
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Category
+import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
@@ -341,7 +351,7 @@ fun CreateInventorySessionDialog(
 
                     // ============ 0: ТИПЫ АКТИВОВ ============
                     0 -> {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.Center) {
                             if (assetTypes.isEmpty()) {
                                 Text(
                                     "Нет доступных типов активов!",
@@ -349,7 +359,7 @@ fun CreateInventorySessionDialog(
                                     color = MaterialTheme.colorScheme.error
                                 )
                             } else {
-                                // «Выбрать всё / Снять всё»
+                                // «Выбрать/Снять всё»
                                 SelectionButtonsRow(
                                     total = assetTypes.size,
                                     selected = selectedAssetTypeIds.size,
@@ -364,11 +374,13 @@ fun CreateInventorySessionDialog(
 
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
                                     assetTypes.forEach { type ->
                                         val isSelected = selectedAssetTypeIds.contains(type.assetTypeId)
                                         FilterChip(
+                                            modifier = Modifier.fillMaxWidth(),
                                             selected = isSelected,
                                             enabled = !isCreating,
                                             onClick = {
@@ -379,10 +391,10 @@ fun CreateInventorySessionDialog(
                                                 }
                                                 onSelectedAssetTypeIdsChange(newSet)
                                             },
-                                            label = { Text(type.name, softWrap = false) },
+                                            label = { Text(type.name) },
                                             leadingIcon = if (isSelected) {
                                                 { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
-                                            } else null
+                                            } else null,
                                         )
                                     }
                                 }
@@ -419,12 +431,14 @@ fun CreateInventorySessionDialog(
 
                                 FlowRow(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
                                 ) {
                                     writableDepartments.forEach { dept ->
                                         val code = dept.departmentCode ?: return@forEach
                                         val isSelected = selectedDepartmentCodes.contains(code)
                                         FilterChip(
+                                            modifier = Modifier.fillMaxWidth(),
                                             selected = isSelected,
                                             enabled = !isCreating,
                                             onClick = {
@@ -435,9 +449,15 @@ fun CreateInventorySessionDialog(
                                                 }
                                                 onSelectedDepartmentCodesChange(newSet)
                                             },
-                                            label = { Text(dept.nameGroup ?: dept.department ?: code) },
+                                            label = { Text("$code - ${dept.nameGroup ?: dept.department}") },
                                             leadingIcon = if (isSelected) {
-                                                { Icon(Icons.Default.Check, null, Modifier.size(16.dp)) }
+                                                {
+                                                    Icon(
+                                                        Icons.Default.Check,
+                                                        null,
+                                                        Modifier.size(16.dp)
+                                                    )
+                                                }
                                             } else null
                                         )
                                     }
@@ -480,7 +500,7 @@ fun CreateInventorySessionDialog(
                                 else -> {
                                     if (assetClasses.isEmpty()) {
                                         Text(
-                                            "Классы SAP не найдены",
+                                            text = "Классы SAP не найдены",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.padding(vertical = 8.dp)
@@ -508,11 +528,13 @@ fun CreateInventorySessionDialog(
 
                                         FlowRow(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
                                             assetClasses.forEach { cls ->
                                                 val isSelected = selectedMaterialClasses.contains(cls.materialClass)
                                                 FilterChip(
+                                                    modifier = Modifier.fillMaxWidth(),
                                                     selected = isSelected,
                                                     enabled = !isCreating,
                                                     onClick = {
@@ -525,8 +547,7 @@ fun CreateInventorySessionDialog(
                                                     },
                                                     label = {
                                                         Text(
-                                                            text = cls.materialClassShort ?: cls.materialClassName,
-                                                            softWrap = false
+                                                            text = "${cls.materialClass} - ${cls.materialClassName}",
                                                         )
                                                     },
                                                     leadingIcon = if (isSelected) {
@@ -609,7 +630,7 @@ fun CreateInventorySessionDialog(
                     onCreateSession(
                         selectedAssetTypeIds.toList().takeIf { it.isNotEmpty() },
                         selectedDepartmentCodes.toList().takeIf { it.isNotEmpty() },
-                        selectedMaterialClasses.toList().takeIf { it.isNotEmpty() },   // ← новое
+                        selectedMaterialClasses.toList().takeIf { it.isNotEmpty() },
                         formatToIso(startDateTimeMillis, startTimePickerState.hour, startTimePickerState.minute),
                         formatToIso(endDateTimeMillis, endTimePickerState.hour, endTimePickerState.minute)
                     )
@@ -690,7 +711,7 @@ fun CreateInventorySessionDialog(
  *
  * Показывает:
  *  - "Выбрать всё (N)" — если выбрано не всё
- *  - "Снять всё (N)"   — если выбрано всё
+ *  - "Снять всё (N)" — если выбрано всё
  *  - "Выбрано: X из N" — справа от кнопки, мелким шрифтом
  */
 @Composable
@@ -775,94 +796,287 @@ private fun EmptySessionsState(modifier: Modifier = Modifier) {
 
 @Composable
 fun SessionCard(session: InventorizationSessionDto, onClick: () -> Unit) {
+    // Парсим asset_type_name один раз
+    val parsed = remember(session.assetTypeName) {
+        parseAssetTypeName(session.assetTypeName)
+    }
+
+    // === Цвета и иконки по статусу ===
+    val (statusContainer, statusContent, statusIcon) = when (session.status) {
+        "pending" -> Triple(
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.outline,
+            Icons.Default.Pending
+        )
+        "in_progress" -> Triple(
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer,
+            Icons.Default.Sync
+        )
+        "completed" -> Triple(
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer,
+            Icons.Default.CheckCircle
+        )
+        else -> Triple(
+            MaterialTheme.colorScheme.surfaceVariant,
+            MaterialTheme.colorScheme.onSurfaceVariant,
+            Icons.Default.Inventory2
+        )
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onClick() },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = when (session.status) {
-                    "pending" -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                    "in_progress" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                    "completed" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                },
-                modifier = Modifier.size(40.dp)
+        Column(modifier = Modifier.padding(12.dp)) {
+
+            // ==================== ШАПКА ====================
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = when (session.status) {
-                            "pending" -> Icons.Default.Pending
-                            "in_progress" -> Icons.Default.Sync
-                            "completed" -> Icons.Default.CheckCircle
-                            else -> Icons.Default.Inventory2
-                        },
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint = when (session.status) {
-                            "pending" -> MaterialTheme.colorScheme.outline
-                            "in_progress" -> MaterialTheme.colorScheme.onPrimaryContainer
-                            "completed" -> MaterialTheme.colorScheme.onTertiaryContainer
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = statusContainer,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = statusIcon,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp),
+                            tint = statusContent
+                        )
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Сессия #${session.sessionId}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = statusContainer
+                ) {
+                    Text(
+                        text = session.statusRu,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = statusContent,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = session.assetTypeName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            )
+            Spacer(Modifier.height(10.dp))
+
+            // ==================== БЛОК: Департамент / Класс / Тип ====================
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+
+                // Департамент (+ код)
+                CompactInfoRow(
+                    icon = Icons.Outlined.AccountTree,
+                    label = "Департамент",
+                    value = buildString {
+                        val name = parsed.departmentName?.takeIf { it.isNotBlank() }
+                        val code = parsed.departmentCode?.takeIf { it.isNotBlank() }
+                        when {
+                            name != null && code != null -> append("$name ($code)")
+                            name != null -> append(name)
+                            code != null -> append(code)
+                            else -> append("—")
+                        }
+                    }
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "Сессия #${session.sessionId}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                // Класс (+ код)
+                CompactInfoRow(
+                    icon = Icons.AutoMirrored.Filled.Label,
+                    label = "Класс",
+                    value = buildString {
+                        val name = parsed.className?.takeIf { it.isNotBlank() }
+                        val code = parsed.classCode?.takeIf { it.isNotBlank() }
+                        when {
+                            name != null && code != null -> append("$name ($code)")
+                            name != null -> append(name)
+                            code != null -> append(code)
+                            else -> append("—")
+                        }
+                    }
                 )
-                Text(
-                    text = "Дата начала: ${session.startDate?.formatIsoToReadable() ?: "-"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
-                Text(
-                    text = "Дата завершения: ${session.endDate.formatIsoToReadable() ?: "-"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+
+                // Тип
+                CompactInfoRow(
+                    icon = Icons.Outlined.Category,
+                    label = "Тип",
+                    value = parsed.typeName?.takeIf { it.isNotBlank() } ?: "—"
                 )
             }
-            Surface(
-                shape = MaterialTheme.shapes.extraSmall,
-                color = when (session.status) {
-                    "pending" -> MaterialTheme.colorScheme.surfaceVariant
-                    "in_progress" -> MaterialTheme.colorScheme.primaryContainer
-                    "completed" -> MaterialTheme.colorScheme.tertiaryContainer
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                }
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(
+                thickness = 1.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+            )
+            Spacer(Modifier.height(10.dp))
+
+            // ==================== НИЗ: Даты слева + стрелка справа ====================
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = session.statusRu,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = when (session.status) {
-                        "pending" -> MaterialTheme.colorScheme.outline
-                        "in_progress" -> MaterialTheme.colorScheme.onPrimaryContainer
-                        "completed" -> MaterialTheme.colorScheme.onTertiaryContainer
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Outlined.CalendarToday,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "с ${session.startDate?.formatIsoToReadable() ?: "—"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Outlined.Event,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "по ${session.endDate?.formatIsoToReadable() ?: "—"}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Icon(
+                    Icons.Default.ChevronRight,
+                    contentDescription = "Открыть",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                 )
             }
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-                Icons.Default.ChevronRight,
-                null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        }
+    }
+}
+
+
+// Ниже написана логика парсинга департамента, класса и типа инвентаризации
+data class ParsedAssetTypeInfo(
+    val departmentName: String? = null,
+    val departmentCode: String? = null,
+    val className: String? = null,
+    val classCode: String? = null,
+    val typeName: String? = null,
+) {
+    val hasAny: Boolean
+        get() = !departmentName.isNullOrBlank() ||
+                !departmentCode.isNullOrBlank() ||
+                !className.isNullOrBlank() ||
+                !classCode.isNullOrBlank() ||
+                !typeName.isNullOrBlank()
+}
+
+/**
+ * Парсит строку вида:
+ * "Департамент: X | Код департамента: Y | Класс: A: B | Код класса: Z | Тип: T"
+ *
+ * Правила:
+ * - Разделитель фрагментов — `|`.
+ * - Фрагмент `<key>: <value>` — делим по ПЕРВОМУ `:`, чтобы сохранить `:` внутри `value`.
+ * - Ключи сопоставляются по нормализованному виду (lowercase + trim).
+ */
+fun parseAssetTypeName(raw: String?): ParsedAssetTypeInfo {
+    if (raw.isNullOrBlank()) return ParsedAssetTypeInfo()
+
+    var departmentName: String? = null
+    var departmentCode: String? = null
+    var className: String? = null
+    var classCode: String? = null
+    var typeName: String? = null
+
+    raw.split("|").forEach { fragment ->
+        val trimmed = fragment.trim()
+        if (trimmed.isEmpty()) return@forEach
+
+        // Делим по ПЕРВОМУ ':', чтобы сохранить ':' внутри value
+        val colonIndex = trimmed.indexOf(':')
+        if (colonIndex <= 0) return@forEach
+
+        val key = trimmed.substring(0, colonIndex).trim().lowercase()
+        val value = trimmed.substring(colonIndex + 1).trim().takeIf { it.isNotEmpty() }
+
+        when (key) {
+            "департамент" -> departmentName = value
+            "код департамента" -> departmentCode = value
+            "класс" -> className = value
+            "код класса" -> classCode = value
+            "тип" -> typeName = value
+        }
+    }
+
+    return ParsedAssetTypeInfo(
+        departmentName = departmentName,
+        departmentCode = departmentCode,
+        className = className,
+        classCode = classCode,
+        typeName = typeName,
+    )
+}
+
+@Composable
+private fun CompactInfoRow(
+    icon: ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top   // верхнее выравнивание, а не Center
+    ) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier
+                .size(18.dp)
+                .padding(top = 2.dp)   // визуально центрируем иконку по первой строке label
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+                // без maxLines / overflow — текст переносится на нужное кол-во строк
             )
         }
     }
@@ -893,7 +1107,7 @@ private fun InventorizationSessionsContentPreview_Loaded() {
             sessionId = 1,
             assetTypeId = null,
             departmentCodes = null,
-            assetTypeName = "Департамент: RU10050099 | Тип: Компьютеры",
+            assetTypeName = "Департамент: Группа поддержки производства | Код департамента: RU01050020 | Класс: МБП: Оргтехника в эксплуатации ОХР | Код класса: R1006000 | Тип: Без типа",
             assetTypeEnName = "computers",
             status = "pending",
             statusRu = "В ожидании",
@@ -986,7 +1200,8 @@ private fun CreateInventorySessionDialogPreview() {
                 ),
                 PermissionDepartmentDto(
                     department = "MSG",
-                    nameGroup = "Активы MSG",
+//                    nameGroup = "Активы MSG",
+                    nameGroup = null,
                     departmentCode = "RU01050020",
                     read = true,
                     write = true
@@ -1003,9 +1218,28 @@ private fun CreateInventorySessionDialogPreview() {
             selectedDepartmentCodes = setOf("RU01050099", "RU01050020"),
             isCreating = false,
             onDismiss = {},
-            assetClasses = emptyList(),
+            assetClasses = listOf(
+                SapAssetClassDto(
+                    materialClass = "R1006000",
+                    materialClassName = "МБП: Оргтехника в эксплуатации ОХР",
+                    materialClassShort = "МБП: ОвЭОХР",
+                    language = "R"
+                ),
+                SapAssetClassDto(
+                    materialClass = "R1009000",
+                    materialClassName = "МБП: Малоценное имущество в эксплуатации",
+                    materialClassShort = "МБП: МИвЭ",
+                    language = "R"
+                ),
+                SapAssetClassDto(
+                    materialClass = "R1011000 ",
+                    materialClassName = "СИЗ: Спецодежда и СИЗ > 100 000 и > 12 мес.",
+                    materialClassShort = "СИЗ",
+                    language = "R"
+                ),
+            ),
             assetClassesUiState = AssetViewModel.AssetClassesUiState.Idle,
-            selectedMaterialClasses = emptySet(),
+            selectedMaterialClasses = setOf("R1006000", "R1009000"),
             onSelectedMaterialClassesChange = {},
             onSelectedAssetTypeIdsChange = {},
             onSelectedDepartmentCodesChange = {},

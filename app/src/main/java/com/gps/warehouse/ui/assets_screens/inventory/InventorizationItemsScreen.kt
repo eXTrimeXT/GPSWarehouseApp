@@ -604,7 +604,7 @@ fun InventorizationItemsContent(
                 },
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
-                enabled = !isCompleted
+//                enabled = !isCompleted
             )
 
             // === Раскрывающиеся фильтры ===
@@ -942,7 +942,10 @@ fun InventoryItemCard(
     }
 
     val containerColor = when {
-        isSelected -> MaterialTheme.colorScheme.primaryContainer
+        isSelected -> {
+            if (item.isChecked) MaterialTheme.colorScheme.tertiaryContainer
+            else MaterialTheme.colorScheme.primaryContainer
+        }
         else -> MaterialTheme.colorScheme.surface
     }
 
@@ -1055,21 +1058,26 @@ fun InventoryItemCard(
                                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                                     unfocusedContainerColor = MaterialTheme.colorScheme.surface
                                 ),
-                                shape = MaterialTheme.shapes.small
+                                shape = MaterialTheme.shapes.small,
+                                enabled = !item.isChecked,
                             )
-                            IconButton(
-                                onClick = onConfirmClick,
-                                enabled = textFieldValue.text.toIntOrNull() != null,
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = "Подтвердить",
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (textFieldValue.text.toIntOrNull() != null)
-                                        MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                )
+
+                            // Если актив не проверен, то показываем кнопку
+                            if (!item.isChecked) {
+                                IconButton(
+                                    onClick = onConfirmClick,
+                                    enabled = textFieldValue.text.toIntOrNull() != null,
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Check,
+                                        contentDescription = "Подтвердить",
+                                        modifier = Modifier.size(18.dp),
+                                        tint = if (textFieldValue.text.toIntOrNull() != null)
+                                            MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1087,7 +1095,7 @@ fun InventoryItemCard(
 }
 
 // ==================== PREVIEWS ====================
-@Preview
+@Preview(device = "spec:width=1080px,height=2740px,dpi=440")
 @Composable
 private fun InventorizationItemsContentPreview() {
     MaterialTheme {

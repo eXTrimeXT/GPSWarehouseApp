@@ -531,10 +531,11 @@ fun getPermissionDisplayName(key: String): String {
         "supplies" -> "Расходные материалы"
         "power_adapter" -> "Блоки питания"
         "data_collection_equipment" -> "Терминалы сбора данных"
-        "accessories" -> "Аксессуары"
+        "accessories" -> "Комплектующие"
         "network_equipment" -> "Сетевое оборудование"
         "printing_equipment" -> "Печатающее оборудование"
         "server_hardware" -> "Серверное оборудование"
+        "AssetsMU" -> "Активы M&U"
         "users" -> "Пользователи"
         else -> key.replace("_", " ").replaceFirstChar { it.uppercase() }
     }
@@ -551,6 +552,7 @@ fun getPermissionIcon(key: String): ImageVector {
         "network_equipment" -> Icons.Default.Wifi
         "printing_equipment" -> Icons.Default.Print
         "server_hardware" -> Icons.Default.Dns
+        "AssetsMU" -> Icons.Default.DesignServices
         "users" -> Icons.Default.People
         else -> Icons.Default.Category
     }
