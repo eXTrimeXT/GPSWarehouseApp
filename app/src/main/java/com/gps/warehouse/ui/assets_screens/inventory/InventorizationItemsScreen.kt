@@ -973,7 +973,7 @@ fun InventoryItemCard(
                         .size(20.dp)
                         .weight(0.1f)
                 )
-                if (item.assetId == null) SapBadge()
+                if (item.materialId != null) SapBadge()
             }
 
             Text(

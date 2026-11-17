@@ -787,7 +787,7 @@ fun AssetCardModern(asset: AssetResponseDto, onClick: () -> Unit) {
                         )
                     }
                 }
-                if (asset.assetId == null){
+                if (asset.materialId != null){
                     SapBadge()
                 }
             }
