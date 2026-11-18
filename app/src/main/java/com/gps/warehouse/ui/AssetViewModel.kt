@@ -875,7 +875,7 @@ class AssetViewModel @Inject constructor(
                 localStorage.saveNotificationsCache(response.items) // Сохраняем в кэш
                 _uiState.value = AssetUiState.NotificationsLoaded(response.items)
 
-                startSseStream(getToken())
+//                startSseStream(getToken())
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки уведомлений (используем кэш)", e)
                 if (cachedNotifications.isEmpty()) {
@@ -896,82 +896,82 @@ class AssetViewModel @Inject constructor(
         }
     }
 
-    fun startSseStream(token: String) {
-        eventSource?.cancel()
-
-        // НАСТРАИВАЕМ ТАЙМАУТЫ: 0 означает "бесконечно", что критично для SSE
-        val client = OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.SECONDS)      // Ждать данные от сервера бесконечно
-            .writeTimeout(0, TimeUnit.SECONDS)     // Бесконечный таймаут на запись
-            .connectTimeout(10, TimeUnit.SECONDS)  // На подключение даем стандартные 10 сек
-            .build()
-
-        val request = Request.Builder()
-            // param: direction=all || outgoing || incoming
-            .url("${com.gps.warehouse.utils.Constants.ASSET_URL}notifications/stream?direction=incoming")
-            .addHeader("Authorization", "Bearer $token")
-            .addHeader("Accept", "text/event-stream") // Обязательно для SSE
-            .build()
-
-        Log.d(TAG, "startSseStream: Попытка подключения к SSE потоку...")
-
-        eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
-            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                Log.d(TAG, "startSseStream: Получены сырые данные SSE (длина: ${data.length})")
-                try {
-                    val gson = Gson()
-                    val responseDto = gson.fromJson(data, NotificationResponseDto::class.java)
-
-                    Log.d(TAG, "startSseStream: Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
-
-                    val currentState = _uiState.value
-                    if (currentState is AssetUiState.NotificationsLoaded) {
-                        val currentList = currentState.notifications.toMutableList()
-
-                        // Обновляем существующие или добавляем новые
-                        for (incoming in responseDto.items) {
-                            // ЗАЩИТА: Если мы смотрим конкретный актив или сессию,
-                            // игнорируем SSE-уведомления, которые к ним не относятся
-                            if (currentFilterAssetId != null && incoming.assetId != currentFilterAssetId) continue
-                            if (currentFilterSessionId != null && incoming.sessionId != currentFilterSessionId) continue
-
-
-                            val existingIndex = currentList.indexOfFirst { it.notificationId == incoming.notificationId }
-                            if (existingIndex != -1) {
-                                val existing = currentList[existingIndex]
-                                currentList[existingIndex] = existing.copy(
-                                    status = incoming.status.ifEmpty { existing.status },
-                                    statusRu = incoming.statusRu.ifEmpty { existing.statusRu },
-                                    respondedAt = incoming.respondedAt ?: existing.respondedAt
-                                )
-                            } else {
-                                currentList.add(0, incoming)
-                            }
-                        }
-                        _uiState.value = AssetUiState.NotificationsLoaded(currentList)
-                        Log.d(TAG, "startSseStream: Список уведомлений обновлен. Всего: ${currentList.size}")
-                    } else {
-                        _uiState.value = AssetUiState.NotificationsLoaded(responseDto.items)
-                        Log.d(TAG, "startSseStream: Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "startSseStream: Ошибка парсинга JSON из SSE: ${e.message}", e)
-                    Log.e(TAG, "startSseStream: Проблемная строка data: $data")
-                }
-            }
-
-            override fun onClosed(eventSource: EventSource) {
-                super.onClosed(eventSource)
-                Log.d(TAG, "SSE поток закрыт сервером штатно")
-            }
-
-            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                val code = response?.code
-                val errorBody = try { response?.body?.string() } catch (e: Exception) { "Не удалось прочитать" }
-                Log.e(TAG, "Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
-            }
-        })
-    }
+//    fun startSseStream(token: String) {
+//        eventSource?.cancel()
+//
+//        // НАСТРАИВАЕМ ТАЙМАУТЫ: 0 означает "бесконечно", что критично для SSE
+//        val client = OkHttpClient.Builder()
+//            .readTimeout(0, TimeUnit.SECONDS)      // Ждать данные от сервера бесконечно
+//            .writeTimeout(0, TimeUnit.SECONDS)     // Бесконечный таймаут на запись
+//            .connectTimeout(10, TimeUnit.SECONDS)  // На подключение даем стандартные 10 сек
+//            .build()
+//
+//        val request = Request.Builder()
+//            // param: direction=all || outgoing || incoming
+//            .url("${com.gps.warehouse.utils.Constants.ASSET_URL}notifications/stream?direction=incoming")
+//            .addHeader("Authorization", "Bearer $token")
+//            .addHeader("Accept", "text/event-stream") // Обязательно для SSE
+//            .build()
+//
+//        Log.d(TAG, "startSseStream: Попытка подключения к SSE потоку...")
+//
+//        eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
+//            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+//                Log.d(TAG, "startSseStream: Получены сырые данные SSE (длина: ${data.length})")
+//                try {
+//                    val gson = Gson()
+//                    val responseDto = gson.fromJson(data, NotificationResponseDto::class.java)
+//
+//                    Log.d(TAG, "startSseStream: Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
+//
+//                    val currentState = _uiState.value
+//                    if (currentState is AssetUiState.NotificationsLoaded) {
+//                        val currentList = currentState.notifications.toMutableList()
+//
+//                        // Обновляем существующие или добавляем новые
+//                        for (incoming in responseDto.items) {
+//                            // ЗАЩИТА: Если мы смотрим конкретный актив или сессию,
+//                            // игнорируем SSE-уведомления, которые к ним не относятся
+//                            if (currentFilterAssetId != null && incoming.assetId != currentFilterAssetId) continue
+//                            if (currentFilterSessionId != null && incoming.sessionId != currentFilterSessionId) continue
+//
+//
+//                            val existingIndex = currentList.indexOfFirst { it.notificationId == incoming.notificationId }
+//                            if (existingIndex != -1) {
+//                                val existing = currentList[existingIndex]
+//                                currentList[existingIndex] = existing.copy(
+//                                    status = incoming.status.ifEmpty { existing.status },
+//                                    statusRu = incoming.statusRu.ifEmpty { existing.statusRu },
+//                                    respondedAt = incoming.respondedAt ?: existing.respondedAt
+//                                )
+//                            } else {
+//                                currentList.add(0, incoming)
+//                            }
+//                        }
+//                        _uiState.value = AssetUiState.NotificationsLoaded(currentList)
+//                        Log.d(TAG, "startSseStream: Список уведомлений обновлен. Всего: ${currentList.size}")
+//                    } else {
+//                        _uiState.value = AssetUiState.NotificationsLoaded(responseDto.items)
+//                        Log.d(TAG, "startSseStream: Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
+//                    }
+//                } catch (e: Exception) {
+//                    Log.e(TAG, "startSseStream: Ошибка парсинга JSON из SSE: ${e.message}", e)
+//                    Log.e(TAG, "startSseStream: Проблемная строка data: $data")
+//                }
+//            }
+//
+//            override fun onClosed(eventSource: EventSource) {
+//                super.onClosed(eventSource)
+//                Log.d(TAG, "SSE поток закрыт сервером штатно")
+//            }
+//
+//            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+//                val code = response?.code
+//                val errorBody = try { response?.body?.string() } catch (e: Exception) { "Не удалось прочитать" }
+//                Log.e(TAG, "Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
+//            }
+//        })
+//    }
     // ================== Уведомления ==================
 
     // ================== Пользователи ==================

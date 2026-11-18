@@ -122,13 +122,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            LaunchedEffect(uiState) {
-                if (uiState is MainViewModel.UiState.LoggedIn) {
-                    mainViewModel.startGlobalNotifications()
-                } else if (uiState is MainViewModel.UiState.Idle || uiState is MainViewModel.UiState.SessionExpired) {
-                    mainViewModel.stopGlobalNotifications()
-                }
-            }
+//            LaunchedEffect(uiState) {
+//                if (uiState is MainViewModel.UiState.LoggedIn) {
+//                    mainViewModel.startGlobalNotifications()
+//                } else if (uiState is MainViewModel.UiState.Idle || uiState is MainViewModel.UiState.SessionExpired) {
+//                    mainViewModel.stopGlobalNotifications()
+//                }
+//            }
 
             // Получение текущей версии
             LaunchedEffect(Unit) {
