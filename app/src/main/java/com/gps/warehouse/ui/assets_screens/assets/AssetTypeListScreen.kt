@@ -49,9 +49,6 @@ fun AssetTypeListScreen(
     // Индикатор поиска
     var isSearching by remember { mutableStateOf(false) }
 
-    var serialNumber by remember { mutableStateOf("") }
-    var inventoryId by remember { mutableStateOf("") }
-
     // Собираем состояния из assetTypesUiState
     val assetTypesUiState by assetViewModel.assetTypesUiState.collectAsState()
     val assetTypes by assetViewModel.assetTypes.collectAsState()
@@ -81,37 +78,32 @@ fun AssetTypeListScreen(
         scope.launch {
             isSearching = true
             try {
-                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
+                val (foundAsset, usedValue, matchType) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
-                    Log.d(
-                        TAG,
-                        "Scanned asset found: assetId=${foundAsset.assetId}, materialId=${foundAsset.materialId}, navigating"
-                    )
-
-                    // 1. Безопасно кодируем все строковые параметры
                     val assetTypeIdStr = foundAsset.assetTypeId?.toString() ?: "0"
                     val assetTypeNameStr = URLEncoder.encode(foundAsset.assetTypeName ?: "Без типа", "UTF-8")
-                    val serialNumberStr = URLEncoder.encode(foundAsset.serialNumber ?: "", "UTF-8")
-                    val inventoryIdStr = URLEncoder.encode(foundAsset.inventoryId ?: "", "UTF-8")
-                    val materialIdStr = URLEncoder.encode(foundAsset.materialId ?: "", "UTF-8")
 
-                    // 2. Формируем query-маршрут
-                    val route = "assets_list?assetTypeId=$assetTypeIdStr" +
-                            "&assetTypeName=$assetTypeNameStr" +
-                            "&serialNumber=$serialNumberStr" +
-                            "&inventoryId=$inventoryIdStr" +
-                            "&materialId=$materialIdStr"
+                    // Формируем базовый маршрут
+                    var route = "assets_list?assetTypeId=$assetTypeIdStr&assetTypeName=$assetTypeNameStr"
+
+                    // Добавляем ТОЛЬКО тот фильтр, по которому нашли актив
+                    when (matchType) {
+                        AssetViewModel.ScanMatchType.SERIAL_NUMBER ->
+                            route += "&serialNumber=${URLEncoder.encode(foundAsset.serialNumber ?: "", "UTF-8")}"
+                        AssetViewModel.ScanMatchType.INVENTORY_ID ->
+                            route += "&inventoryId=${URLEncoder.encode(foundAsset.inventoryId ?: "", "UTF-8")}"
+                        AssetViewModel.ScanMatchType.MATERIAL_ID ->
+                            route += "&materialId=${URLEncoder.encode(foundAsset.materialId ?: "", "UTF-8")}"
+                        null -> Unit // не должно случаться при foundAsset != null
+                    }
 
                     Log.d(TAG, "Navigating to route: $route")
-
-                    navController.navigate(route) {
-                        launchSingleTop = true
-                    }
+                    navController.navigate(route) { launchSingleTop = true }
                 } else {
                     Toast.makeText(
                         context,
-                        "Актив '$scannedValue' не найден (проверено как серийник и инвентарник)",
+                        "Актив '$scannedValue' не найден",
                         Toast.LENGTH_LONG
                     ).show()
                 }

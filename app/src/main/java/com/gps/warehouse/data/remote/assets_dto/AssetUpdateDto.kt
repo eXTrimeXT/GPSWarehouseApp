@@ -28,6 +28,7 @@ data class AssetUpdate(
     @SerializedName("comment") val comment: String? = null,
     @SerializedName("date_issue") val dateIssue: String? = null,
     @SerializedName("date_purchasing") val datePurchasing: String? = null,
+    @SerializedName("write_off_date") val writeOffDate: String? = null,
     @SerializedName("model_id") val modelId: Int? = null,
     @SerializedName("model_name") val modelName: String? = null,
     @SerializedName("asset_type_id") val assetTypeId: Int? = null,

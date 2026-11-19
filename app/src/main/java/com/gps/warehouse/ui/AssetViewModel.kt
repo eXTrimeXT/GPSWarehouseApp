@@ -418,7 +418,7 @@ class AssetViewModel @Inject constructor(
                 emptyList()
             }
 
-            // ИСПРАВЛЕНИЕ: Передаем фильтры в функцию получения кэша!
+            // Передаем фильтры в функцию получения кэша!
             if (page == 1) {
                 val cachedAssets = localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy)
                 if (cachedAssets.isNotEmpty()) {
@@ -442,29 +442,131 @@ class AssetViewModel @Inject constructor(
                     name = name, inventoryId = inventoryId,
                     serialNumber = serialNumber, materialId = materialId,
                     assetStatus = assetStatus, modelId = modelId, assetTypeId = assetTypeId,
-                    parentId = parentId, locationId = locationId, onlyMy = onlyMy
+                    parentId = parentId,
+                    locationId = locationId, onlyMy = onlyMy
                 )
 
-                val updatedAssets = oldAssets + response.items
+                val newItems = response.items.filterNot { incoming ->
+                    oldAssets.any { existing ->
+                        (existing.assetId != null && existing.assetId == incoming.assetId) ||
+                                (existing.materialId != null && existing.materialId == incoming.materialId) ||
+                                (existing.inventoryId != null && existing.inventoryId == incoming.inventoryId)
+                    }
+                }
+                val updatedAssets = oldAssets + newItems
+                val effectiveHasNext = response.hasNext && newItems.isNotEmpty()
 
-                // ИСПРАВЛЕНИЕ: Передаем фильтры при сохранении кэша!
                 if (page == 1) {
                     localStorage.saveAssetsCache(updatedAssets, assetTypeId = assetTypeId, onlyMy = onlyMy)
                 }
 
                 _uiState.value = AssetUiState.AssetsLoadedPaginated(
-                    assets = updatedAssets, total = response.total, page = page,
-                    pageSize = pageSize, totalPages = response.totalPages,
-                    hasNext = response.hasNext, hasPrevious = response.hasPrevious
+                    assets = updatedAssets,
+                    total = response.total,
+                    page = page,
+                    pageSize = pageSize,
+                    totalPages = response.totalPages,
+                    hasNext = effectiveHasNext,
+                    hasPrevious = response.hasPrevious
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки активов (используем кэш)", e)
-                if (page == 1 && oldAssets.isEmpty()) {
+                if (page == 1) {
                     _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки")
                 }
             }
         }
     }
+
+    // Метод загрузки списка активов с фильтрами:
+//    fun loadAssetsByFilters(
+//        page: Int,
+//        pageSize: Int = 50,
+//        name: String? = null,
+//        serialNumber: String? = null,
+//        inventoryId: String? = null,
+//        materialId: String? = null,
+//        assetStatus: String? = null,
+//        modelId: Int? = null,
+//        assetTypeId: Int? = null,
+//        parentId: Int? = null,
+//        locationId: Int? = null,
+//        onlyMy: Boolean = false
+//    ) {
+//        viewModelScope.launch {
+//            val currentState = _uiState.value
+//            val oldAssets = if (currentState is AssetUiState.AssetsLoadedPaginated && page > 1) {
+//                currentState.assets
+//            } else {
+//                emptyList()
+//            }
+//
+//            // Показываем кэш только на первой странице
+//            if (page == 1) {
+//                val cachedAssets = localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy)
+//                if (cachedAssets.isNotEmpty()) {
+//                    _uiState.value = AssetUiState.AssetsLoadedPaginated(
+//                        assets = cachedAssets, total = cachedAssets.size, page = 1,
+//                        pageSize = pageSize, totalPages = 1, hasNext = false, hasPrevious = false
+//                    )
+//                }
+//            }
+//
+//            if (!networkMonitor.isCurrentlyConnected()) {
+//                if (page == 1 && localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy).isEmpty()) {
+//                    _uiState.value = AssetUiState.Error("Нет подключения к сети")
+//                }
+//                return@launch
+//            }
+//
+//            try {
+//                val response = assetApiService.getAssets(
+//                    token = "Bearer ${getToken()}",
+//                    page = page,
+//                    pageSize = pageSize,
+//                    name = name,
+//                    inventoryId = inventoryId,
+//                    serialNumber = serialNumber,
+//                    materialId = materialId,
+//                    assetStatus = assetStatus,
+//                    modelId = modelId,
+//                    assetTypeId = assetTypeId,
+//                    parentId = parentId,
+//                    locationId = locationId,
+//                    onlyMy = onlyMy
+//                )
+//
+//                // ИСПРАВЛЕНИЕ: Дедупликация по составному ключу (assetId → materialId → inventoryId → hashCode)
+//                val combined = oldAssets + response.items
+//                val updatedAssets = combined.distinctBy { asset ->
+//                    asset.materialId
+//                        ?: asset.assetId?.toString()
+//                        ?: asset.serialNumber
+//                        ?: asset.inventoryId
+//                }
+//
+//                // Сохраняем в кэш только первую страницу без фильтров
+//                if (page == 1) {
+//                    localStorage.saveAssetsCache(updatedAssets, assetTypeId = assetTypeId, onlyMy = onlyMy)
+//                }
+//
+//                _uiState.value = AssetUiState.AssetsLoadedPaginated(
+//                    assets = updatedAssets,
+//                    total = response.total,
+//                    page = page,
+//                    pageSize = pageSize,
+//                    totalPages = response.totalPages,
+//                    hasNext = response.hasNext,
+//                    hasPrevious = response.hasPrevious
+//                )
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Ошибка загрузки активов (используем кэш)", e)
+//                if (page == 1 && oldAssets.isEmpty()) {
+//                    _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки")
+//                }
+//            }
+//        }
+//    }
 
     /**
      * Ищет актив по отсканированному значению.
@@ -473,66 +575,113 @@ class AssetViewModel @Inject constructor(
      *
      * @return Pair(найденный актив или null, фактическое значение, по которому искали в последний раз)
      */
-    suspend fun findAssetByScanValue(scannedValue: String): Pair<AssetResponseDto?, String> {
+//    suspend fun findAssetByScanValue(scannedValue: String): Pair<AssetResponseDto?, String> {
+//        return try {
+//            // === Пробуем поиск по СЕРИЙНОМУ номеру ===
+//            var currentSerialNumber = scannedValue
+//            if (currentSerialNumber.length > 18) currentSerialNumber = scannedValue.takeLast(18)
+//            Log.d("AssetViewModel", "Поиск по serialNumber: $currentSerialNumber")
+//            val bySerial = assetApiService.getAssets(
+//                token = "Bearer ${getToken()}",
+//                serialNumber = currentSerialNumber,
+//                page = 1,
+//                pageSize = 1
+//            )
+//            bySerial.items.firstOrNull()?.let {
+//                // Если нашли по серийнику, возвращаем его и исходное значение
+//                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
+//                return Pair(it, currentSerialNumber)
+//            }
+//
+//            // === Если не нашли, пробуем поиск по ИНВЕНТАРНОМУ номеру ===
+//            var currentInventoryId = scannedValue
+//            // Валидация инвентарного номера по длине
+//            if (currentInventoryId.length == 11) {
+//                currentInventoryId = "0$currentInventoryId"
+//                Log.w("AssetViewModel", "Изменение inv.number: old=$scannedValue new=$currentInventoryId")
+//            }
+//            Log.d("AssetViewModel", "Поиск по inventoryId: inv. number=$currentInventoryId")
+//            val byInventory = assetApiService.getAssets(
+//                token = "Bearer ${getToken()}",
+//                inventoryId = currentInventoryId,
+//                page = 1,
+//                pageSize = 1,
+//            )
+//            byInventory.items.firstOrNull()?.let {
+//                // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
+//                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${it.assetId}")
+//                return Pair(it, currentInventoryId)
+//            }
+//
+//            // === Поиск по MATERIAL_ID ===
+//            var materialId = scannedValue
+//            if (materialId.length == 11) {
+//                materialId = "0${materialId}0000"
+//            }
+//            val byMaterialId = assetApiService.getAssets(
+//                token = "Bearer ${getToken()}",
+//                materialId = materialId,
+//                page = 1,
+//                pageSize = 1
+//            )
+//            byMaterialId.items.firstOrNull()?.let {
+//                Log.d("AssetViewModel", "Найдено по material_id: id=${it.materialId}")
+//                return Pair(it, materialId)
+//            }
+//
+//            // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
+//            Pair(null, materialId)
+//        } catch (e: Exception) {
+//            Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
+//            // В случае ошибки возвращаем null и исходное значение, чтобы не ломать логику
+//            Pair(null, scannedValue)
+//        }
+//    }
+
+    enum class ScanMatchType { SERIAL_NUMBER, INVENTORY_ID, MATERIAL_ID }
+
+    suspend fun findAssetByScanValue(scannedValue: String): Triple<AssetResponseDto?, String, ScanMatchType?> {
         return try {
-            // === Пробуем поиск по СЕРИЙНОМУ номеру ===
+            // === Поиск по СЕРИЙНОМУ номеру ===
             var currentSerialNumber = scannedValue
             if (currentSerialNumber.length > 18) currentSerialNumber = scannedValue.takeLast(18)
-            Log.d("AssetViewModel", "Поиск по serialNumber: $currentSerialNumber")
             val bySerial = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 serialNumber = currentSerialNumber,
-                page = 1,
-                pageSize = 1
+                page = 1, pageSize = 1
             )
             bySerial.items.firstOrNull()?.let {
-                // Если нашли по серийнику, возвращаем его и исходное значение
-                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
-                return Pair(it, currentSerialNumber)
+                return Triple(it, currentSerialNumber, ScanMatchType.SERIAL_NUMBER)
             }
 
-            // === Если не нашли, пробуем поиск по ИНВЕНТАРНОМУ номеру ===
+            // === Поиск по ИНВЕНТАРНОМУ номеру ===
             var currentInventoryId = scannedValue
-            // Валидация инвентарного номера по длине
-            if (currentInventoryId.length == 11) {
-                currentInventoryId = "0$currentInventoryId"
-                Log.w("AssetViewModel", "Изменение inv.number: old=$scannedValue new=$currentInventoryId")
-            }
-            Log.d("AssetViewModel", "Поиск по inventoryId: inv. number=$currentInventoryId")
+            if (currentInventoryId.length == 11) currentInventoryId = "0$currentInventoryId"
             val byInventory = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 inventoryId = currentInventoryId,
-                page = 1,
-                pageSize = 1,
+                page = 1, pageSize = 1,
             )
             byInventory.items.firstOrNull()?.let {
-                // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
-                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${it.assetId}")
-                return Pair(it, currentInventoryId)
+                return Triple(it, currentInventoryId, ScanMatchType.INVENTORY_ID)
             }
 
             // === Поиск по MATERIAL_ID ===
             var materialId = scannedValue
-            if (materialId.length == 11) {
-                materialId = "0${materialId}0000"
-            }
+            if (materialId.length == 11) materialId = "0${materialId}0000"
             val byMaterialId = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 materialId = materialId,
-                page = 1,
-                pageSize = 1
+                page = 1, pageSize = 1
             )
             byMaterialId.items.firstOrNull()?.let {
-                Log.d("AssetViewModel", "Найдено по material_id: id=${it.materialId}")
-                return Pair(it, materialId)
+                return Triple(it, materialId, ScanMatchType.MATERIAL_ID)
             }
 
-            // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
-            Pair(null, materialId)
+            Triple(null, materialId, null)
         } catch (e: Exception) {
             Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
-            // В случае ошибки возвращаем null и исходное значение, чтобы не ломать логику
-            Pair(null, scannedValue)
+            Triple(null, scannedValue, null)
         }
     }
 
@@ -1122,11 +1271,11 @@ class AssetViewModel @Inject constructor(
         transferId: Int,
         action: String, // "accept" или "decline"
         comment: String? = null,
+        assetId: Int? = null,
         onSuccess: (AssetTransferRespondResponseDto) -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
             try {
                 val request = TransferActionRequestDto(action = action, comment = comment)
                 val response = assetApiService.respondToTransfer(
@@ -1136,12 +1285,16 @@ class AssetViewModel @Inject constructor(
                 )
                 onSuccess(response)
                 // Обновляем информацию о передаче
+
                 _transferInfo.value = null
+                if (assetId != null) {
+                    loadAssetDetails(assetId = assetId)
+                }
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка обработки запроса"
                 Log.e(TAG, "Ошибка ответа на передачу: $errorMessage")
                 onError(errorMessage)
-                _uiState.value = AssetUiState.Error(errorMessage)
+//                _uiState.value = AssetUiState.Error(errorMessage)
             }
         }
     }
@@ -1151,11 +1304,11 @@ class AssetViewModel @Inject constructor(
      */
     fun cancelTransfer(
         transferId: Int,
+        assetId: Int? = null,
         onSuccess: (AssetTransferCancelResponseDto) -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
             try {
                 val response = assetApiService.cancelTransfer(
                     token = "Bearer ${getToken()}",
@@ -1163,12 +1316,16 @@ class AssetViewModel @Inject constructor(
                 )
                 onSuccess(response)
                 // Обновляем информацию о передаче
+
                 _transferInfo.value = null
+                if (assetId != null) {
+                    loadAssetDetails(assetId = assetId)
+                }
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка отмены запроса"
                 Log.e(TAG, "Ошибка отмены передачи: $errorMessage")
                 onError(errorMessage)
-                _uiState.value = AssetUiState.Error(errorMessage)
+//                _uiState.value = AssetUiState.Error(errorMessage)
             }
         }
     }
@@ -1243,7 +1400,7 @@ class AssetViewModel @Inject constructor(
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+//            _uiState.value = AssetUiState.Loading
             try {
                 val response = assetApiService.getConfirmationsList(
                     token = "Bearer ${getToken()}",
@@ -1260,14 +1417,14 @@ class AssetViewModel @Inject constructor(
                 val errorMessage = getErrorMessage(e) ?: "Ошибка получения списка подтверждений"
                 Log.e(TAG, "Ошибка получения списка подтверждений: $errorMessage", e)
                 onError(errorMessage)
-                _uiState.value = AssetUiState.Error(errorMessage)
+//                _uiState.value = AssetUiState.Error(errorMessage)
             }
         }
     }
 
     fun getLastConfirmation(assetId: Int) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+//            _uiState.value = AssetUiState.Loading
             try {
                 val response = assetApiService.getLastConfirmation(
                     token = "Bearer ${getToken()}",

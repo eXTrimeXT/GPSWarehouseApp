@@ -53,14 +53,13 @@ import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.formatIsoToReadable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.material.icons.automirrored.filled.FactCheck
 import com.gps.warehouse.ui.MainViewModel
+import com.gps.warehouse.ui.components.AssetDatePickerDialog
 import com.gps.warehouse.ui.components.CameraScannerDialog
+import com.gps.warehouse.ui.components.InfoRowWriteOffDate
 import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
 
@@ -99,6 +98,8 @@ fun AssetDetailsScreen(
     var isEditing by remember { mutableStateOf(false) }
     var showNextServiceDatePicker by remember { mutableStateOf(false) }
     var showNextCheckDatePicker by remember { mutableStateOf(false) }
+    var showDateIssuePicker by remember { mutableStateOf(false) }
+    var showDatePurchasingPicker by remember { mutableStateOf(false) }
     var userPendingRemoval by remember { mutableStateOf<Pair<UserType, AssetUserFullResponse>?>(null) }
 
     var editState by remember { mutableStateOf<AssetEditState?>(null) }
@@ -224,55 +225,43 @@ fun AssetDetailsScreen(
     }
 
     if (showNextServiceDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = editState?.nextService?.let {
-                LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        AssetDatePickerDialog(
+            initialIsoDate = editState?.nextService,
+            onDismiss = { showNextServiceDatePicker = false },
+            onDateSelected = { iso ->
+                editState = editState?.copy(nextService = iso)
             }
         )
-        DatePickerDialog(
-            onDismissRequest = { showNextServiceDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val isoDate = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneId.systemDefault()).toLocalDate().toString()
-                        editState?.let { editState = it.copy(nextService = isoDate) }
-                    }
-                    showNextServiceDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showNextServiceDatePicker = false
-                }) { Text("Отмена") }
-            }
-        ) { DatePicker(state = datePickerState) }
     }
 
     if (showNextCheckDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = editState?.nextCheck?.let {
-                LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        AssetDatePickerDialog(
+            initialIsoDate = editState?.nextCheck,
+            onDismiss = { showNextCheckDatePicker = false },
+            onDateSelected = { iso ->
+                editState = editState?.copy(nextCheck = iso)
             }
         )
-        DatePickerDialog(
-            onDismissRequest = { showNextCheckDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        val isoDate = Instant.ofEpochMilli(millis)
-                            .atZone(ZoneId.systemDefault()).toLocalDate().toString()
-                        editState?.let { editState = it.copy(nextCheck = isoDate) }
-                    }
-                    showNextCheckDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showNextCheckDatePicker = false
-                }) { Text("Отмена") }
+    }
+
+    if (showDateIssuePicker) {
+        AssetDatePickerDialog(
+            initialIsoDate = editState?.dateIssue,
+            onDismiss = { showDateIssuePicker = false },
+            onDateSelected = { iso ->
+                editState = editState?.copy(dateIssue = iso)
             }
-        ) { DatePicker(state = datePickerState) }
+        )
+    }
+
+    if (showDatePurchasingPicker) {
+        AssetDatePickerDialog(
+            initialIsoDate = editState?.datePurchasing,
+            onDismiss = { showDatePurchasingPicker = false },
+            onDateSelected = { iso ->
+                editState = editState?.copy(datePurchasing = iso)
+            }
+        )
     }
 
     if (showEmployeeSearchForTransfer) {
@@ -357,16 +346,11 @@ fun AssetDetailsScreen(
                         isCancellingTransfer = true
                         assetViewModel.cancelTransfer(
                             transferId = transferId,
+                            assetId = assetId,
                             onSuccess = { response ->
                                 isCancellingTransfer = false
                                 transferToCancel = null
                                 Toast.makeText(context, response.message, Toast.LENGTH_LONG).show()
-                                // Перезагружаем список передач и статус
-                                (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)
-                                    ?.asset?.assetId?.let { assetId ->
-                                        assetViewModel.loadAssetTransfers(assetId)
-                                        assetViewModel.checkTransferExists(assetId)
-                                    }
                             },
                             onError = { error ->
                                 isCancellingTransfer = false
@@ -407,17 +391,12 @@ fun AssetDetailsScreen(
                 assetViewModel.respondToTransfer(
                     transferId = transfer.transferId,
                     action = "accept",
+                    assetId = assetId,
                     comment = comment,
                     onSuccess = { response ->
                         isRespondingTransfer = false
                         transferToRespond = null
                         Toast.makeText(context, response.message, Toast.LENGTH_LONG).show()
-                        (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)
-                            ?.asset?.assetId?.let { assetId ->
-                                assetViewModel.loadAssetTransfers(assetId)
-                                assetViewModel.checkTransferExists(assetId)
-                                assetViewModel.loadAssetDetails(assetId)
-                            }
                     },
                     onError = { error ->
                         isRespondingTransfer = false
@@ -551,6 +530,8 @@ fun AssetDetailsScreen(
         },
         onNextServiceClick = { showNextServiceDatePicker = true },
         onNextCheckClick = { showNextCheckDatePicker = true },
+        onDateIssueClick = { showDateIssuePicker = true },
+        onDatePurchasingClick = { showDatePurchasingPicker = true },
         onTransferClick = {
             showEmployeeSearchForTransfer = true
             assetViewModel.loadEmployees(page = 1, pageSize = 20)
@@ -579,6 +560,8 @@ fun firstLoadData(
     viewModel.getEmployeeMe()
     viewModel.loadWorkshops()
     viewModel.loadMvzDepartments()
+
+    // Загружаем подтверждения асинхронно, не блокируя основной экран
     if (assetId != null) {
         viewModel.loadConfirmationsList(assetId = assetId, page = 1, pageSize = 50)
         viewModel.getLastConfirmation(assetId = assetId)
@@ -611,6 +594,8 @@ fun AssetDetailsContent(
     onRemoveUser: ((UserType, AssetUserFullResponse) -> Unit)? = null,
     onNextServiceClick: (() -> Unit)? = null,
     onNextCheckClick: (() -> Unit)? = null,
+    onDateIssueClick: (() -> Unit)? = null,
+    onDatePurchasingClick : (() -> Unit)? = null,
     onTransferClick: () -> Unit,
     assetTransfers: List<AssetTransferDto>,
     confirmations: List<AssetConfirmationResponseDto>,
@@ -713,7 +698,10 @@ fun AssetDetailsContent(
                                 onEditStateChange = onEditStateChange,
                                 onNavigateToParent = onNavigateToParent,
                                 onNextServiceClick = onNextServiceClick,
-                                onNextCheckClick = onNextCheckClick
+                                onNextCheckClick = onNextCheckClick,
+                                onDateIssueClick = onDateIssueClick,
+                                onDatePurchasingClick = onDatePurchasingClick,
+                                onSave = onSave
                             )
 
                             1 -> UsersTab(
@@ -752,7 +740,7 @@ fun AssetDetailsContent(
 @Composable
 fun AssetHeaderCard(
     asset: AssetResponseDto,
-    isEditing: Boolean,
+    isEditing: Boolean = true,
     assetStatuses: List<AssetStatusDto>,
     editState: AssetEditState?,
     onStatusChange: (Int?) -> Unit
@@ -903,7 +891,10 @@ fun MainInfoTab(
     onEditStateChange: (AssetEditState) -> Unit,
     onNavigateToParent: (Int) -> Unit,
     onNextServiceClick: (() -> Unit)?,
-    onNextCheckClick: (() -> Unit)?
+    onNextCheckClick: (() -> Unit)?,
+    onDateIssueClick: (() -> Unit)?,
+    onDatePurchasingClick: (() -> Unit)?,
+    onSave: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -914,12 +905,13 @@ fun MainInfoTab(
             // Фиксированный хедер со статусом
             AssetHeaderCard(
                 asset = asset,
-                isEditing = isEditing,
+//                isEditing = isEditing,
                 assetStatuses = assetStatuses,
                 editState = editState,
                 onStatusChange = { newStatusId ->
                     editState?.let { state ->
                         onEditStateChange(state.copy(assetStatusId = newStatusId))
+                        onSave()
                     }
                 }
             )
@@ -930,7 +922,9 @@ fun MainInfoTab(
                     asset = asset,
                     assetTypes = assetTypes,
                     editState = editState ?: AssetEditState.fromAsset(asset),
-                    onEditStateChange = onEditStateChange
+                    onEditStateChange = onEditStateChange,
+                    onDateIssueClick = onDateIssueClick,
+                    onDatePurchasingClick = onDatePurchasingClick
                 )
             } else {
                 ReadOnlyInfoSection(asset = asset, onNavigateToParent = onNavigateToParent)
@@ -940,7 +934,7 @@ fun MainInfoTab(
             DepartmentFromCard(
                 code = asset.costCenterCodeFrom,
                 name = asset.costCenterNameFrom,
-                isEditing = isEditing,
+//                isEditing = isEditing,
                 mvzDepartments = mvzDepartments,
                 editState = editState,
                 onEditStateChange = onEditStateChange
@@ -1429,15 +1423,21 @@ fun InfoSectionCard(icon: ImageVector, title: String, content: @Composable Colum
 @Composable
 fun ReadOnlyInfoSection(asset: AssetResponseDto, onNavigateToParent: (Int) -> Unit) {
     InfoSectionCard(icon = Icons.Default.Info, title = "Основная информация") {
+        InfoRow(label = "Asset ID", value = asset.assetId.toString())   // TODO: удалить для PROD
+        InfoRow(label = "Номер SAP", value = asset.materialId)          // TODO: удалить для PROD
         InfoRow(label = "Название", value = asset.name)
-        InfoRow(label = "Инв. номер", value = asset.inventoryId)
-        InfoRow(label = "Номер SAP", value = asset.materialId)
         InfoRow(label = "Серийный номер", value = asset.serialNumber)
+        InfoRow(label = "Инв. номер", value = asset.inventoryId)
         InfoRow(label = "Тип", value = asset.assetTypeName)
+        InfoRow(label = "Класс", value = asset.materialClassName)
+        InfoRow(label = "Код класса", value = asset.materialClass)
         InfoRow(label = "Модель", value = asset.modelName)
-        InfoRow(label = "Количество", value = asset.quantity?.toString())
+        InfoRow(label = "Количество", value = asset.quantity.toString())
         InfoRow(label = "Производитель", value = asset.manufacturerName)
         InfoRow(label = "Поставщик", value = asset.vendorName)
+        InfoRow(label = "Дата выдачи", value = asset.dateIssue)
+        InfoRow(label = "Дата покупки", value = asset.datePurchasing)
+        InfoRowWriteOffDate(label = "Дата списания", value = asset.writeOffDate.toString())
         InfoRow(label = "ОС", value = asset.osName)
         asset.parentName?.let { parentName ->
             Row(
@@ -1492,36 +1492,32 @@ fun EditableInfoSection(
     asset: AssetResponseDto,
     assetTypes: List<AssetTypeDto>,
     editState: AssetEditState,
-    onEditStateChange: (AssetEditState) -> Unit
+    onEditStateChange: (AssetEditState) -> Unit,
+    onDateIssueClick: (() -> Unit)?,
+    onDatePurchasingClick: (() -> Unit)?
 ) {
     InfoSectionCard(icon = Icons.Default.Edit, title = "Редактирование") {
         OutlinedTextField(
             value = editState.name ?: "",
-            onValueChange = { onEditStateChange(editState.copy(name = it)) },
+            onValueChange = { onEditStateChange(editState.copy(name = it.take(150))) },
             label = { Text("Название") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
-            value = editState.inventoryId ?: "",
-            onValueChange = { onEditStateChange(editState.copy(inventoryId = it)) },
-            label = { Text("Инв. номер") },
+            value = editState.serialNumber ?: "",
+            onValueChange = { onEditStateChange(editState.copy(serialNumber = it.take(100))) },
+            label = { Text("Серийный номер") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
-        )
-        OutlinedTextField(
-            value = editState.materialId ?: "",
-            onValueChange = { onEditStateChange(editState.copy(materialId = it)) },
-            label = { Text("Номер SAP") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
-            value = editState.serialNumber ?: "",
-            onValueChange = { onEditStateChange(editState.copy(serialNumber = it)) },
-            label = { Text("Серийный номер") },
+            value = editState.inventoryId ?: "",
+            onValueChange = { onEditStateChange(editState.copy(inventoryId = it.take(100))) },
+            label = { Text("Инв. номер") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -1559,6 +1555,14 @@ fun EditableInfoSection(
         }
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
+            value = editState.modelName ?: "",
+            onValueChange = { onEditStateChange(editState.copy(modelName = it.take(300))) },
+            label = { Text("Модель") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
             value = editState.quantity?.toString() ?: "",
             onValueChange = { onEditStateChange(editState.copy(quantity = it.toIntOrNull())) },
             label = { Text("Количество") },
@@ -1568,8 +1572,71 @@ fun EditableInfoSection(
         )
         Spacer(Modifier.height(8.dp))
         OutlinedTextField(
+            value = editState.manufacturerName ?: "",
+            onValueChange = { onEditStateChange(editState.copy(manufacturerName = it.take(100))) },
+            label = { Text("Производитель") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = editState.vendorName ?: "",
+            onValueChange = { onEditStateChange(editState.copy(vendorName = it.take(100))) },
+            label = { Text("Поставщик") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = editState.dateIssue ?: "",
+            onValueChange = { },
+            label = { Text("Дата выдачи") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onDateIssueClick?.invoke() },
+            readOnly = true,
+            singleLine = true,
+            placeholder = { Text("ДД.ММ.ГГГГ") },
+            trailingIcon = {
+                if (onDateIssueClick != null) {
+                    IconButton(onClick = onDateIssueClick) {
+                        Icon(Icons.Default.CalendarToday, "Выбрать дату")
+                    }
+                }
+            }
+        )
+
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = editState.datePurchasing ?: "",
+            onValueChange = { },
+            label = { Text("Дата покупки") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onDatePurchasingClick?.invoke() },
+            readOnly = true,
+            singleLine = true,
+            placeholder = { Text("ДД.ММ.ГГГГ") },
+            trailingIcon = {
+                if (onDatePurchasingClick != null) {
+                    IconButton(onClick = onDatePurchasingClick) {
+                        Icon(Icons.Default.CalendarToday, "Выбрать дату")
+                    }
+                }
+            }
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = editState.osName ?: "",
+            onValueChange = { onEditStateChange(editState.copy(osName = it.take(100))) },
+            label = { Text("ОС") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
             value = editState.comment ?: "",
-            onValueChange = { onEditStateChange(editState.copy(comment = it)) },
+            onValueChange = { onEditStateChange(editState.copy(comment = it.take(500))) },
             label = { Text("Комментарий") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 3,
@@ -1583,7 +1650,7 @@ fun EditableInfoSection(
 fun DepartmentFromCard(
     code: String?,
     name: String?,
-    isEditing: Boolean,
+    isEditing: Boolean = false,
     mvzDepartments: List<MvzDepartments>,
     editState: AssetEditState?,
     onEditStateChange: (AssetEditState) -> Unit
@@ -1595,27 +1662,43 @@ fun DepartmentFromCard(
             if (!isDeleted) {
                 Text(
                     text = name?.takeIf { it.isNotBlank() } ?: "Без названия",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                HorizontalDivider(
+                    modifier = Modifier,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                 )
                 Text(
                     text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                HorizontalDivider(
+                    modifier = Modifier,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                 )
             } else {
                 Text(
                     "Удален",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error
                 )
                 Text(
                     text = name.takeIf { it.isNotBlank() } ?: "Без названия",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error
+                )
+                HorizontalDivider(
+                    modifier = Modifier,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                 )
                 Text(
                     text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error
+                )
+                HorizontalDivider(
+                    modifier = Modifier,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                 )
             }
         } else {
@@ -1702,9 +1785,17 @@ fun DepartmentToCard(
                     text = name?.takeIf { it.isNotBlank() } ?: "Без названия",
                     style = MaterialTheme.typography.bodySmall,
                 )
+                HorizontalDivider(
+                    modifier = Modifier,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
                 Text(
                     text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
                     style = MaterialTheme.typography.bodySmall,
+                )
+                HorizontalDivider(
+                    modifier = Modifier,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                 )
             } else {
                 Text(
@@ -1717,10 +1808,18 @@ fun DepartmentToCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
                 )
+                HorizontalDivider(
+                    modifier = Modifier,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                )
                 Text(
                     text = code?.takeIf { it.isNotBlank() } ?: "Без кода",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
+                )
+                HorizontalDivider(
+                    modifier = Modifier,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                 )
             }
         } else {
@@ -1873,7 +1972,7 @@ fun LocationCard(
                         editState?.let { state ->
                             onEditStateChange(
                                 state.copy(
-                                    location = currentLocation.copy(place = newValue)
+                                    location = currentLocation.copy(place = newValue.take(100))
                                 )
                             )
                         }
@@ -1890,7 +1989,7 @@ fun LocationCard(
                         editState?.let { state ->
                             onEditStateChange(
                                 state.copy(
-                                    location = currentLocation.copy(level = newValue.toIntOrNull())
+                                    location = currentLocation.copy(level = newValue.take(2).toIntOrNull())
                                 )
                             )
                         }
@@ -1928,7 +2027,7 @@ fun ServiceCard(
     InfoSectionCard(icon = Icons.Default.MiscellaneousServices, title = "Сервис") {
         if (!isEditing) {
             InfoRow(
-                label = "Следующая обслуживание",
+                label = "Дата обслуживания",
                 value = asset.nextService?.formatIsoToReadable()
             )
             InfoRow(
@@ -1939,7 +2038,7 @@ fun ServiceCard(
             OutlinedTextField(
                 value = editState?.nextService ?: asset.nextService ?: "",
                 onValueChange = { },
-                label = { Text("След. обслуживание") },
+                label = { Text("Дата обслуживания") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onNextServiceClick?.invoke() },
@@ -1954,12 +2053,13 @@ fun ServiceCard(
             )
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
-                value = (editState?.servicePeriod ?: asset.servicePeriod ?: 0).toString(),
+                value = editState?.servicePeriod?.toString() ?: "",
                 onValueChange = { input ->
-                    val current = editState?.servicePeriod ?: asset.servicePeriod ?: 0
-                    val period = if (current == 0 && input.isNotEmpty() && input != "0") {
-                        input.toIntOrNull() ?: 0
-                    } else input.toIntOrNull() ?: 0
+                    val period: Int? = if (input.isBlank()) {
+                        null
+                    } else {
+                        input.toIntOrNull()
+                    }
                     editState?.let { state ->
                         onEditStateChange(state.copy(servicePeriod = period))
                     }
@@ -1986,7 +2086,7 @@ fun CheckCard(
     InfoSectionCard(icon = Icons.Default.LibraryAddCheck, title = "Проверка") {
         if (!isEditing) {
             InfoRow(
-                label = "Следующая проверка",
+                label = "Дата проверки",
                 value = asset.nextCheck?.formatIsoToReadable()
             )
             InfoRow(
@@ -1997,7 +2097,7 @@ fun CheckCard(
             OutlinedTextField(
                 value = editState?.nextCheck ?: asset.nextCheck ?: "",
                 onValueChange = { },
-                label = { Text("След. обслуживание") },
+                label = { Text("Дата проверки") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onNextCheckClick?.invoke() },
@@ -2766,10 +2866,17 @@ fun AssetTransferDialog(
     var assignmentType by remember { mutableStateOf("user") }
 
     AlertDialog(
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .imePadding(), // Ключевой модификатор для корректной работы с клавиатурой
         onDismissRequest = { if (!isLoading) onDismiss() },
         icon = {
             Icon(
-                Icons.Default.Send, null,
+                Icons.AutoMirrored.Filled.Send, null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(32.dp)
             )
@@ -2783,8 +2890,10 @@ fun AssetTransferDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.medium,
@@ -2879,6 +2988,13 @@ fun TransferActionDialog(
     var comment by remember { mutableStateOf("") }
 
     AlertDialog(
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .imePadding(), // Ключевой модификатор для корректной работы с клавиатурой
         onDismissRequest = { if (!isLoading) onDismiss() },
         icon = {
             Icon(
@@ -2897,7 +3013,9 @@ fun TransferActionDialog(
         },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Информация об инициаторе
@@ -3581,7 +3699,7 @@ private fun pluralize(count: Int, one: String, few: String, many: String): Strin
     showBackground = true,
     showSystemUi = true,
     name = "Вкладка Основное",
-    device = "spec:width=380dp,height=1350dp"
+    device = "spec:width=380dp,height=2000dp"
 )
 @Composable
 private fun AssetDetailsPreview_MainTab() {
@@ -3596,7 +3714,7 @@ private fun AssetDetailsPreview_MainTab() {
                 assetTypes = emptyList(),
                 mvzDepartments = emptyList(),
                 assetHistory = emptyList(),
-                isEditing = false,
+                isEditing = true,
                 editState = AssetEditState.fromAsset(getSampleAsset()),
                 pagerState = pagerState,
                 coroutineScope = coroutineScope,
@@ -3849,6 +3967,58 @@ private fun ConfirmAssetDialogPreview(){
     )
 }
 
+@Preview
+@Composable
+private fun AssetTransferDialogPreview(){
+    AssetTransferDialog(
+        asset = getSampleAsset(),
+        targetEmployee = EmployeeShortResponse(
+            guid = "974f470d-a7cd-11ef-a3b2-000c290ca5c4",
+            employeeId = "0000010680",
+            fullNameRu = "Малых Андрей Владимирович",
+            fullNameEn = "Malykh Andrey Vladimirovich",
+            email = "hmmr@hmmr.ru",
+            phone = "+7999837223727856",
+            comment = "",
+            society = null,
+            department = null,
+            division = null,
+            group = null,
+            position = PositionResponse(
+                name = "Младший инженер по внедрению информационных систем 2 категории",
+                nameEn = null
+            ),
+        ),
+        isLoading = false,
+        onConfirm = { _, _ -> },
+        onDismiss = {}
+    )
+}
+
+@Preview
+@Composable
+private fun TransferActionDialogPreview(){
+    TransferActionDialog(
+        transfer = AssetTransferDto(
+            transferId = 1,
+            assetId = 48,
+            initiator = EmployeeInfoDto("0000010680", "Малых Андрей Владимирович"),
+            targetEmployee = EmployeeInfoDto("0000015370", "Малышев Тимур Максимович"),
+            assignmentType = "user",
+            assignmentTypeRu = "Пользователь",
+            status = "ACCEPTED",
+            initiatorComment = "Передаю коллеге",
+            responderComment = null,
+            createdAt = "2026-09-22T12:11:50.200708Z",
+            respondedAt = "2026-09-25T09:35:55.606425Z"
+        ),
+        isLoading = false,
+        onDismiss = {},
+        onAccept = { _ -> },
+        onDecline = {}
+    )
+}
+
 fun getSampleAsset(): AssetResponseDto {
     return AssetResponseDto(
         assetId = null,
@@ -3860,6 +4030,7 @@ fun getSampleAsset(): AssetResponseDto {
         assetStatusId = 10,
         comment = "Описание123123",
         dateIssue = "2026-08-19",
+        writeOffDate = "00000000",
         datePurchasing = null,
         modelId = null,
         modelName = "модель 3",
@@ -3883,6 +4054,8 @@ fun getSampleAsset(): AssetResponseDto {
         createdAt = "2026-07-14T19:23:04.784110",
         updatedAt = "2026-09-03T09:26:16.840853",
         assetTypeName = "Оборудование M&U",
+        materialClass = "R1002000",
+        materialClassName = "МБП: Оргтехника в эксплуатации ОХР",
         location = AssetLocationResponse(
             workshopId = 6,
             workshopName = "Департамент производства систем трасмиссии",

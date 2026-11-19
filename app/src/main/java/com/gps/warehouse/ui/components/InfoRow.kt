@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.gps.warehouse.utils.formatIsoToReadable
 
 @Composable
 fun InfoRow(label: String, value: String?) {
@@ -40,6 +41,35 @@ fun InfoRow(label: String, value: String?) {
     )
 }
 
+@Composable
+fun InfoRowWriteOffDate(label: String, value: String) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "$label: ",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            val formattedDate = if (value.isNotBlank() || value != "00000000") {
+                value.formatIsoToReadable() ?: "—"
+            } else "—"
+
+            Text(
+                text = formattedDate ?: "—",
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = Int.MAX_VALUE
+            )
+        }
+        HorizontalDivider(
+            modifier = Modifier,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+        )
+    }
 
 @Composable
 fun InfoRowSmall(label: String, value: String) {

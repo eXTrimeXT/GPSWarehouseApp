@@ -96,41 +96,32 @@ fun AssetsByTypeScreen(
             return
         }
 
+        // Запускаем серверный поиск в корутине
         scope.launch {
             isSearching = true
             try {
-                val (foundAsset, _) = assetViewModel.findAssetByScanValue(scannedValue)
+                val (foundAsset, usedValue, matchType) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
-                    Log.d("AssetScan", "Scanned asset found: assetId=${foundAsset.assetId}, materialId=${foundAsset.materialId}")
-
-                    // 1. Берем значения, заменяя null на пустую строку или дефолт
                     val assetTypeIdStr = foundAsset.assetTypeId?.toString() ?: "0"
                     val assetTypeNameStr = URLEncoder.encode(foundAsset.assetTypeName ?: "Без типа", "UTF-8")
-                    val serialNumberStr = URLEncoder.encode(foundAsset.serialNumber ?: "", "UTF-8")
-                    val inventoryIdStr = URLEncoder.encode(foundAsset.inventoryId ?: "", "UTF-8")
-                    val materialIdStr = URLEncoder.encode(foundAsset.materialId ?: "", "UTF-8")
 
-                    // 2. Формируем маршрут через Query Parameters (безопасно для пустых значений и пробелов)
-                    val route = "assets_list?assetTypeId=$assetTypeIdStr" +
-                            "&assetTypeName=$assetTypeNameStr" +
-                            "&serialNumber=$serialNumberStr" +
-                            "&inventoryId=$inventoryIdStr" +
-                            "&materialId=$materialIdStr"
+                    var route = "assets_list?assetTypeId=$assetTypeIdStr&assetTypeName=$assetTypeNameStr"
 
-                    Log.d("AssetScan", "Navigating to route: $route")
-
-                    // 3. Выполняем навигацию
-                    navController.navigate(route) {
-                        launchSingleTop = true // Предотвращает дублирование экрана в стеке
+                    when (matchType) {
+                        AssetViewModel.ScanMatchType.SERIAL_NUMBER ->
+                            route += "&serialNumber=${URLEncoder.encode(foundAsset.serialNumber ?: "", "UTF-8")}"
+                        AssetViewModel.ScanMatchType.INVENTORY_ID ->
+                            route += "&inventoryId=${URLEncoder.encode(foundAsset.inventoryId ?: "", "UTF-8")}"
+                        AssetViewModel.ScanMatchType.MATERIAL_ID ->
+                            route += "&materialId=${URLEncoder.encode(foundAsset.materialId ?: "", "UTF-8")}"
+                        null -> Unit
                     }
 
+                    Log.d("AssetScan", "Navigating to route: $route")
+                    navController.navigate(route) { launchSingleTop = true }
                 } else {
-                    Toast.makeText(
-                        context,
-                        "Актив '$scannedValue' не найден",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(context, "Актив '$scannedValue' не найден", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Log.e("AssetScan", "Ошибка поиска: ${e.message}", e)
@@ -139,6 +130,7 @@ fun AssetsByTypeScreen(
                 isSearching = false
             }
         }
+
     }
 
     LaunchedEffect(Unit) {
@@ -183,7 +175,7 @@ fun AssetsByTypeScreen(
         try {
             assetViewModel.loadAssetsByFilters(
                 page = currentPage,
-                pageSize = 50,
+                pageSize = 100,
                 name = searchQuery.takeIf { it.isNotBlank() },
                 serialNumber = serialNumber.takeIf { it.isNotBlank() },
                 inventoryId = inventoryId.takeIf { it.isNotBlank() },
@@ -270,7 +262,7 @@ fun AssetsByTypeScreen(
             Log.d(TAG, "Retry requested")
             assetViewModel.loadAssetsByFilters(
                 page = currentPage,
-                pageSize = 50,
+                pageSize = 100,
                 name = searchQuery.takeIf { it.isNotBlank() },
                 serialNumber = serialNumber.takeIf { it.isNotBlank() },
                 inventoryId = inventoryId.takeIf { it.isNotBlank() },
@@ -515,54 +507,54 @@ fun AssetsByTypeScreenContent(
                             shape = RoundedCornerShape(8.dp)
                         )
 
-                        var statusExpanded by remember { mutableStateOf(false) }
-
-                        ExposedDropdownMenuBox(
-                            expanded = statusExpanded,
-                            onExpandedChange = { statusExpanded = it }) {
-                            OutlinedTextField(
-                                value = assetStatus ?: "Любой статус",
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Статус") },
-                                trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .menuAnchor(),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            ExposedDropdownMenu(
-                                expanded = statusExpanded,
-                                onDismissRequest = { statusExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Любой статус") },
-                                    onClick = {
-                                        onAssetStatusChange(null)
-                                        statusExpanded = false
-                                    }
-                                )
-                                if (assetStatuses.isEmpty()) {
-                                    DropdownMenuItem(
-                                        text = { Text("Загрузка...") },
-                                        onClick = {},
-                                        enabled = false
-                                    )
-                                } else {
-                                    assetStatuses.forEach { statusDto ->
-                                        DropdownMenuItem(
-                                            text = { Text(statusDto.status) },
-                                            onClick = {
-                                                onAssetStatusChange(statusDto.status)
-                                                statusExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
+//                        var statusExpanded by remember { mutableStateOf(false) }
+//
+//                        ExposedDropdownMenuBox(
+//                            expanded = statusExpanded,
+//                            onExpandedChange = { statusExpanded = it }) {
+//                            OutlinedTextField(
+//                                value = assetStatus ?: "Любой статус",
+//                                onValueChange = {},
+//                                readOnly = true,
+//                                label = { Text("Статус") },
+//                                trailingIcon = {
+//                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded)
+//                                },
+//                                modifier = Modifier
+//                                    .fillMaxWidth()
+//                                    .menuAnchor(),
+//                                shape = RoundedCornerShape(8.dp)
+//                            )
+//                            ExposedDropdownMenu(
+//                                expanded = statusExpanded,
+//                                onDismissRequest = { statusExpanded = false }
+//                            ) {
+//                                DropdownMenuItem(
+//                                    text = { Text("Любой статус") },
+//                                    onClick = {
+//                                        onAssetStatusChange(null)
+//                                        statusExpanded = false
+//                                    }
+//                                )
+//                                if (assetStatuses.isEmpty()) {
+//                                    DropdownMenuItem(
+//                                        text = { Text("Загрузка...") },
+//                                        onClick = {},
+//                                        enabled = false
+//                                    )
+//                                } else {
+//                                    assetStatuses.forEach { statusDto ->
+//                                        DropdownMenuItem(
+//                                            text = { Text(statusDto.status) },
+//                                            onClick = {
+//                                                onAssetStatusChange(statusDto.status)
+//                                                statusExpanded = false
+//                                            }
+//                                        )
+//                                    }
+//                                }
+//                            }
+//                        }
                     }
                 }
             }
@@ -922,7 +914,7 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                     ),
                     total = 45,
                     page = 1,
-                    pageSize = 50,
+                    pageSize = 100,
                     totalPages = 1,
                     hasNext = true,
                     hasPrevious = true
@@ -969,7 +961,7 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                     assets = emptyList(),
                     total = 0,
                     page = 1,
-                    pageSize = 50,
+                    pageSize = 100,
                     totalPages = 0,
                     hasNext = false,
                     hasPrevious = false
