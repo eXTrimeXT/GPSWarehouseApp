@@ -262,13 +262,14 @@ fun HomeScreenContent(
                     onClick = { onNavigate("inventorization_sessions") },
                     isVisible = TAB_VISIBLE
                 )
-                MenuButton(
-                    title = "Карта активов",
-                    subtitle = "Карта цехов и активов",
-                    icon = Icons.Default.Map,
-                    onClick = { onNavigate("assets_map_web") },
-                    isVisible = TAB_VISIBLE
-                )
+
+//                MenuButton(
+//                    title = "Карта активов",
+//                    subtitle = "Карта цехов и активов",
+//                    icon = Icons.Default.Map,
+//                    onClick = { onNavigate("assets_map_web") },
+//                    isVisible = TAB_VISIBLE
+//                )
 
                 MenuButton(
                     title = "Уведомления",
@@ -459,7 +460,7 @@ private fun HomeScreenPreview() {
 @Preview(showBackground = true, showSystemUi = true, device = "spec:width=380dp,height=870dp")
 @Composable
 private fun HomeScreenPreview2() {
-    var selectedTabIndex by remember { mutableIntStateOf(1) } // 0 = Заказы (по умолчанию)
+    var selectedTabIndex by remember { mutableIntStateOf(2) } // 0 = Заказы (по умолчанию)
     val tabs = HomeTab.entries.toTypedArray()
     Scaffold(
         bottomBar = {

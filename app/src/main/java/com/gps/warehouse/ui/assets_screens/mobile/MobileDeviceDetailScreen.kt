@@ -56,10 +56,7 @@ fun MobileDeviceDetailScreen(
     }
 
     when (val state = uiState) {
-        is UiState.Loading -> {
-            SplashLoadingScreen()
-        }
-
+        is UiState.Loading -> { SplashLoadingScreen() }
         is UiState.Error -> {
             ErrorStateView(
                 message = state.message,
@@ -67,7 +64,6 @@ fun MobileDeviceDetailScreen(
                 modifier = Modifier.fillMaxSize()
             )
         }
-
         is UiState.Success -> {
             val device = state.devices.firstOrNull()
             if (device != null) {
@@ -84,6 +80,7 @@ fun MobileDeviceDetailScreen(
                 )
             }
         }
+        else -> { SplashLoadingScreen() }
     }
 }
 

@@ -73,7 +73,7 @@ fun AssetDetailsScreen(
     assetViewModel: AssetViewModel,
     mainViewModel: MainViewModel,
 ) {
-    val uiState by assetViewModel.uiState.collectAsState()
+    val uiState by assetViewModel.assetDetailsScreenUiState.collectAsState()
     val context = LocalContext.current
     val assetStatuses by assetViewModel.assetStatuses.collectAsState()
     val assetTypes by assetViewModel.assetTypes.collectAsState()
@@ -612,7 +612,6 @@ fun AssetDetailsContent(
                     SplashLoadingScreen()
                 }
             }
-
             is AssetViewModel.AssetUiState.Error -> {
                 MyCustomActionBar(
                     text = "Загрузка актива...",
@@ -624,7 +623,6 @@ fun AssetDetailsContent(
                     modifier = Modifier.fillMaxSize()
                 )
             }
-
             is AssetViewModel.AssetUiState.AssetDetailsLoaded -> {
                 val asset = uiState.asset
                 Column(modifier = Modifier.fillMaxSize()) {
@@ -729,8 +727,11 @@ fun AssetDetailsContent(
                     }
                 }
             }
-
-            else -> {}
+            else -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    SplashLoadingScreen()
+                }
+            }
         }
     }
 }

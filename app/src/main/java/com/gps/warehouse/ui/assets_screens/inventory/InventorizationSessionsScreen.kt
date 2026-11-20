@@ -174,9 +174,7 @@ fun InventorizationSessionsContent(
         }
     ) { paddingValues ->
         when (uiState) {
-            is AssetViewModel.InventorizationUiState.Loading -> {
-                SplashLoadingScreen()
-            }
+            is AssetViewModel.InventorizationUiState.Loading -> { SplashLoadingScreen() }
             is AssetViewModel.InventorizationUiState.SessionsLoaded -> {
                 val items = sessions.orEmpty()
                 if (items.isEmpty()) {
@@ -206,7 +204,7 @@ fun InventorizationSessionsContent(
                     modifier = Modifier.padding(paddingValues)
                 )
             }
-            else -> {}
+            else -> { SplashLoadingScreen() }
         }
     }
 

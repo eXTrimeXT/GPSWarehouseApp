@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -106,7 +107,8 @@ fun WmsRequestsScreen(
                     viewModel.resetWmsRequestActionState()
                 }
             }
-            else -> {}
+
+            else -> { Log.e("LaunchedEffect", "UiState do not work!") }
         }
     }
 
@@ -403,7 +405,7 @@ fun WmsRequestsContent(
                     Text("Ожидание данных...")
                 }
             }
-            else -> {}
+            else -> { SplashLoadingScreen() }
         }
     }
 }

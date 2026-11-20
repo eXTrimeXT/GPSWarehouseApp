@@ -31,7 +31,7 @@ fun MyPcDetailsScreen(
     navController: NavHostController,
     assetViewModel: AssetViewModel
 ) {
-    val uiState by assetViewModel.uiState.collectAsState()
+    val uiState by assetViewModel.myPcsUiState.collectAsState()
     val myPcsList by assetViewModel.myPcsList.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -77,7 +77,7 @@ fun MyPcDetailsScreen(
                     }
                 }
             }
-            else -> {}
+            else -> { SplashLoadingScreen() }
         }
     }
 }

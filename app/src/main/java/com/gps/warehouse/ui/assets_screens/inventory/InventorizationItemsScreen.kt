@@ -63,7 +63,7 @@ fun InventorizationItemsScreen(
     assetViewModel: AssetViewModel,
     mainViewModel: MainViewModel
 ) {
-    val uiState by assetViewModel.uiState.collectAsState()
+    val uiState by assetViewModel.inventorizationItemsUiState.collectAsState()
     val context = LocalContext.current
     val scannerManager = remember { ScannerManager(context) }
     val focusManager = LocalFocusManager.current

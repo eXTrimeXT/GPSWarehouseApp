@@ -56,7 +56,7 @@ fun AssetsByTypeScreen(
     materialId: String = "",
     onlyMy: Boolean = false
 ) {
-    val uiState by assetViewModel.uiState.collectAsState()
+    val uiState by assetViewModel.assetsListUiState.collectAsState()
     val context = LocalContext.current
     val scannerManager = remember { ScannerManager(context) }
     val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
@@ -506,55 +506,6 @@ fun AssetsByTypeScreenContent(
                             singleLine = true,
                             shape = RoundedCornerShape(8.dp)
                         )
-
-//                        var statusExpanded by remember { mutableStateOf(false) }
-//
-//                        ExposedDropdownMenuBox(
-//                            expanded = statusExpanded,
-//                            onExpandedChange = { statusExpanded = it }) {
-//                            OutlinedTextField(
-//                                value = assetStatus ?: "Любой статус",
-//                                onValueChange = {},
-//                                readOnly = true,
-//                                label = { Text("Статус") },
-//                                trailingIcon = {
-//                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded)
-//                                },
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .menuAnchor(),
-//                                shape = RoundedCornerShape(8.dp)
-//                            )
-//                            ExposedDropdownMenu(
-//                                expanded = statusExpanded,
-//                                onDismissRequest = { statusExpanded = false }
-//                            ) {
-//                                DropdownMenuItem(
-//                                    text = { Text("Любой статус") },
-//                                    onClick = {
-//                                        onAssetStatusChange(null)
-//                                        statusExpanded = false
-//                                    }
-//                                )
-//                                if (assetStatuses.isEmpty()) {
-//                                    DropdownMenuItem(
-//                                        text = { Text("Загрузка...") },
-//                                        onClick = {},
-//                                        enabled = false
-//                                    )
-//                                } else {
-//                                    assetStatuses.forEach { statusDto ->
-//                                        DropdownMenuItem(
-//                                            text = { Text(statusDto.status) },
-//                                            onClick = {
-//                                                onAssetStatusChange(statusDto.status)
-//                                                statusExpanded = false
-//                                            }
-//                                        )
-//                                    }
-//                                }
-//                            }
-//                        }
                     }
                 }
             }
@@ -596,10 +547,7 @@ fun AssetsByTypeScreenContent(
             }
 
             when (uiState) {
-                is AssetViewModel.AssetUiState.Loading -> {
-                    SplashLoadingScreen()
-                }
-
+                is AssetViewModel.AssetUiState.Loading -> { SplashLoadingScreen() }
                 is AssetViewModel.AssetUiState.AssetsLoadedPaginated -> {
                     val assets = uiState.assets
                     if (assets.isEmpty() && uiState.page == 1) {
@@ -670,7 +618,6 @@ fun AssetsByTypeScreenContent(
                         }
                     }
                 }
-
                 is AssetViewModel.AssetUiState.Error -> ErrorStateView(
                     message = uiState.message,
                     onRetry = onRetry,
@@ -678,8 +625,7 @@ fun AssetsByTypeScreenContent(
                         .fillMaxSize()
                         .padding(16.dp)
                 )
-
-                else -> {}
+                else -> { SplashLoadingScreen() }
             }
         }
         // Оверлей с индикатором во время поиска
