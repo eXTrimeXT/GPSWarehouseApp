@@ -2112,12 +2112,13 @@ fun CheckCard(
             )
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(
-                value = (editState?.checkPeriod ?: asset.checkPeriod ?: 0).toString(),
+                value = editState?.checkPeriod?.toString() ?: "",
                 onValueChange = { input ->
-                    val current = editState?.checkPeriod ?: asset.checkPeriod ?: 0
-                    val period = if (current == 0 && input.isNotEmpty() && input != "0") {
-                        input.toIntOrNull() ?: 0
-                    } else input.toIntOrNull() ?: 0
+                    val period: Int? = if (input.isBlank()) {
+                        null
+                    } else {
+                        input.toIntOrNull()
+                    }
                     editState?.let { state ->
                         onEditStateChange(state.copy(checkPeriod = period))
                     }

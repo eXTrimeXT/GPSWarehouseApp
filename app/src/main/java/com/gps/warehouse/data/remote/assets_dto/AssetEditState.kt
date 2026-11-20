@@ -68,9 +68,9 @@ data class AssetEditState(
                 parentId = asset.parentId,
                 everyWeekCheck = asset.everyWeekCheck,
                 nextService = asset.nextService,
-                servicePeriod = asset.servicePeriod,
+                servicePeriod = asset.servicePeriod ?: 0,
                 nextCheck = asset.nextCheck,
-                checkPeriod = asset.checkPeriod,
+                checkPeriod = asset.checkPeriod ?: 0,
                 currentUser = asset.currentUser,
                 location = asset.location?.let {
                     AssetLocationUpdate(it.workshopId, it.workshopName, it.place, it.level, it.x ?: 0, it.y ?: 0)
@@ -122,9 +122,9 @@ data class AssetEditState(
             parentId = parentId,
             everyWeekCheck = everyWeekCheck,
             nextService = nextService,
-            servicePeriod = servicePeriod,
+            servicePeriod = servicePeriod ?: 0,
             nextCheck = nextCheck,
-            checkPeriod = checkPeriod,
+            checkPeriod = checkPeriod ?: 0,
             currentUser = currentUser,
             location = location,
 

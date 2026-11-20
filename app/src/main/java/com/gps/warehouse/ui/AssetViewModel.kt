@@ -643,15 +643,23 @@ class AssetViewModel @Inject constructor(
     suspend fun findAssetByScanValue(scannedValue: String): Triple<AssetResponseDto?, String, ScanMatchType?> {
         return try {
             // === Поиск по СЕРИЙНОМУ номеру ===
-            var currentSerialNumber = scannedValue
-            if (currentSerialNumber.length > 18) currentSerialNumber = scannedValue.takeLast(18)
-            val bySerial = assetApiService.getAssets(
+            val currentSerialNumber = scannedValue
+            val byFullSerial = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 serialNumber = currentSerialNumber,
                 page = 1, pageSize = 1
             )
-            bySerial.items.firstOrNull()?.let {
+            byFullSerial.items.firstOrNull()?.let {
                 return Triple(it, currentSerialNumber, ScanMatchType.SERIAL_NUMBER)
+            }
+            // === Поиск по сокращенному СЕРИЙНОМУ номеру ===
+            val bySerial = assetApiService.getAssets(
+            token = "Bearer ${getToken()}",
+            serialNumber = currentSerialNumber.takeLast(18),
+            page = 1, pageSize = 1
+            )
+            bySerial.items.firstOrNull()?.let {
+                return Triple(it, currentSerialNumber.takeLast(18), ScanMatchType.SERIAL_NUMBER)
             }
 
             // === Поиск по ИНВЕНТАРНОМУ номеру ===
