@@ -80,15 +80,9 @@ android {
 dependencies {
     // Подключение локальной библиотеки для Сканера Honeywell
     implementation(files("libs/DataCollection.aar"))
-    // Coil локально
-//    implementation(files("libs/coil-2.6.0.aar"))
-//    implementation(files("libs/coil-base-2.6.0.aar"))
-//    implementation(files("libs/coil-compose-2.6.0.aar"))
-//    implementation(files("libs/coil-gif-2.6.0.aar"))
-    implementation(files("libs/accompanist-drawablepainter-0.16.0.aar"))
 
-    // Транзитивные зависимости Coil
-//    implementation(libs.okio)
+    // Accompanist for GIF
+    implementation(files("libs/accompanist-drawablepainter-0.16.0.aar"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.work.runtime.ktx)
