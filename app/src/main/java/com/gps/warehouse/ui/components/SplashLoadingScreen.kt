@@ -90,8 +90,8 @@ private fun AnimatedLogo() {
 
     Box(
         modifier = Modifier
-            .size(120.dp)
-            .rotate(rotation)
+//            .size(120.dp)
+//            .rotate(rotation)
             .scale(scale),
         contentAlignment = Alignment.Center
     ) {

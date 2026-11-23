@@ -340,17 +340,61 @@ fun AssetDetailsScreen(
             },
             title = { Text("Отменить передачу?") },
             text = { Text("Запрос на передачу актива будет отменён. Это действие нельзя отменить.") },
+//            confirmButton = {
+//                Button(
+//                    onClick = {
+//                        isCancellingTransfer = true
+//                        assetViewModel.cancelTransfer(
+//                            transferId = transferId,
+//                            assetId = assetId,
+//                            onSuccess = { response ->
+//                                isCancellingTransfer = false
+//                                transferToCancel = null
+//                                Toast.makeText(context, response.message, Toast.LENGTH_LONG).show()
+//                            },
+//                            onError = { error ->
+//                                isCancellingTransfer = false
+//                                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+//                            }
+//                        )
+//                    },
+//                    enabled = !isCancellingTransfer,
+//                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+//                ) {
+//                    if (isCancellingTransfer) {
+//                        // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
+//                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+//                        Spacer(Modifier.width(8.dp))
+//                    }
+//                    Text("Отменить")
+//                }
+//            },
             confirmButton = {
                 Button(
                     onClick = {
                         isCancellingTransfer = true
+                        // Берём assetId из uiState, а не из параметра экрана —
+                        // параметр может быть null, если экран открыт по materialId
+                        val currentAssetId = (uiState as? AssetViewModel.AssetUiState.AssetDetailsLoaded)
+                            ?.asset?.assetId
+
                         assetViewModel.cancelTransfer(
                             transferId = transferId,
-                            assetId = assetId,
+                            assetId = currentAssetId,
                             onSuccess = { response ->
                                 isCancellingTransfer = false
                                 transferToCancel = null
                                 Toast.makeText(context, response.message, Toast.LENGTH_LONG).show()
+
+                                // Перезагружаем всё, что связано с активом
+                                currentAssetId?.let { id ->
+                                    assetViewModel.loadAssetDetails(assetId = id, materialId = null)
+                                    assetViewModel.loadAssetTransfers(id)
+                                    assetViewModel.checkTransferExists(id)
+                                    assetViewModel.loadConfirmationsList(
+                                        assetId = id, page = 1, pageSize = 50
+                                    )
+                                }
                             },
                             onError = { error ->
                                 isCancellingTransfer = false
@@ -362,7 +406,6 @@ fun AssetDetailsScreen(
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
                     if (isCancellingTransfer) {
-                        // Для кнопок лучше оставить CircularProgressIndicator, а не SplashLoadingScreen
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                     }

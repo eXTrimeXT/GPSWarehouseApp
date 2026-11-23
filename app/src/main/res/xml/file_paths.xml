@@ -3,4 +3,5 @@
     <!-- files-path стабильнее работает с PackageInstaller на Android 11+ -->
 <!--    <files-path name="apk_updates" path="." />-->
     <cache-path name="apk_updates" path="." />
+    <files-path name="my_files" path="." />
 </paths>

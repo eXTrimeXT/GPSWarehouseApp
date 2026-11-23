@@ -80,6 +80,15 @@ android {
 dependencies {
     // Подключение локальной библиотеки для Сканера Honeywell
     implementation(files("libs/DataCollection.aar"))
+    // Coil локально
+//    implementation(files("libs/coil-2.6.0.aar"))
+//    implementation(files("libs/coil-base-2.6.0.aar"))
+//    implementation(files("libs/coil-compose-2.6.0.aar"))
+//    implementation(files("libs/coil-gif-2.6.0.aar"))
+    implementation(files("libs/accompanist-drawablepainter-0.16.0.aar"))
+
+    // Транзитивные зависимости Coil
+//    implementation(libs.okio)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.work.runtime.ktx)
@@ -111,8 +120,8 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     // Для Превью
-//    androidTestImplementation(libs.hilt.android.testing)
-//    ksp(libs.hilt.compiler)
+    // androidTestImplementation(libs.hilt.android.testing)
+    // ksp(libs.hilt.compiler)
 
     // Retrofit + OkHttp
     implementation(libs.retrofit2.retrofit)
@@ -141,4 +150,8 @@ dependencies {
 
     // Lifecycle (для HandleScanResult)
     implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // GIF через Coil
+//    implementation(libs.coil.compose)
+//    implementation(libs.coil.gif)   // ← coil-gif v2.7.0 (тот же, что coil-compose)
 }
