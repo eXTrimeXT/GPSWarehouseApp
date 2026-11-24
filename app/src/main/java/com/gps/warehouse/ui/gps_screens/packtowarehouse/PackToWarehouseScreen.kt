@@ -26,6 +26,7 @@ import com.gps.warehouse.ui.MainViewModel
 import com.gps.warehouse.ui.components.CameraScanButton
 import com.gps.warehouse.ui.components.CameraScannerDialog
 import com.gps.warehouse.ui.components.MyCustomActionBar
+import com.gps.warehouse.ui.components.SplashLoadingScreen
 import com.gps.warehouse.utils.BarcodeParser
 import com.gps.warehouse.utils.ScannerManager
 
@@ -300,7 +301,7 @@ fun PackToWarehouseContent(
                         }
                     }
 
-                    else -> {}
+                    else -> { SplashLoadingScreen() }
                 }
             }
         }

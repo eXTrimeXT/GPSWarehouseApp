@@ -33,6 +33,7 @@ object DataWedgeProfileManager {
     private var appContext: Context? = null
     private val handler = Handler(Looper.getMainLooper())
     private var profileCreated = false
+    private var profileSetupStarted = false     // решает проблему повторных postDelayed при пересоздании Activity
 
     private val fallbackRunnable = Runnable {
         if (!profileCreated) {
@@ -42,13 +43,17 @@ object DataWedgeProfileManager {
     }
 
     fun ensureProfileExists(context: Context) {
+        if (profileSetupStarted) return
+        profileSetupStarted = true
+
         appContext = context.applicationContext
         Log.d(TAG, "=== Starting DataWedge profile setup ===")
         Log.d(TAG, "App package: ${context.packageName}")
         Log.d(TAG, "Target profile: $PROFILE_NAME")
 
 //        launchDataWedgeIfPossible(context)
-        registerResultReceiver(context)
+//        registerResultReceiver(context)
+        registerResultReceiver(appContext!!)
 
         handler.postDelayed({
             requestProfileList(context)
@@ -286,6 +291,6 @@ object DataWedgeProfileManager {
         }
         resultReceiver = null
         isRegistered = false
-        appContext = null
+//        appContext = null
     }
 }

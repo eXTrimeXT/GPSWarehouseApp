@@ -164,13 +164,14 @@ fun SettingsContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Иконка приложения
-            if (Constants.BASE_URL_API.contains("gps-rs")) {
-                AppIconProd()
-            } else {
-                AppIconTest()
-            }
-
+//            Box(modifier = Modifier.fillMaxWidth().padding(start = 8.dp)){
+                // Иконка приложения
+                if (Constants.BASE_URL_API.contains("gps-rs")) {
+                    AppIconProd()
+                } else {
+                    AppIconTest()
+                }
+//            }
             // ================== НАСТРОЙКА ВКЛАДКИ ПО УМОЛЧАНИЮ ==================
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {

@@ -181,21 +181,17 @@ fun ArchiveContent(
                     }
                 }
                 else {
+                    Text(
+                        text = "Найдено: ${filteredOrders.size} из ${allOrders.size}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
+                    )
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Найдено: ${filteredOrders.size} из ${allOrders.size}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.align(Alignment.End)
-                            )
-                        }
-
                         items(filteredOrders) { order ->
                             OrderCard(
                                 order = order,

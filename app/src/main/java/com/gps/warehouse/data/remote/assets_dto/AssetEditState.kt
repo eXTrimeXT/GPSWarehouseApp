@@ -15,8 +15,12 @@ data class AssetEditState(
     val comment: String? = null,
     val dateIssue: String? = null,
     val datePurchasing: String? = null,
+    val writeOffDate: String? = null,
     val modelId: Int? = null,
     val modelName: String? = null,
+    val manufacturerName: String? = null,
+    val vendorName: String? = null,
+    val osName: String? = null,
     val assetTypeId: Int? = null,
     val parentId: Int? = null,
     val everyWeekCheck: Boolean? = null,
@@ -54,15 +58,19 @@ data class AssetEditState(
                 comment = asset.comment,
                 dateIssue = asset.dateIssue,
                 datePurchasing = asset.datePurchasing,
+                writeOffDate = asset.writeOffDate,
                 modelId = asset.modelId,
                 modelName = asset.modelName,
+                manufacturerName = asset.manufacturerName,
+                vendorName = asset.vendorName,
+                osName = asset.osName,
                 assetTypeId = asset.assetTypeId,
                 parentId = asset.parentId,
                 everyWeekCheck = asset.everyWeekCheck,
                 nextService = asset.nextService,
-                servicePeriod = asset.servicePeriod,
+                servicePeriod = asset.servicePeriod ?: 0,
                 nextCheck = asset.nextCheck,
-                checkPeriod = asset.checkPeriod,
+                checkPeriod = asset.checkPeriod ?: 0,
                 currentUser = asset.currentUser,
                 location = asset.location?.let {
                     AssetLocationUpdate(it.workshopId, it.workshopName, it.place, it.level, it.x ?: 0, it.y ?: 0)
@@ -83,46 +91,6 @@ data class AssetEditState(
         }
     }
 
-    /** Преобразует в AssetUpdate, отправляя только изменённые поля */
-//    fun toUpdate(original: AssetResponseDto): AssetUpdate {
-//        return AssetUpdate(
-//            materialId = materialId.takeIf { it != original.materialId},
-////            name = name.takeIf { it != original.name },
-//            name = name,
-//            inventoryId = inventoryId.takeIf { it != original.inventoryId },
-//            serialNumber = serialNumber.takeIf { it != original.serialNumber },
-//            assetStatusId = assetStatusId.takeIf { it != original.assetStatusId },
-//            quantity = quantity.takeIf { it != original.quantity },
-//            comment = comment.takeIf { it != original.comment },
-//            dateIssue = dateIssue.takeIf { it != original.dateIssue },
-//            datePurchasing = datePurchasing.takeIf { it != original.datePurchasing },
-//            modelId = modelId.takeIf { it != original.modelId },
-//            modelName = modelName.takeIf { it != original.modelName },
-//            assetTypeId = assetTypeId.takeIf { it != original.assetTypeId },
-//            parentId = parentId.takeIf { it != original.parentId },
-//            everyWeekCheck = everyWeekCheck.takeIf { it != original.everyWeekCheck },
-//            nextService = nextService.takeIf { it != original.nextService },
-//            servicePeriod = servicePeriod.takeIf { it != original.servicePeriod },
-//            nextCheck = nextCheck.takeIf { it != original.nextCheck },
-//            checkPeriod = checkPeriod.takeIf { it != original.checkPeriod },
-//            currentUser = currentUser.takeIf { it != original.currentUser },
-//            location = location.takeIf { it != original.location },
-//
-//            // Отправляем полные списки пользователей, если они изменились
-//            users = currentUsers,
-//            responsibleUsers = currentResponsibleUsers,
-//            servingUsers = currentServingUsers,
-//
-//            // MVZ
-//            costCenterCodeFrom = costCenterCodeFrom.takeIf { it != original.costCenterCodeFrom },
-//            costCenterNameFrom = costCenterNameFrom.takeIf { it != original.costCenterNameFrom},
-//            costCenterShortnameFrom = costCenterShortnameFrom.takeIf { it != original.costCenterShortnameFrom},
-//            costCenterCode = costCenterCode.takeIf { it != original.costCenterCode},
-//            costCenterName = costCenterName.takeIf { it != original.costCenterName},
-//            costCenterShortname = costCenterShortname.takeIf { it != original.costCenterShortname},
-//        )
-//    }
-
     fun toUpdate(original: AssetResponseDto): AssetUpdate {
         // Для update — только изменённые поля
         return buildUpdate(original, forCreate = false)
@@ -136,7 +104,7 @@ data class AssetEditState(
     private fun buildUpdate(original: AssetResponseDto?, forCreate: Boolean): AssetUpdate {
         return AssetUpdate(
             materialId = materialId,
-            name = name,                        // ← всегда (обязательное)
+            name = name,                    // всегда (обязательное)
             inventoryId = inventoryId,
             serialNumber = serialNumber,
             assetStatusId = assetStatusId,
@@ -144,15 +112,19 @@ data class AssetEditState(
             comment = comment,
             dateIssue = dateIssue,
             datePurchasing = datePurchasing,
+            writeOffDate = writeOffDate,
             modelId = modelId,
             modelName = modelName,
             assetTypeId = assetTypeId,
+            manufacturerName = manufacturerName,
+            vendorName = vendorName,
+            osName = osName,
             parentId = parentId,
             everyWeekCheck = everyWeekCheck,
             nextService = nextService,
-            servicePeriod = servicePeriod,
+            servicePeriod = servicePeriod ?: 0,
             nextCheck = nextCheck,
-            checkPeriod = checkPeriod,
+            checkPeriod = checkPeriod ?: 0,
             currentUser = currentUser,
             location = location,
 

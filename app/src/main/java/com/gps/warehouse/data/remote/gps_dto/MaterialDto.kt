@@ -48,7 +48,7 @@ data class MaterialQty(
 
 // Класс для списка материалов на складе (getqrps)
 data class WarehouseMaterialDto(
-    @SerializedName("material") val material: String,               // Артикул материала
+    @SerializedName("material") val material: String?,              // Артикул материала
     @SerializedName("name") val name: String?,                      // Наименование
     @SerializedName("storage") val storage: String?,                // Склад/Ячейка
     @SerializedName("model") val model: String?,                    // Модель устройства
@@ -57,6 +57,16 @@ data class WarehouseMaterialDto(
     @SerializedName("qty_dispatched") val qtyDispatched: Int?,      // Отгружено
     @SerializedName("qty_plan") val qtyPlan: Int?                   // План/Остаток
 ) : Serializable
+
+//{
+//    "material": null,
+//    "name": "",
+//    "storage": "4007",
+//    "qty_packed": 0,
+//    "qty_packed_shift": 0,
+//    "qty_dispatched": 0,
+//    "qty_plan": 0
+//},
 
 // Request для получения списка материалов
 data class GetWarehouseMaterialsRequest(

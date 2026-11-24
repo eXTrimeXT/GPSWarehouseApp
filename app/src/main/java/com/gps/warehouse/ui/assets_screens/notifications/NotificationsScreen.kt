@@ -69,7 +69,7 @@ fun NotificationsScreen(
     onHighlightHandled: () -> Unit = {},
     assetViewModel: AssetViewModel
 ) {
-    val uiState by assetViewModel.uiState.collectAsState()
+    val uiState by assetViewModel.notificationsUiState.collectAsState()
 
     // Состояние фильтров храним на уровне экрана
     var filterState by remember { mutableStateOf(NotificationFilterState()) }

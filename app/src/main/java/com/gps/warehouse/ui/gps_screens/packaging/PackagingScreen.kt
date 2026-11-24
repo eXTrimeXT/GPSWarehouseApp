@@ -344,6 +344,12 @@ fun PackagingScreenContent(
                 }
 
                 else -> {
+                    Text(
+                        text = "Всего: ${orderMaterials.size}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
+                    )
                     // Idle или другие состояния - показываем список материалов
                     RenderMaterialsList(
                         orderMaterials = orderMaterials,

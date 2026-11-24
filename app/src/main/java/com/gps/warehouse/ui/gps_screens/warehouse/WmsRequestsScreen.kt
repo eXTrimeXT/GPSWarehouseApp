@@ -1,5 +1,6 @@
 package com.gps.warehouse.ui.gps_screens.warehouse
 
+import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -106,7 +107,8 @@ fun WmsRequestsScreen(
                     viewModel.resetWmsRequestActionState()
                 }
             }
-            else -> {}
+
+            else -> { Log.e("LaunchedEffect", "UiState do not work!") }
         }
     }
 
@@ -377,10 +379,22 @@ fun WmsRequestsContent(
                         }
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.weight(1f), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item { Spacer(modifier = Modifier.height(8.dp)); Text("Найдено: ${filteredRequests.size} из ${allRequests.size}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.End)) }
+                    Text(
+                        "Найдено: ${filteredRequests.size} из ${allRequests.size}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
+                    )
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         items(filteredRequests.reversed()) { request ->
-                            WmsRequestCard(request = request, onClick = { if (request.isActive == "1") onRequestClick(request) })
+                            WmsRequestCard(
+                                request = request,
+                                onClick = { if (request.isActive == "1") onRequestClick(request) }
+                            )
                         }
                     }
                 }
@@ -391,7 +405,7 @@ fun WmsRequestsContent(
                     Text("Ожидание данных...")
                 }
             }
-            else -> {}
+            else -> { SplashLoadingScreen() }
         }
     }
 }
@@ -520,9 +534,9 @@ fun WmsRequestActionDialog(
                     onClick = { onConfirm("cancel") },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) { Text("Отклонить") }
-                if (request.isIncoming == "1") {
+//                if (request.isIncoming == "1") {
                     Button(onClick = { onConfirm("accept") }) { Text("Принять") }
-                }
+//                }
             }
         },
         dismissButton = {
@@ -609,7 +623,7 @@ fun ConfirmWmsRequestActionDialog(
                 }
                 if (!isAccept) {
                     Text(
-                        text = "Отклонение необратимо. Запрос будет закрыт без навсегда.",
+                        text = "Отклонение необратимо. Запрос будет закрыт навсегда!",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error
                     )
@@ -690,4 +704,20 @@ fun WmsRequestsPreviewWithFilters() {
             )
         }
     }
+}
+
+
+@Preview
+@Composable
+fun WmsRequestActionDialogPreview(){
+    WmsRequestActionDialog(
+        request = WmsRequestDto(
+            id = "34", fromId = "gw07015370", userAccept = null,
+            material = "TEST-MAT", fromStorage = "BUFF", toStorage = "ARCHIVE",
+            qty = "1", name = "Тестовый материал", isActive = "1",
+            type = "stock", isIncoming = "0"
+        ),
+        onConfirm = {},
+        onDismiss = {}
+    )
 }

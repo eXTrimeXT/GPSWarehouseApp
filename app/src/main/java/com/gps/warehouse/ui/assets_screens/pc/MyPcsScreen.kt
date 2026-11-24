@@ -34,7 +34,7 @@ fun MyPcsScreen(
     navController: NavHostController,
     assetViewModel: AssetViewModel
 ) {
-    val uiState by assetViewModel.uiState.collectAsState()
+    val uiState by assetViewModel.myPcsUiState.collectAsState()
 
     LaunchedEffect(Unit) {
         assetViewModel.loadMyPcs()
@@ -49,9 +49,7 @@ fun MyPcsScreen(
         }
     ) { paddingValues ->
         when (val state = uiState) {
-            is AssetViewModel.AssetUiState.Loading -> {
-                SplashLoadingScreen()
-            }
+            is AssetViewModel.AssetUiState.Loading -> { SplashLoadingScreen() }
             is AssetViewModel.AssetUiState.MyPcsLoaded -> {
                 if (state.pcs.isEmpty()) {
                     Box(modifier = Modifier.fillMaxSize().padding(paddingValues), contentAlignment = Alignment.Center) {
@@ -85,7 +83,8 @@ fun MyPcsScreen(
                     }
                 }
             }
-            else -> {}
+            is AssetViewModel.AssetUiState.Idle -> { SplashLoadingScreen() }
+            else -> { SplashLoadingScreen() }
         }
     }
 }

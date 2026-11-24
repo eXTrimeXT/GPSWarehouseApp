@@ -180,7 +180,7 @@ fun WarehouseMaterialsContent(
                     val storageMatch = selectedStorage == null || mat.storage == selectedStorage
                     val query = searchQuery.lowercase()
                     val searchMatch = query.isEmpty() ||
-                            mat.material.lowercase().contains(query) ||
+                            mat.material?.lowercase()?.contains(query) == true ||
                             (mat.name?.lowercase()?.contains(query) ?: false)
                     storageMatch && searchMatch
                 }
@@ -200,21 +200,17 @@ fun WarehouseMaterialsContent(
                         }
                     }
                 } else {
+                    Text(
+                        text = "Найдено: ${filteredMaterials.size} из ${allMaterials.size}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.Start).padding(start = 16.dp)
+                    )
                     LazyColumn(
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        item {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Найдено: ${filteredMaterials.size} из ${allMaterials.size}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.align(Alignment.End)
-                            )
-                        }
-
                         items(filteredMaterials) { mat ->
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -226,7 +222,7 @@ fun WarehouseMaterialsContent(
                                         modifier = Modifier.fillMaxWidth()
                                     ) {
                                         Text(
-                                            text = mat.material,
+                                            text = mat.material ?: "null",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold
                                         )

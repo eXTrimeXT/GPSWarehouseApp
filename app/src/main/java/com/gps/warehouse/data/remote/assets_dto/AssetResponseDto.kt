@@ -13,6 +13,7 @@ interface AssetBase {
     val comment: String?
     val dateIssue: String?          // "YYYY-MM-DD"
     val datePurchasing: String?     // "YYYY-MM-DD"
+    val writeOffDate: String?
     val modelId: Int?
     val modelName: String?
     val assetTypeId: Int?
@@ -41,6 +42,10 @@ data class AssetResponseDto(
     override val comment: String?,
     @SerializedName("date_issue") override val dateIssue: String?,
     @SerializedName("date_purchasing") override val datePurchasing: String?,
+    @SerializedName("write_off_date") override val writeOffDate: String?,
+    @SerializedName("asset_type_name") val assetTypeName: String?,
+    @SerializedName("material_class") val materialClass: String?,
+    @SerializedName("material_class_name") val materialClassName: String?,
     @SerializedName("model_id") override val modelId: Int?,
     @SerializedName("model_name") override val modelName: String?,
     @SerializedName("asset_type_id") override val assetTypeId: Int?,
@@ -79,8 +84,6 @@ data class AssetResponseDto(
     @SerializedName("updated_by") val updatedBy: String?,
     @SerializedName("created_at") val createdAt: String,
     @SerializedName("updated_at") val updatedAt: String?,
-    @SerializedName("asset_type_name") val assetTypeName: String?,
-
     // Вложенные объекты
     val location: AssetLocationResponse?,
 

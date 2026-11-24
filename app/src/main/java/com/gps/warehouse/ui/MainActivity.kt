@@ -3,6 +3,7 @@ package com.gps.warehouse.ui
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -96,7 +97,7 @@ class MainActivity : ComponentActivity() {
             val themeMode by mainViewModel.themeMode.collectAsState()
 
             // AssetViewModel
-            val assetViewModel: AssetViewModel = hiltViewModel()
+            // val assetViewModel: AssetViewModel = hiltViewModel()
 
             // MobileViewModel
             val mobileViewModel: MobileDevicesViewModel = hiltViewModel()
@@ -122,13 +123,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            LaunchedEffect(uiState) {
-                if (uiState is MainViewModel.UiState.LoggedIn) {
-                    mainViewModel.startGlobalNotifications()
-                } else if (uiState is MainViewModel.UiState.Idle || uiState is MainViewModel.UiState.SessionExpired) {
-                    mainViewModel.stopGlobalNotifications()
-                }
-            }
+//            LaunchedEffect(uiState) {
+//                if (uiState is MainViewModel.UiState.LoggedIn) {
+//                    mainViewModel.startGlobalNotifications()
+//                } else if (uiState is MainViewModel.UiState.Idle || uiState is MainViewModel.UiState.SessionExpired) {
+//                    mainViewModel.stopGlobalNotifications()
+//                }
+//            }
 
             // Получение текущей версии
             LaunchedEffect(Unit) {
@@ -215,7 +216,7 @@ class MainActivity : ComponentActivity() {
                                                     }
                                                 }
                                             }
-                                            else -> {}
+                                            else -> { Log.e("onCreate", "Error UiState: LoggedIn and SessionExpired is do not work!") }
                                         }
                                     }
                                 }
@@ -227,7 +228,6 @@ class MainActivity : ComponentActivity() {
 
                             // startDestination теперь "splash"
                             NavHost(modifier = Modifier.weight(1f), navController = navController, startDestination = "splash") {
-
                                 // === НОВЫЙ ЭКРАН ЗАГРУЗКИ (SPLASH) ===
                                 composable("splash") {
                                     // Используем компонент
@@ -254,7 +254,6 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-
                                 composable("login") {
                                     // ЗАПУСК ПРОВЕРКИ ОБНОВЛЕНИЙ ПЕРЕД ВХОДОМ, на случай если сломалась авторизация
                                     checkForAppUpdate()
@@ -270,6 +269,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                                 composable("home") {
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
                                     HomeScreen(
                                         navController = navController,
                                         mainViewModel = mainViewModel,
@@ -395,9 +395,10 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
-
                                 // АКТИВЫ
                                 composable("asset_types") {
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     AssetTypeListScreen(
                                         navController = navController,
                                         assetViewModel = assetViewModel,
@@ -436,6 +437,8 @@ class MainActivity : ComponentActivity() {
                                         }
                                     )
                                 ) { backStackEntry ->
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     val assetTypeId = backStackEntry.arguments?.getString("assetTypeId")?.toIntOrNull()
                                     val assetTypeName = backStackEntry.arguments?.getString("assetTypeName")
                                     val serialNumber = backStackEntry.arguments?.getString("serialNumber").orEmpty()
@@ -456,6 +459,8 @@ class MainActivity : ComponentActivity() {
 
                                 // Переход на экран списка активов текущего пользователя
                                 composable("my_assets_list") { backStackEntry ->
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     AssetsByTypeScreen(
                                         assetTypeName = "Мои активы",
                                         navController = navController,
@@ -493,8 +498,11 @@ class MainActivity : ComponentActivity() {
 
                                 // Перейти на экран актива по assetId (необходимо для уведомлений)
                                 composable("asset_details/{assetId}") { backStackEntry ->
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     val assetId = backStackEntry.arguments?.getString("assetId")
                                         ?.toIntOrNull() ?: return@composable
+
                                     AssetDetailsScreen(
                                         assetId = assetId,
                                         navController = navController,
@@ -519,6 +527,8 @@ class MainActivity : ComponentActivity() {
                                         }
                                     )
                                 ) { backStackEntry ->
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     // Безопасно получаем строку и парсим её в Int?
                                     val assetIdStr = backStackEntry.arguments?.getString("assetId")
                                     val assetId = assetIdStr?.toIntOrNull()
@@ -530,7 +540,6 @@ class MainActivity : ComponentActivity() {
                                         navController.popBackStack()
                                         return@composable
                                     }
-
                                     AssetDetailsScreen(
                                         assetId = assetId,
                                         materialId = materialId,
@@ -541,6 +550,8 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 composable("my_pcs") {
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     MyPcsScreen(
                                         navController = navController,
                                         assetViewModel = assetViewModel
@@ -548,6 +559,8 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 composable("my_pc_details/{pcId}") { backStackEntry ->
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     val pcId =
                                         backStackEntry.arguments?.getString("pcId")?.toIntOrNull()
                                             ?: 0
@@ -560,6 +573,8 @@ class MainActivity : ComponentActivity() {
 
                                 // Инвентаризация активов
                                 composable("inventorization_sessions") {
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     InventorizationSessionsScreen(
                                         navController = navController,
                                         assetViewModel = assetViewModel,
@@ -568,6 +583,8 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 composable("inventorization_items/{sessionId}/{isCompleted}") { backStackEntry ->
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     val sessionId = backStackEntry.arguments?.getString("sessionId")?.toIntOrNull() ?: 0
                                     val isCompleted = backStackEntry.arguments?.getString("isCompleted")?.toBoolean() ?: false
 
@@ -585,6 +602,8 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 composable("asset_notifications") {
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
 
                                     NotificationsScreen(
@@ -600,6 +619,8 @@ class MainActivity : ComponentActivity() {
                                 }
 
                                 composable("asset_notifications/asset/{assetId}") { backStackEntry ->
+                                    val assetViewModel: AssetViewModel = hiltViewModel()
+
                                     val assetId = backStackEntry.arguments?.getString("assetId")?.toIntOrNull()
                                     val highlightId by mainViewModel.pendingHighlightNotificationId.collectAsState()
 

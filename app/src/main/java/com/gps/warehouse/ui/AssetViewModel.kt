@@ -33,6 +33,7 @@ import com.gps.warehouse.data.remote.assets_dto.NotificationDto
 import com.gps.warehouse.data.remote.assets_dto.NotificationResponseDto
 import com.gps.warehouse.data.remote.assets_dto.PaginatedResponse
 import com.gps.warehouse.data.remote.assets_dto.ProcessConfirmationResponseDto
+import com.gps.warehouse.data.remote.assets_dto.SapAssetClassDto
 import com.gps.warehouse.data.remote.assets_dto.TransferActionRequestDto
 import com.gps.warehouse.data.remote.assets_dto.map.Workshop
 import com.gps.warehouse.utils.NetworkMonitor
@@ -52,6 +53,7 @@ import org.json.JSONException
 import retrofit2.HttpException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.jvm.java
 
 private const val TAG = "AssetViewModel"
@@ -87,6 +89,8 @@ class AssetViewModel @Inject constructor(
 
         data class InventorizationItemsLoaded(
             val items: List<InventorizationItemDto>,
+            val total: Int = items.size,
+            val hasNext: Boolean,
             val sessionId: Int
         ) : AssetUiState()
 
@@ -98,11 +102,13 @@ class AssetViewModel @Inject constructor(
     sealed class InventorizationUiState {
         object Idle : InventorizationUiState()
         object Loading : InventorizationUiState()
-        data class SessionsLoaded(val sessions: List<InventorizationSessionDto>) : InventorizationUiState()
+        data class SessionsLoaded(val sessions: List<InventorizationSessionDto>) :
+            InventorizationUiState()
+
         data class Error(val message: String) : InventorizationUiState()
     }
 
-    sealed class AssetTypesUiState{
+    sealed class AssetTypesUiState {
         object Idle : AssetTypesUiState()
         object Loading : AssetTypesUiState()
         data class Loaded(val assetTypes: List<AssetTypeDto>) : AssetTypesUiState()
@@ -133,10 +139,18 @@ class AssetViewModel @Inject constructor(
         ) : TransferStatus()
     }
 
+    sealed class AssetClassesUiState {
+        object Idle : AssetClassesUiState()
+        object Loading : AssetClassesUiState()
+        data class Loaded(val classes: List<SapAssetClassDto>) : AssetClassesUiState()
+        data class Error(val message: String) : AssetClassesUiState()
+    }
+
     private val _uiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
     val uiState = _uiState.asStateFlow()
 
-    private val sessionMonitorScope = CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
+    private val sessionMonitorScope =
+        CoroutineScope(SupervisorJob() + viewModelScope.coroutineContext)
 
     // StateFlow для хранения списка активов (для поиска по ID)
     private val _myAssetsList = MutableStateFlow<List<AssetResponseDto>>(emptyList())
@@ -158,7 +172,8 @@ class AssetViewModel @Inject constructor(
     val assetDetailUiState = _assetDetailsUiState.asStateFlow()
 
     // Добавляем отдельный StateFlow для UI-состояния инвентаризации
-    private val _inventorizationUiState = MutableStateFlow<InventorizationUiState>(InventorizationUiState.Idle)
+    private val _inventorizationUiState =
+        MutableStateFlow<InventorizationUiState>(InventorizationUiState.Idle)
     val inventorizationUiState = _inventorizationUiState.asStateFlow()
 
     private val _inventorizationSessions = MutableStateFlow<List<InventorizationSessionDto>?>(null)
@@ -201,13 +216,46 @@ class AssetViewModel @Inject constructor(
     private val _assetTransfers = MutableStateFlow<List<AssetTransferDto>>(emptyList())
     val assetTransfers = _assetTransfers.asStateFlow()
 
-    private val _assetConfirmations = MutableStateFlow<List<AssetConfirmationResponseDto>>(emptyList())
+    private val _assetConfirmations =
+        MutableStateFlow<List<AssetConfirmationResponseDto>>(emptyList())
     val assetConfirmations = _assetConfirmations.asStateFlow()
 
     private val _assetConfirmationLast = MutableStateFlow<AssetConfirmationResponseDto?>(null)
     val assetConfirmationLast = _assetConfirmationLast.asStateFlow()
 
+    // ==================== SAP: Классы активов ====================
+    private val _assetClasses = MutableStateFlow<List<SapAssetClassDto>>(emptyList())
+    val assetClasses = _assetClasses.asStateFlow()
+
+    private val _assetClassesUiState =
+        MutableStateFlow<AssetClassesUiState>(AssetClassesUiState.Idle)
+    val assetClassesUiState = _assetClassesUiState.asStateFlow()
+
     private var eventSource: EventSource? = null
+
+
+    // ===== РАЗДЕЛЁННЫЕ СОСТОЯНИЯ ПО ЭКРАНАМ =====
+
+    // Список активов (AssetsByTypeScreen)
+    private val _assetsListUiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
+    val assetsListUiState = _assetsListUiState.asStateFlow()
+
+    // Детали актива (AssetDetailsScreen) — НЕ путать с _assetDetailsUiState (это List<AssetResponseDto>)
+    private val _assetDetailsScreenUiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
+    val assetDetailsScreenUiState = _assetDetailsScreenUiState.asStateFlow()
+
+    // ПК пользователя (MyPcsScreen)
+    private val _myPcsUiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
+    val myPcsUiState = _myPcsUiState.asStateFlow()
+
+    // Элементы инвентаризации (InventorizationItemsScreen)
+    private val _inventorizationItemsUiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
+    val inventorizationItemsUiState = _inventorizationItemsUiState.asStateFlow()
+
+    // Уведомления (NotificationsScreen)
+    private val _notificationsUiState = MutableStateFlow<AssetUiState>(AssetUiState.Idle)
+    val notificationsUiState = _notificationsUiState.asStateFlow()
+
 
     // Вспомогательная функция парсинга ошибок
     private fun getErrorMessage(e: Exception): String? {
@@ -231,7 +279,7 @@ class AssetViewModel @Inject constructor(
     // Получить текущий токен
     suspend fun getToken(): String {
         val token = localStorage.getToken()
-        if (token.isNullOrEmpty()){
+        if (token.isNullOrEmpty()) {
             _uiState.value = AssetUiState.SessionExpired
             throw Exception("Пользователь не авторизован. Автовыход.")
         }
@@ -239,18 +287,54 @@ class AssetViewModel @Inject constructor(
     }
 
     // Метод получения ПК текущего пользователя
+//    fun loadMyPcs() {
+//        viewModelScope.launch {
+//            val cachedPcs = localStorage.getCachedMyPcs()
+//
+//            if (cachedPcs.isNotEmpty()) {
+//                _myPcsList.value = cachedPcs
+//                _uiState.value = AssetUiState.MyPcsLoaded(cachedPcs)
+//            } else {
+//                _uiState.value = AssetUiState.Loading
+//            }
+//
+//            if (!networkMonitor.isCurrentlyConnected()) {
+//                if (cachedPcs.isEmpty()) {
+//                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+//                }
+//                return@launch
+//            }
+//
+//            try {
+//                val freshPcs = assetApiService.getMyPcs("Bearer ${getToken()}")
+//                _myPcsList.value = freshPcs
+//                localStorage.saveMyPcsCache(freshPcs)
+//                _uiState.value = AssetUiState.MyPcsLoaded(freshPcs)
+//            } catch (e: CancellationException) {
+//                throw e   // отмена — не ошибка, пробрасываем
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Ошибка загрузки ПК (используем кэш)", e)
+//                if (cachedPcs.isEmpty()) {
+//                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+//                }
+//            }
+//        }
+//    }
+
     fun loadMyPcs() {
         viewModelScope.launch {
             val cachedPcs = localStorage.getCachedMyPcs()
 
             if (cachedPcs.isNotEmpty()) {
                 _myPcsList.value = cachedPcs
-                _uiState.value = AssetUiState.MyPcsLoaded(cachedPcs)
+                _myPcsUiState.value = AssetUiState.MyPcsLoaded(cachedPcs)
+            } else {
+                _myPcsUiState.value = AssetUiState.Loading
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
                 if (cachedPcs.isEmpty()) {
-                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+                    _myPcsUiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")  // ←
                 }
                 return@launch
             }
@@ -259,11 +343,13 @@ class AssetViewModel @Inject constructor(
                 val freshPcs = assetApiService.getMyPcs("Bearer ${getToken()}")
                 _myPcsList.value = freshPcs
                 localStorage.saveMyPcsCache(freshPcs)
-                _uiState.value = AssetUiState.MyPcsLoaded(freshPcs)
+                _myPcsUiState.value = AssetUiState.MyPcsLoaded(freshPcs)     // ←
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки ПК (используем кэш)", e)
                 if (cachedPcs.isEmpty()) {
-                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                    _myPcsUiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")  // ←
                 }
             }
         }
@@ -278,12 +364,15 @@ class AssetViewModel @Inject constructor(
             if (cachedTypes.isNotEmpty()) {
                 _assetTypes.value = cachedTypes
                 _assetTypesUiState.value = AssetTypesUiState.Loaded(cachedTypes)
+            } else {
+                _uiState.value = AssetUiState.Loading
             }
 
             // Если сети нет, выходим (мы уже показали кэш)
             if (!networkMonitor.isCurrentlyConnected()) {
                 if (cachedTypes.isEmpty()) {
-                    _assetTypesUiState.value = AssetTypesUiState.Error("Нет сети и нет сохраненных данных")
+                    _assetTypesUiState.value =
+                        AssetTypesUiState.Error("Нет сети и нет сохраненных данных")
                 }
                 return@launch
             }
@@ -294,11 +383,14 @@ class AssetViewModel @Inject constructor(
                 _assetTypes.value = freshTypes
                 localStorage.saveAssetTypesCache(freshTypes) // Обновляем кэш
                 _assetTypesUiState.value = AssetTypesUiState.Loaded(freshTypes)
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки типов активов (используем кэш)", e)
                 // Не меняем состояние на Error, если у нас уже есть кэш
                 if (cachedTypes.isEmpty()) {
-                    _assetTypesUiState.value = AssetTypesUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                    _assetTypesUiState.value =
+                        AssetTypesUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
                 }
             }
         }
@@ -310,6 +402,8 @@ class AssetViewModel @Inject constructor(
             try {
                 val history = assetApiService.getAssetHistory("Bearer ${getToken()}", assetId)
                 _assetHistory.value = history
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 // Логируем, но не показываем пользователю
             }
@@ -317,21 +411,25 @@ class AssetViewModel @Inject constructor(
     }
 
     // Загружаем данные о цехах
-    fun loadWorkshops(){
+    fun loadWorkshops() {
         viewModelScope.launch {
             try {
                 _workshops.value = assetApiService.getWorkshops("Bearer ${getToken()}")
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 // TODO: Дописать логику ошибок для цехов
             }
         }
     }
 
-    fun loadMvzDepartments(){
+    fun loadMvzDepartments() {
         viewModelScope.launch {
             try {
                 val response = assetApiService.getMvzList("Bearer ${getToken()}")
                 _mvzDepartments.value = response.response.data
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 // TODO: Дописать логику ошибок для департаментов
             }
@@ -341,26 +439,32 @@ class AssetViewModel @Inject constructor(
     // Обновление актива
     fun updateAsset(assetId: Int, update: AssetUpdate) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+            _assetDetailsScreenUiState.value = AssetUiState.Loading
             try {
-                val updated = assetApiService.updateAssetByAssetId("Bearer ${getToken()}", assetId, update)
-                _uiState.value = AssetUiState.AssetDetailsLoaded(updated)
+                val updated =
+                    assetApiService.updateAssetByAssetId("Bearer ${getToken()}", assetId, update)
+                _assetDetailsScreenUiState.value = AssetUiState.AssetDetailsLoaded(updated)
                 loadAssetDetails(updated.assetId)
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка обновления")
+                _assetDetailsScreenUiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка обновления")
             }
         }
     }
+
     // Обновление актива
     fun upsertAsset(update: AssetUpdate) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+            _assetDetailsScreenUiState.value = AssetUiState.Loading
             try {
                 val updated = assetApiService.updateAssetByMaterialId("Bearer ${getToken()}", update)
-                _uiState.value = AssetUiState.AssetDetailsLoaded(updated)
+                _assetDetailsScreenUiState.value = AssetUiState.AssetDetailsLoaded(updated)
                 loadAssetDetails(updated.assetId)
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка создания-обновления")
+                _assetDetailsScreenUiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка создания-обновления")
             }
         }
     }
@@ -371,6 +475,8 @@ class AssetViewModel @Inject constructor(
             try {
                 val statuses = assetApiService.getAssetStatuses("Bearer ${getToken()}")
                 _assetStatuses.value = statuses
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 // Логируем, но не показываем пользователю — фильтры могут работать и без статусов
                 Log.e(TAG, "Ошибка загрузки статусов: ${e.message}")
@@ -394,27 +500,36 @@ class AssetViewModel @Inject constructor(
         onlyMy: Boolean = false
     ) {
         viewModelScope.launch {
-            val currentState = _uiState.value
+//            val currentState = _uiState.value
+            val currentState = _assetsListUiState.value
+
             val oldAssets = if (currentState is AssetUiState.AssetsLoadedPaginated && page > 1) {
                 currentState.assets
             } else {
                 emptyList()
             }
 
-            // ИСПРАВЛЕНИЕ: Передаем фильтры в функцию получения кэша!
+            // Передаем фильтры в функцию получения кэша!
             if (page == 1) {
-                val cachedAssets = localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy)
+                val cachedAssets =
+                    localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy)
                 if (cachedAssets.isNotEmpty()) {
-                    _uiState.value = AssetUiState.AssetsLoadedPaginated(
+                    _assetsListUiState.value = AssetUiState.AssetsLoadedPaginated(
                         assets = cachedAssets, total = cachedAssets.size, page = 1,
                         pageSize = pageSize, totalPages = 1, hasNext = false, hasPrevious = false
                     )
+                } else {
+                    _assetsListUiState.value = AssetUiState.Loading
                 }
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
-                if (page == 1 && localStorage.getCachedAssets(assetTypeId = assetTypeId, onlyMy = onlyMy).isEmpty()) {
-                    _uiState.value = AssetUiState.Error("Нет подключения к сети")
+                if (page == 1 && localStorage.getCachedAssets(
+                        assetTypeId = assetTypeId,
+                        onlyMy = onlyMy
+                    ).isEmpty()
+                ) {
+                    _assetsListUiState.value = AssetUiState.Error("Нет подключения к сети")
                 }
                 return@launch
             }
@@ -425,25 +540,43 @@ class AssetViewModel @Inject constructor(
                     name = name, inventoryId = inventoryId,
                     serialNumber = serialNumber, materialId = materialId,
                     assetStatus = assetStatus, modelId = modelId, assetTypeId = assetTypeId,
-                    parentId = parentId, locationId = locationId, onlyMy = onlyMy
+                    parentId = parentId,
+                    locationId = locationId, onlyMy = onlyMy
                 )
 
-                val updatedAssets = oldAssets + response.items
+                val newItems = response.items.filterNot { incoming ->
+                    oldAssets.any { existing ->
+                        (existing.assetId != null && existing.assetId == incoming.assetId) ||
+                                (existing.materialId != null && existing.materialId == incoming.materialId) ||
+                                (existing.inventoryId != null && existing.inventoryId == incoming.inventoryId)
+                    }
+                }
+                val updatedAssets = oldAssets + newItems
+                val effectiveHasNext = response.hasNext && newItems.isNotEmpty()
 
-                // ИСПРАВЛЕНИЕ: Передаем фильтры при сохранении кэша!
                 if (page == 1) {
-                    localStorage.saveAssetsCache(updatedAssets, assetTypeId = assetTypeId, onlyMy = onlyMy)
+                    localStorage.saveAssetsCache(
+                        updatedAssets,
+                        assetTypeId = assetTypeId,
+                        onlyMy = onlyMy
+                    )
                 }
 
-                _uiState.value = AssetUiState.AssetsLoadedPaginated(
-                    assets = updatedAssets, total = response.total, page = page,
-                    pageSize = pageSize, totalPages = response.totalPages,
-                    hasNext = response.hasNext, hasPrevious = response.hasPrevious
+                _assetsListUiState.value = AssetUiState.AssetsLoadedPaginated(
+                    assets = updatedAssets,
+                    total = response.total,
+                    page = page,
+                    pageSize = pageSize,
+                    totalPages = response.totalPages,
+                    hasNext = effectiveHasNext,
+                    hasPrevious = response.hasPrevious
                 )
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки активов (используем кэш)", e)
-                if (page == 1 && oldAssets.isEmpty()) {
-                    _uiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки")
+                if (page == 1) {
+                    _assetsListUiState.value = AssetUiState.Error(e.message ?: "Ошибка загрузки")
                 }
             }
         }
@@ -456,89 +589,132 @@ class AssetViewModel @Inject constructor(
      *
      * @return Pair(найденный актив или null, фактическое значение, по которому искали в последний раз)
      */
-    suspend fun findAssetByScanValue(scannedValue: String): Pair<AssetResponseDto?, String> {
+    enum class ScanMatchType { SERIAL_NUMBER, INVENTORY_ID, MATERIAL_ID }
+
+    suspend fun findAssetByScanValue(scannedValue: String): Triple<AssetResponseDto?, String, ScanMatchType?> {
         return try {
-            // === Пробуем поиск по СЕРИЙНОМУ номеру ===
-            var currentSerialNumber = scannedValue
-            // F2717NBP45 02103193
-            // 0000000000 02103193
-            if (currentSerialNumber.length > 18) currentSerialNumber = scannedValue.takeLast(18)
-            Log.d("AssetViewModel", "Поиск по serialNumber: $currentSerialNumber")
-            val bySerial = assetApiService.getAssets(
+            // === Поиск по СЕРИЙНОМУ номеру ===
+            val currentSerialNumber = scannedValue
+            val byFullSerial = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 serialNumber = currentSerialNumber,
-                page = 1,
-                pageSize = 1
+                page = 1, pageSize = 1
+            )
+            byFullSerial.items.firstOrNull()?.let {
+                return Triple(it, currentSerialNumber, ScanMatchType.SERIAL_NUMBER)
+            }
+            // === Поиск по сокращенному СЕРИЙНОМУ номеру ===
+            val bySerial = assetApiService.getAssets(
+                token = "Bearer ${getToken()}",
+                serialNumber = currentSerialNumber.takeLast(18),
+                page = 1, pageSize = 1
             )
             bySerial.items.firstOrNull()?.let {
-                // Если нашли по серийнику, возвращаем его и исходное значение
-                Log.d("AssetViewModel", "Найдено по серийнику: id=${it.assetId}")
-                return Pair(it, currentSerialNumber)
+                return Triple(it, currentSerialNumber.takeLast(18), ScanMatchType.SERIAL_NUMBER)
             }
 
-            // === Если не нашли, пробуем поиск по ИНВЕНТАРНОМУ номеру ===
+            // === Поиск по ИНВЕНТАРНОМУ номеру ===
             var currentInventoryId = scannedValue
-            // Валидация инвентарного номера по длине
-            if (currentInventoryId.length == 11) {
-                currentInventoryId = "0$currentInventoryId"
-                Log.w("AssetViewModel", "Изменение inv.number: old=$scannedValue new=$currentInventoryId")
-            }
-            Log.d("AssetViewModel", "Поиск по inventoryId: inv. number=$currentInventoryId")
+            if (currentInventoryId.length == 11) currentInventoryId = "0$currentInventoryId"
             val byInventory = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 inventoryId = currentInventoryId,
-                page = 1,
-                pageSize = 1,
+                page = 1, pageSize = 1,
             )
             byInventory.items.firstOrNull()?.let {
-                // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
-                Log.d("AssetViewModel", "Найдено по инвентарнику: id=${it.assetId}")
-                return Pair(it, currentInventoryId)
+                return Triple(it, currentInventoryId, ScanMatchType.INVENTORY_ID)
             }
 
             // === Поиск по MATERIAL_ID ===
             var materialId = scannedValue
-            if (materialId.length == 11) {
-                materialId = "0${materialId}0000"
-            }
+            if (materialId.length == 11) materialId = "0${materialId}0000"
             val byMaterialId = assetApiService.getAssets(
                 token = "Bearer ${getToken()}",
                 materialId = materialId,
-                page = 1,
-                pageSize = 1
+                page = 1, pageSize = 1
             )
             byMaterialId.items.firstOrNull()?.let {
-                Log.d("AssetViewModel", "Найдено по material_id: id=${it.materialId}")
-                return Pair(it, materialId)
+                return Triple(it, materialId, ScanMatchType.MATERIAL_ID)
             }
 
-            // Возвращаем найденный объект (или null) и строку, по которой искали (с "0" или без)
-            Pair(null, materialId)
+            Triple(null, materialId, null)
+        } catch (e: CancellationException) {
+            throw e   // отмена — не ошибка, пробрасываем
         } catch (e: Exception) {
             Log.e("AssetViewModel", "Ошибка поиска актива: ${e.message}")
-            // В случае ошибки возвращаем null и исходное значение, чтобы не ломать логику
-            Pair(null, scannedValue)
+            Triple(null, scannedValue, null)
         }
     }
 
     // Метод для загрузки деталей актива
+//    fun loadAssetDetails(assetId: Int? = null, materialId: String? = null) {
+//        viewModelScope.launch {
+//            require(assetId != null || materialId != null) { "Должен быть указан assetId или materialId" }
+//
+//            // ИСПРАВЛЕНИЕ: Ищем кэш именно для этого ID!
+//            val cachedDetail = localStorage.getCachedAssetDetail(assetId, materialId)
+//
+//            if (cachedDetail != null) {
+//                _uiState.value = AssetUiState.AssetDetailsLoaded(cachedDetail)
+//                loadAssetHistory(cachedDetail.assetId ?: 0)
+//            } else {
+//                _uiState.value = AssetUiState.Loading
+//            }
+//
+//            if (!networkMonitor.isCurrentlyConnected()) {
+//                if (cachedDetail == null) {
+//                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+//                }
+//                return@launch
+//            }
+//
+//            try {
+//                val response = assetApiService.getAssets(
+//                    token = "Bearer ${getToken()}",
+//                    page = 1,
+//                    pageSize = 1,
+//                    assetId = assetId,
+//                    materialId = materialId
+//                )
+//
+//                if (response.items.isNotEmpty()) {
+//                    val asset = response.items.first()
+//
+//                    // Сохраняем детали с уникальным ключом для этого ID
+//                    localStorage.saveAssetDetailCache(assetId, materialId, asset)
+//
+//                    _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
+//                    asset.assetId?.let { id -> loadAssetHistory(id) }
+//                } else {
+//                    if (cachedDetail == null) _uiState.value = AssetUiState.Error("Актив не найден")
+//                }
+//            } catch (e: CancellationException) {
+//                throw e   // отмена — не ошибка, пробрасываем
+//            } catch (e: Exception) {
+//                Log.e(TAG, "Ошибка загрузки деталей актива (используем кэш)", e)
+//                if (cachedDetail == null) {
+//                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+//                }
+//            }
+//        }
+//    }
+
     fun loadAssetDetails(assetId: Int? = null, materialId: String? = null) {
         viewModelScope.launch {
             require(assetId != null || materialId != null) { "Должен быть указан assetId или materialId" }
 
-            // ИСПРАВЛЕНИЕ: Ищем кэш именно для этого ID!
             val cachedDetail = localStorage.getCachedAssetDetail(assetId, materialId)
 
             if (cachedDetail != null) {
-                _uiState.value = AssetUiState.AssetDetailsLoaded(cachedDetail)
+                _assetDetailsScreenUiState.value = AssetUiState.AssetDetailsLoaded(cachedDetail)  // ←
                 loadAssetHistory(cachedDetail.assetId ?: 0)
             } else {
-                _uiState.value = AssetUiState.Loading
+                _assetDetailsScreenUiState.value = AssetUiState.Loading                            // ←
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
                 if (cachedDetail == null) {
-                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+                    _assetDetailsScreenUiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")  // ←
                 }
                 return@launch
             }
@@ -554,19 +730,20 @@ class AssetViewModel @Inject constructor(
 
                 if (response.items.isNotEmpty()) {
                     val asset = response.items.first()
-
-                    // ИСПРАВЛЕНИЕ: Сохраняем детали с уникальным ключом для этого ID
                     localStorage.saveAssetDetailCache(assetId, materialId, asset)
-
-                    _uiState.value = AssetUiState.AssetDetailsLoaded(asset)
+                    _assetDetailsScreenUiState.value = AssetUiState.AssetDetailsLoaded(asset)      // ←
                     asset.assetId?.let { id -> loadAssetHistory(id) }
                 } else {
-                    if (cachedDetail == null) _uiState.value = AssetUiState.Error("Актив не найден")
+                    if (cachedDetail == null) {
+                        _assetDetailsScreenUiState.value = AssetUiState.Error("Актив не найден")   // ←
+                    }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки деталей актива (используем кэш)", e)
                 if (cachedDetail == null) {
-                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")
+                    _assetDetailsScreenUiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки")  // ←
                 }
             }
         }
@@ -579,82 +756,221 @@ class AssetViewModel @Inject constructor(
 
             if (cachedSessions.isNotEmpty()) {
                 _inventorizationSessions.value = cachedSessions
-                _inventorizationUiState.value = InventorizationUiState.SessionsLoaded(cachedSessions)
+                _inventorizationUiState.value =
+                    InventorizationUiState.SessionsLoaded(cachedSessions)
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
                 if (cachedSessions.isEmpty()) {
-                    _inventorizationUiState.value = InventorizationUiState.Error("Нет сети и нет сохраненных данных")
+                    _inventorizationUiState.value =
+                        InventorizationUiState.Error("Нет сети и нет сохраненных данных")
                 }
                 return@launch
             }
 
             try {
-                val freshSessions = assetApiService.getInventorizationSessions("Bearer ${getToken()}")
+                val freshSessions =
+                    assetApiService.getInventorizationSessions("Bearer ${getToken()}")
                 _inventorizationSessions.value = freshSessions
                 localStorage.saveInventorySessionsCache(freshSessions)
                 _inventorizationUiState.value = InventorizationUiState.SessionsLoaded(freshSessions)
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки сессий (используем кэш)", e)
                 if (cachedSessions.isEmpty()) {
-                    _inventorizationUiState.value = InventorizationUiState.Error(getErrorMessage(e) ?: "Ошибка")
+                    _inventorizationUiState.value =
+                        InventorizationUiState.Error(getErrorMessage(e) ?: "Ошибка")
                 }
             }
         }
     }
 
-    fun loadInventorizationItems(sessionId: Int) {
+    /**
+     * Ищет строку инвентаризации в сессии по найденному на сервере активу.
+     * Пробует несколько идентификаторов, т.к. getInventorizationSessionItems
+     * не поддерживает фильтр по assetId.
+     */
+    suspend fun findInventorizationItemByAsset(
+        sessionId: Int,
+        asset: AssetResponseDto,
+        usedValue: String
+    ): InventorizationItemDto? {
+        // 1. Если у актива есть materialId — самый надёжный ключ для API
+        asset.materialId?.takeIf { it.isNotBlank() }?.let { matId ->
+            val resp = assetApiService.getInventorizationSessionItems(
+                token = "Bearer ${getToken()}",
+                sessionId = sessionId,
+                page = 1,
+                pageSize = 5,
+                materialId = matId
+            )
+            resp.items.firstOrNull()?.let { return it }
+        }
+
+        // 2. По serialNumber
+        asset.serialNumber?.takeIf { it.isNotBlank() }?.let { sn ->
+            val resp = assetApiService.getInventorizationSessionItems(
+                token = "Bearer ${getToken()}",
+                sessionId = sessionId,
+                page = 1,
+                pageSize = 5,
+                serialNumber = sn
+            )
+            resp.items.firstOrNull()?.let { return it }
+        }
+
+        // 3. По inventoryId
+        asset.inventoryId?.takeIf { it.isNotBlank() }?.let { inv ->
+            val resp = assetApiService.getInventorizationSessionItems(
+                token = "Bearer ${getToken()}",
+                sessionId = sessionId,
+                page = 1,
+                pageSize = 5,
+                inventoryId = inv
+            )
+            resp.items.firstOrNull()?.let { return it }
+        }
+
+        // 4. Fallback — по значению, которым искали на сервере
+        if (usedValue.isNotBlank()) {
+            val resp = assetApiService.getInventorizationSessionItems(
+                token = "Bearer ${getToken()}",
+                sessionId = sessionId,
+                page = 1,
+                pageSize = 5,
+                inventoryId = usedValue
+            )
+            resp.items.firstOrNull()?.let { return it }
+        }
+
+        return null
+    }
+
+    fun loadInventorizationItems(
+        sessionId: Int,
+        page: Int = 1,
+        pageSize: Int = 50,
+        materialId: String? = null,
+        name: String? = null,
+        serialNumber: String? = null,
+        inventoryId: String? = null,
+        isChecked: String? = null,
+        append: Boolean = false,
+        showCacheOnStart: Boolean = true,   // показывать кэш только при первом открытии без фильтров
+    ) {
         viewModelScope.launch {
-            val cachedItems = localStorage.getCachedInventoryItems(sessionId)
+            val hasFilters = !name.isNullOrBlank() ||
+                    !inventoryId.isNullOrBlank() ||
+                    !serialNumber.isNullOrBlank() ||
+                    !materialId.isNullOrBlank() ||
+                    !isChecked.isNullOrBlank()
+
+            // Кэш показываем только если это первая загрузка без фильтров
+            val cachedItems = if (showCacheOnStart && page == 1 && !append && !hasFilters) {
+                localStorage.getCachedInventoryItems(sessionId)
+            } else {
+                emptyList()
+            }
 
             if (cachedItems.isNotEmpty()) {
                 _inventorizationItems.value = cachedItems
-                _uiState.value = AssetUiState.InventorizationItemsLoaded(cachedItems, sessionId)
+                _inventorizationItemsUiState.value = AssetUiState.InventorizationItemsLoaded(
+                    items = cachedItems,
+                    hasNext = true,
+                    sessionId = sessionId
+                )
+            } else if (page == 1 && !append) {
+                _inventorizationItemsUiState.value = AssetUiState.Loading
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
                 if (cachedItems.isEmpty()) {
-                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+                    _inventorizationItemsUiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
                 }
                 return@launch
             }
 
             try {
-                val response = assetApiService.getInventorizationSessionItems("Bearer ${getToken()}", sessionId)
-                _inventorizationItems.value = response.items
-                localStorage.saveInventoryItemsCache(sessionId, response.items)
-                _uiState.value = AssetUiState.InventorizationItemsLoaded(response.items, sessionId)
+                val response = assetApiService.getInventorizationSessionItems(
+                    token = "Bearer ${getToken()}",
+                    sessionId = sessionId,
+                    page = page,
+                    pageSize = pageSize,
+                    materialId = materialId?.takeIf { it.isNotBlank() },
+                    name = name?.takeIf { it.isNotBlank() },
+                    serialNumber = serialNumber?.takeIf { it.isNotBlank() },
+                    inventoryId = inventoryId?.takeIf { it.isNotBlank() },
+                    isChecked = isChecked?.takeIf { it.isNotBlank() },
+                )
+
+                // Объединяем с уже загруженными (при append)
+                val currentState = _inventorizationItemsUiState.value
+                val oldItems =
+                    if (append && currentState is AssetUiState.InventorizationItemsLoaded) {
+                        currentState.items
+                    } else {
+                        emptyList()
+                    }
+
+                val updatedItems = oldItems + response.items
+
+                // Сохраняем в кэш ТОЛЬКО если нет фильтров (чтобы не затереть полный список)
+                if (!hasFilters && page == 1) {
+                    localStorage.saveInventoryItemsCache(sessionId, updatedItems)
+                }
+
+                _inventorizationItems.value = updatedItems
+                _inventorizationItemsUiState.value = AssetUiState.InventorizationItemsLoaded(
+                    items = updatedItems,
+                    total = response.total,
+                    hasNext = response.hasNext,
+                    sessionId = sessionId
+                )
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки элементов инвентаризации (используем кэш)", e)
-                if (cachedItems.isEmpty()) {
-                    _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
+                if (cachedItems.isEmpty() && page == 1 && !append) {
+                    _inventorizationItemsUiState.value =
+                        AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки элементов")
                 }
             }
         }
     }
 
     fun startInventorizationSession(
-        assetTypeId: Int? = null,
-        departmentCode: String? = null,
+        assetTypeIds: List<Int>? = null,
+        departmentCodes: List<String>? = null,
+        materialClasses: List<String>? = null,
         startDate: String? = null,
-        endDate: String? = null
+        endDate: String? = null,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
             try {
-                assetApiService.startInventorizationSession(
+                val sessions = assetApiService.startInventorizationSession(
                     "Bearer ${getToken()}",
                     InventorizationSessionCreateRequest(
                         obj = InventorizationSessionObj(
-                        assetTypeId = assetTypeId,
-                        departmentCode = departmentCode,
-                        startDate = startDate,
-                        endDate = endDate
+                            assetTypeIds = assetTypeIds?.takeIf { it.isNotEmpty() },
+                            departmentCodes = departmentCodes?.takeIf { it.isNotEmpty() },
+                            materialClasses = materialClasses?.takeIf { it.isNotEmpty() },
+                            startDate = startDate,
+                            endDate = endDate
                         )
                     )
                 )
-                loadInventorizationSessions() // Перезагружаем список
+                onSuccess()
+                loadInventorizationSessions()
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
-                _inventorizationUiState.value = InventorizationUiState.Error(getErrorMessage(e) ?: "Ошибка создания")
+                val msg = getErrorMessage(e) ?: "Ошибка создания"
+                Log.e(TAG, "startInventorizationSession: $msg", e)
+                onError(msg)
+                _inventorizationUiState.value = InventorizationUiState.Error(msg)
             }
         }
     }
@@ -663,7 +979,9 @@ class AssetViewModel @Inject constructor(
         sessionId: Int,
         assetId: Int?,
         materialId: String?,
-        quantityFact: Int?
+        quantityFact: Int?,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
             try {
@@ -676,22 +994,29 @@ class AssetViewModel @Inject constructor(
                         quantityFact = quantityFact
                     )
                 )
-                loadInventorizationItems(sessionId) // Перезагружаем элементы
+                onSuccess()
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка проверки актива")
+                val msg = getErrorMessage(e) ?: "Ошибка проверки актива"
+                Log.e(TAG, "checkInventorizationItem: $msg", e)
+                onError(msg)
             }
         }
     }
 
     fun completeInventorizationSession(sessionId: Int) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+            _assetDetailsScreenUiState.value = AssetUiState.Loading
             try {
                 assetApiService.completeInventorizationSession("Bearer ${getToken()}", sessionId)
                 // Возвращаемся к списку сессий
                 loadInventorizationSessions()
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка завершения сессии")
+                _assetDetailsScreenUiState.value =
+                    AssetUiState.Error(getErrorMessage(e) ?: "Ошибка завершения сессии")
             }
         }
     }
@@ -705,14 +1030,14 @@ class AssetViewModel @Inject constructor(
             val cachedNotifications = localStorage.getCachedNotifications()
             if (cachedNotifications.isNotEmpty()) {
                 _notificationItems.value = cachedNotifications
-                _uiState.value = AssetUiState.NotificationsLoaded(cachedNotifications)
+                _notificationsUiState.value = AssetUiState.NotificationsLoaded(cachedNotifications)
             } else {
-//                _uiState.value = AssetUiState.Loading
+//                _notificationsUiState.value = AssetUiState.Loading
             }
 
             if (!networkMonitor.isCurrentlyConnected()) {
                 if (cachedNotifications.isEmpty()) {
-                    _uiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
+                    _notificationsUiState.value = AssetUiState.Error("Нет сети и нет сохраненных данных")
                 }
                 return@launch
             }
@@ -727,105 +1052,112 @@ class AssetViewModel @Inject constructor(
                 _notificationItems.value = response.items
                 _notificationUncheckedCount.value = response.uncheckedCount
                 localStorage.saveNotificationsCache(response.items) // Сохраняем в кэш
-                _uiState.value = AssetUiState.NotificationsLoaded(response.items)
+                _notificationsUiState.value = AssetUiState.NotificationsLoaded(response.items)
 
-                startSseStream(getToken())
+//                startSseStream(getToken())
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки уведомлений (используем кэш)", e)
                 if (cachedNotifications.isEmpty()) {
-                    _uiState.value = AssetUiState.Error(e.message ?: "Ошибка сети")
+                    _notificationsUiState.value = AssetUiState.Error(e.message ?: "Ошибка сети")
                 }
             }
         }
     }
 
-    fun readNotification(notificationId: Int){
+    fun readNotification(notificationId: Int) {
         viewModelScope.launch {
             try {
                 val responseReadNotification = assetApiService.readNotification("Bearer ${getToken()}", notificationId)
-                Log.d(TAG, "Уведомление с id = ${responseReadNotification.notificationId} status=${responseReadNotification.status}")
+                Log.d(
+                    TAG,
+                    "Уведомление с id = ${responseReadNotification.notificationId} status=${responseReadNotification.status}"
+                )
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
-                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка чтения уведомления")
+                _notificationsUiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка чтения уведомления")
             }
         }
     }
 
-    fun startSseStream(token: String) {
-        eventSource?.cancel()
-
-        // НАСТРАИВАЕМ ТАЙМАУТЫ: 0 означает "бесконечно", что критично для SSE
-        val client = OkHttpClient.Builder()
-            .readTimeout(0, TimeUnit.SECONDS)      // Ждать данные от сервера бесконечно
-            .writeTimeout(0, TimeUnit.SECONDS)     // Бесконечный таймаут на запись
-            .connectTimeout(10, TimeUnit.SECONDS)  // На подключение даем стандартные 10 сек
-            .build()
-
-        val request = Request.Builder()
-            // param: direction=all || outgoing || incoming
-            .url("${com.gps.warehouse.utils.Constants.ASSET_URL}notifications/stream?direction=incoming")
-            .addHeader("Authorization", "Bearer $token")
-            .addHeader("Accept", "text/event-stream") // Обязательно для SSE
-            .build()
-
-        Log.d(TAG, "startSseStream: Попытка подключения к SSE потоку...")
-
-        eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
-            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
-                Log.d(TAG, "startSseStream: Получены сырые данные SSE (длина: ${data.length})")
-                try {
-                    val gson = Gson()
-                    val responseDto = gson.fromJson(data, NotificationResponseDto::class.java)
-
-                    Log.d(TAG, "startSseStream: Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
-
-                    val currentState = _uiState.value
-                    if (currentState is AssetUiState.NotificationsLoaded) {
-                        val currentList = currentState.notifications.toMutableList()
-
-                        // Обновляем существующие или добавляем новые
-                        for (incoming in responseDto.items) {
-                            // ЗАЩИТА: Если мы смотрим конкретный актив или сессию,
-                            // игнорируем SSE-уведомления, которые к ним не относятся
-                            if (currentFilterAssetId != null && incoming.assetId != currentFilterAssetId) continue
-                            if (currentFilterSessionId != null && incoming.sessionId != currentFilterSessionId) continue
-
-
-                            val existingIndex = currentList.indexOfFirst { it.notificationId == incoming.notificationId }
-                            if (existingIndex != -1) {
-                                val existing = currentList[existingIndex]
-                                currentList[existingIndex] = existing.copy(
-                                    status = incoming.status.ifEmpty { existing.status },
-                                    statusRu = incoming.statusRu.ifEmpty { existing.statusRu },
-                                    respondedAt = incoming.respondedAt ?: existing.respondedAt
-                                )
-                            } else {
-                                currentList.add(0, incoming)
-                            }
-                        }
-                        _uiState.value = AssetUiState.NotificationsLoaded(currentList)
-                        Log.d(TAG, "startSseStream: Список уведомлений обновлен. Всего: ${currentList.size}")
-                    } else {
-                        _uiState.value = AssetUiState.NotificationsLoaded(responseDto.items)
-                        Log.d(TAG, "startSseStream: Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "startSseStream: Ошибка парсинга JSON из SSE: ${e.message}", e)
-                    Log.e(TAG, "startSseStream: Проблемная строка data: $data")
-                }
-            }
-
-            override fun onClosed(eventSource: EventSource) {
-                super.onClosed(eventSource)
-                Log.d(TAG, "SSE поток закрыт сервером штатно")
-            }
-
-            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                val code = response?.code
-                val errorBody = try { response?.body?.string() } catch (e: Exception) { "Не удалось прочитать" }
-                Log.e(TAG, "Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
-            }
-        })
-    }
+//    fun startSseStream(token: String) {
+//        eventSource?.cancel()
+//
+//        // НАСТРАИВАЕМ ТАЙМАУТЫ: 0 означает "бесконечно", что критично для SSE
+//        val client = OkHttpClient.Builder()
+//            .readTimeout(0, TimeUnit.SECONDS)      // Ждать данные от сервера бесконечно
+//            .writeTimeout(0, TimeUnit.SECONDS)     // Бесконечный таймаут на запись
+//            .connectTimeout(10, TimeUnit.SECONDS)  // На подключение даем стандартные 10 сек
+//            .build()
+//
+//        val request = Request.Builder()
+//            // param: direction=all || outgoing || incoming
+//            .url("${com.gps.warehouse.utils.Constants.ASSET_URL}notifications/stream?direction=incoming")
+//            .addHeader("Authorization", "Bearer $token")
+//            .addHeader("Accept", "text/event-stream") // Обязательно для SSE
+//            .build()
+//
+//        Log.d(TAG, "startSseStream: Попытка подключения к SSE потоку...")
+//
+//        eventSource = EventSources.createFactory(client).newEventSource(request, object : EventSourceListener() {
+//            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+//                Log.d(TAG, "startSseStream: Получены сырые данные SSE (длина: ${data.length})")
+//                try {
+//                    val gson = Gson()
+//                    val responseDto = gson.fromJson(data, NotificationResponseDto::class.java)
+//
+//                    Log.d(TAG, "startSseStream: Успешно распарсено. Source: ${responseDto.source}, Элементов: ${responseDto.items.size}")
+//
+//                    val currentState = _uiState.value
+//                    if (currentState is AssetUiState.NotificationsLoaded) {
+//                        val currentList = currentState.notifications.toMutableList()
+//
+//                        // Обновляем существующие или добавляем новые
+//                        for (incoming in responseDto.items) {
+//                            // ЗАЩИТА: Если мы смотрим конкретный актив или сессию,
+//                            // игнорируем SSE-уведомления, которые к ним не относятся
+//                            if (currentFilterAssetId != null && incoming.assetId != currentFilterAssetId) continue
+//                            if (currentFilterSessionId != null && incoming.sessionId != currentFilterSessionId) continue
+//
+//
+//                            val existingIndex = currentList.indexOfFirst { it.notificationId == incoming.notificationId }
+//                            if (existingIndex != -1) {
+//                                val existing = currentList[existingIndex]
+//                                currentList[existingIndex] = existing.copy(
+//                                    status = incoming.status.ifEmpty { existing.status },
+//                                    statusRu = incoming.statusRu.ifEmpty { existing.statusRu },
+//                                    respondedAt = incoming.respondedAt ?: existing.respondedAt
+//                                )
+//                            } else {
+//                                currentList.add(0, incoming)
+//                            }
+//                        }
+//                        _uiState.value = AssetUiState.NotificationsLoaded(currentList)
+//                        Log.d(TAG, "startSseStream: Список уведомлений обновлен. Всего: ${currentList.size}")
+//                    } else {
+//                        _uiState.value = AssetUiState.NotificationsLoaded(responseDto.items)
+//                        Log.d(TAG, "startSseStream: Список уведомлений инициализирован из SSE. Всего: ${responseDto.items.size}")
+//                    }
+//                } catch (e: Exception) {
+//                    Log.e(TAG, "startSseStream: Ошибка парсинга JSON из SSE: ${e.message}", e)
+//                    Log.e(TAG, "startSseStream: Проблемная строка data: $data")
+//                }
+//            }
+//
+//            override fun onClosed(eventSource: EventSource) {
+//                super.onClosed(eventSource)
+//                Log.d(TAG, "SSE поток закрыт сервером штатно")
+//            }
+//
+//            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+//                val code = response?.code
+//                val errorBody = try { response?.body?.string() } catch (e: Exception) { "Не удалось прочитать" }
+//                Log.e(TAG, "Ошибка SSE соединения. HTTP Код: $code, Тело: $errorBody, Exception: ${t?.message}")
+//            }
+//        })
+//    }
     // ================== Уведомления ==================
 
     // ================== Пользователи ==================
@@ -856,6 +1188,8 @@ class AssetViewModel @Inject constructor(
                     searchPosition = searchPosition
                 )
                 _employees.value = response
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
 //                _uiState.value = AssetUiState.Error(getErrorMessage(e) ?: "Ошибка загрузки сотрудников")
                 Log.e(TAG, "Ошибка загрузки сотрудников: ${e.message}")
@@ -869,6 +1203,8 @@ class AssetViewModel @Inject constructor(
             try {
                 val response = assetApiService.getEmployeeMe(token = "Bearer ${getToken()}")
                 _employeeMe.value = response
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки текущего сотрудника: ${e.message}")
                 _employees.value = null
@@ -890,21 +1226,20 @@ class AssetViewModel @Inject constructor(
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+            _assetDetailsScreenUiState.value = AssetUiState.Loading
             try {
                 // TODO: Сделать проверку только лишь на одни id:
                 //  * asset_id и material_id
                 var request: AssetTransferRequestDto
 
-                if (assetId != null){
+                if (assetId != null) {
                     request = AssetTransferRequestDto(
                         assetId = assetId,
                         targetEmployeeId = targetEmployeeId,
                         assignmentType = assignmentType,
                         comment = comment
                     )
-                }
-                else {
+                } else {
                     request = AssetTransferRequestDto(
                         materialId = materialId,
                         targetEmployeeId = targetEmployeeId,
@@ -924,11 +1259,13 @@ class AssetViewModel @Inject constructor(
                 // Перезагружаем детали актива после успешной передачи
                 loadAssetDetails(assetId = response.asset.assetId)
 
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка передачи актива"
                 Log.e(TAG, "Ошибка передачи актива: $errorMessage")
                 onError(errorMessage)
-                _uiState.value = AssetUiState.Error(errorMessage)
+                _assetDetailsScreenUiState.value = AssetUiState.Error(errorMessage)
             }
         }
     }
@@ -944,6 +1281,8 @@ class AssetViewModel @Inject constructor(
                     assetId = assetId
                 )
                 _assetTransfers.value = response.items
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка загрузки передач: ${e.message}")
                 _assetTransfers.value = emptyList()
@@ -962,6 +1301,8 @@ class AssetViewModel @Inject constructor(
                     assetId = assetId
                 )
                 _transferInfo.value = response
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка проверки передачи: ${e.message}")
                 _transferInfo.value = null
@@ -976,11 +1317,11 @@ class AssetViewModel @Inject constructor(
         transferId: Int,
         action: String, // "accept" или "decline"
         comment: String? = null,
+        assetId: Int? = null,
         onSuccess: (AssetTransferRespondResponseDto) -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
             try {
                 val request = TransferActionRequestDto(action = action, comment = comment)
                 val response = assetApiService.respondToTransfer(
@@ -990,12 +1331,18 @@ class AssetViewModel @Inject constructor(
                 )
                 onSuccess(response)
                 // Обновляем информацию о передаче
+
                 _transferInfo.value = null
+                if (assetId != null) {
+                    loadAssetDetails(assetId = assetId)
+                }
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка обработки запроса"
                 Log.e(TAG, "Ошибка ответа на передачу: $errorMessage")
                 onError(errorMessage)
-                _uiState.value = AssetUiState.Error(errorMessage)
+//                _uiState.value = AssetUiState.Error(errorMessage)
             }
         }
     }
@@ -1005,11 +1352,11 @@ class AssetViewModel @Inject constructor(
      */
     fun cancelTransfer(
         transferId: Int,
+        assetId: Int? = null,
         onSuccess: (AssetTransferCancelResponseDto) -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
             try {
                 val response = assetApiService.cancelTransfer(
                     token = "Bearer ${getToken()}",
@@ -1017,12 +1364,18 @@ class AssetViewModel @Inject constructor(
                 )
                 onSuccess(response)
                 // Обновляем информацию о передаче
+
                 _transferInfo.value = null
+                if (assetId != null) {
+                    loadAssetDetails(assetId = assetId)
+                }
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка отмены запроса"
                 Log.e(TAG, "Ошибка отмены передачи: $errorMessage")
                 onError(errorMessage)
-                _uiState.value = AssetUiState.Error(errorMessage)
+//                _uiState.value = AssetUiState.Error(errorMessage)
             }
         }
     }
@@ -1065,10 +1418,12 @@ class AssetViewModel @Inject constructor(
 
                 // Опционально: Если подтверждение меняет общий статус актива,
                 // можно также обновить детали актива, чтобы обновилась "шапка" экрана:
-                 if (currentAssetId != null) {
-                     loadAssetDetails(assetId = currentAssetId, materialId = null)
-                 }
+                if (currentAssetId != null) {
+                    loadAssetDetails(assetId = currentAssetId, materialId = null)
+                }
 
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 // getErrorMessage должен извлекать поле "detail" из HTTP-ошибок Retrofit
                 val errorMessage = getErrorMessage(e) ?: "Ошибка подтверждения актива"
@@ -1097,7 +1452,7 @@ class AssetViewModel @Inject constructor(
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+//            _uiState.value = AssetUiState.Loading
             try {
                 val response = assetApiService.getConfirmationsList(
                     token = "Bearer ${getToken()}",
@@ -1110,18 +1465,20 @@ class AssetViewModel @Inject constructor(
                 )
                 onSuccess(response)
                 _assetConfirmations.value = response.items
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 val errorMessage = getErrorMessage(e) ?: "Ошибка получения списка подтверждений"
                 Log.e(TAG, "Ошибка получения списка подтверждений: $errorMessage", e)
                 onError(errorMessage)
-                _uiState.value = AssetUiState.Error(errorMessage)
+//                _uiState.value = AssetUiState.Error(errorMessage)
             }
         }
     }
 
     fun getLastConfirmation(assetId: Int) {
         viewModelScope.launch {
-            _uiState.value = AssetUiState.Loading
+//            _uiState.value = AssetUiState.Loading
             try {
                 val response = assetApiService.getLastConfirmation(
                     token = "Bearer ${getToken()}",
@@ -1132,7 +1489,10 @@ class AssetViewModel @Inject constructor(
                     val body = response.body()
                     _assetConfirmationLast.value = body   // может быть null
                     if (body == null) {
-                        Log.d(TAG, "getLastConfirmation: тело ответа пустое (нет активных подтверждений)")
+                        Log.d(
+                            TAG,
+                            "getLastConfirmation: тело ответа пустое (нет активных подтверждений)"
+                        )
                     }
                 } else if (response.code() == 404) {
                     // 404 — нет запроса на подтверждение, это НЕ ошибка
@@ -1145,10 +1505,38 @@ class AssetViewModel @Inject constructor(
                     _assetConfirmationLast.value = null
                     // Не ставим Error в uiState, чтобы не ломать экран
                 }
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
             } catch (e: Exception) {
                 Log.e(TAG, "Ошибка получения последнего подтверждения: ${e.message}", e)
                 _assetConfirmationLast.value = null
                 // Не ставим Error в uiState — отсутствие подтверждения не критично
+            }
+        }
+    }
+
+    // ==================== SAP: Классы активов ====================
+    fun loadAssetClasses() {
+        viewModelScope.launch {
+            _assetClassesUiState.value = AssetClassesUiState.Loading
+            try {
+                val response = assetApiService.getAssetClasses(
+                    token = "Bearer ${getToken()}",
+                    limit = 200,
+                    offset = 0,
+                    language = "R"
+                )
+                val classes = response.response?.data.orEmpty()
+                _assetClasses.value = classes
+                _assetClassesUiState.value = AssetClassesUiState.Loaded(classes)
+                Log.d(TAG, "loadAssetClasses: загружено ${classes.size} классов")
+            } catch (e: CancellationException) {
+                throw e   // отмена — не ошибка, пробрасываем
+            } catch (e: Exception) {
+                val msg = getErrorMessage(e) ?: "Ошибка загрузки классов активов"
+                Log.e(TAG, "loadAssetClasses: $msg", e)
+                _assetClassesUiState.value = AssetClassesUiState.Error(msg)
+                // Не сбрасываем _assetClasses — если что-то было загружено ранее, оставляем
             }
         }
     }

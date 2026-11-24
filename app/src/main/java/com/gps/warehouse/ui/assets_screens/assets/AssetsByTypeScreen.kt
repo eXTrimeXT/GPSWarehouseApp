@@ -1,6 +1,5 @@
 package com.gps.warehouse.ui.assets_screens.assets
 
-import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -41,7 +40,6 @@ import com.gps.warehouse.utils.InventoryQrParser
 import com.gps.warehouse.utils.ScannerManager
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
-import java.nio.charset.StandardCharsets
 
 private const val TAG = "ASSETS_SCREEN"
 
@@ -58,7 +56,7 @@ fun AssetsByTypeScreen(
     materialId: String = "",
     onlyMy: Boolean = false
 ) {
-    val uiState by assetViewModel.uiState.collectAsState()
+    val uiState by assetViewModel.assetsListUiState.collectAsState()
     val context = LocalContext.current
     val scannerManager = remember { ScannerManager(context) }
     val cameraScanEnabled by mainViewModel.cameraScanEnabled.collectAsState()
@@ -88,54 +86,6 @@ fun AssetsByTypeScreen(
         assetViewModel.loadAssetStatuses()
     }
 
-//    fun processScannedData(scannedData: String) {
-//        if (scannedData.isEmpty()) return
-//        Log.d(TAG, "processScannedData: $scannedData")
-//
-//        val scannedValue = InventoryQrParser.parseAny(scannedData)
-//        if (scannedValue == null) {
-//            Toast.makeText(context, "Не удалось распознать код", Toast.LENGTH_SHORT).show()
-//            return
-//        }
-//
-//        // Запускаем серверный поиск в корутине
-//        scope.launch {
-//            isSearching = true
-//            try {
-//                val (foundAsset, scannedValue) = assetViewModel.findAssetByScanValue(scannedValue)
-//
-//                if (foundAsset != null) {
-//                    Log.d(TAG, "Scanned asset found: id=${foundAsset.assetId}, navigating")
-//
-//                    serialNumber = if (foundAsset.serialNumber?.isNotEmpty() == true) {
-//                        foundAsset.serialNumber
-//                    } else { "" }
-//
-//                    inventoryId = if (foundAsset.inventoryId?.isNotEmpty() == true) {
-//                        foundAsset.inventoryId
-//                    } else { "" }
-//
-//                    materialId = if (foundAsset.materialId?.isNotEmpty() == true) {
-//                        foundAsset.materialId
-//                    } else { "" }
-//
-//                    navController.navigate("assets_list/${foundAsset.assetTypeId}/${foundAsset.assetTypeName}/${serialNumber}/${inventoryId}/${materialId}")
-//                } else {
-//                    Toast.makeText(
-//                        context,
-//                        "Актив '$scannedValue' не найден (проверено как серийник, инвентарник, номер основного средства)",
-//                        Toast.LENGTH_LONG
-//                    ).show()
-//                }
-//            } catch (e: Exception) {
-//                Log.e(TAG, "Ошибка поиска: ${e.message}")
-//                Toast.makeText(context, "Ошибка поиска: ${e.message}", Toast.LENGTH_SHORT).show()
-//            } finally {
-//                isSearching = false
-//            }
-//        }
-//    }
-
     fun processScannedData(scannedData: String) {
         if (scannedData.isEmpty()) return
         Log.d("AssetScan", "processScannedData: $scannedData")
@@ -146,41 +96,32 @@ fun AssetsByTypeScreen(
             return
         }
 
+        // Запускаем серверный поиск в корутине
         scope.launch {
             isSearching = true
             try {
-                val (foundAsset, _) = assetViewModel.findAssetByScanValue(scannedValue)
+                val (foundAsset, usedValue, matchType) = assetViewModel.findAssetByScanValue(scannedValue)
 
                 if (foundAsset != null) {
-                    Log.d("AssetScan", "Scanned asset found: assetId=${foundAsset.assetId}, materialId=${foundAsset.materialId}")
-
-                    // 1. Берем значения, заменяя null на пустую строку или дефолт
                     val assetTypeIdStr = foundAsset.assetTypeId?.toString() ?: "0"
                     val assetTypeNameStr = URLEncoder.encode(foundAsset.assetTypeName ?: "Без типа", "UTF-8")
-                    val serialNumberStr = URLEncoder.encode(foundAsset.serialNumber ?: "", "UTF-8")
-                    val inventoryIdStr = URLEncoder.encode(foundAsset.inventoryId ?: "", "UTF-8")
-                    val materialIdStr = URLEncoder.encode(foundAsset.materialId ?: "", "UTF-8")
 
-                    // 2. Формируем маршрут через Query Parameters (безопасно для пустых значений и пробелов)
-                    val route = "assets_list?assetTypeId=$assetTypeIdStr" +
-                            "&assetTypeName=$assetTypeNameStr" +
-                            "&serialNumber=$serialNumberStr" +
-                            "&inventoryId=$inventoryIdStr" +
-                            "&materialId=$materialIdStr"
+                    var route = "assets_list?assetTypeId=$assetTypeIdStr&assetTypeName=$assetTypeNameStr"
 
-                    Log.d("AssetScan", "Navigating to route: $route")
-
-                    // 3. Выполняем навигацию
-                    navController.navigate(route) {
-                        launchSingleTop = true // Предотвращает дублирование экрана в стеке
+                    when (matchType) {
+                        AssetViewModel.ScanMatchType.SERIAL_NUMBER ->
+                            route += "&serialNumber=${URLEncoder.encode(foundAsset.serialNumber ?: "", "UTF-8")}"
+                        AssetViewModel.ScanMatchType.INVENTORY_ID ->
+                            route += "&inventoryId=${URLEncoder.encode(foundAsset.inventoryId ?: "", "UTF-8")}"
+                        AssetViewModel.ScanMatchType.MATERIAL_ID ->
+                            route += "&materialId=${URLEncoder.encode(foundAsset.materialId ?: "", "UTF-8")}"
+                        null -> Unit
                     }
 
+                    Log.d("AssetScan", "Navigating to route: $route")
+                    navController.navigate(route) { launchSingleTop = true }
                 } else {
-                    Toast.makeText(
-                        context,
-                        "Актив '$scannedValue' не найден",
-                        Toast.LENGTH_LONG
-                    ).show()
+                    Toast.makeText(context, "Актив '$scannedValue' не найден", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Log.e("AssetScan", "Ошибка поиска: ${e.message}", e)
@@ -189,6 +130,7 @@ fun AssetsByTypeScreen(
                 isSearching = false
             }
         }
+
     }
 
     LaunchedEffect(Unit) {
@@ -233,7 +175,7 @@ fun AssetsByTypeScreen(
         try {
             assetViewModel.loadAssetsByFilters(
                 page = currentPage,
-                pageSize = 50,
+                pageSize = 100,
                 name = searchQuery.takeIf { it.isNotBlank() },
                 serialNumber = serialNumber.takeIf { it.isNotBlank() },
                 inventoryId = inventoryId.takeIf { it.isNotBlank() },
@@ -320,7 +262,7 @@ fun AssetsByTypeScreen(
             Log.d(TAG, "Retry requested")
             assetViewModel.loadAssetsByFilters(
                 page = currentPage,
-                pageSize = 50,
+                pageSize = 100,
                 name = searchQuery.takeIf { it.isNotBlank() },
                 serialNumber = serialNumber.takeIf { it.isNotBlank() },
                 inventoryId = inventoryId.takeIf { it.isNotBlank() },
@@ -564,55 +506,6 @@ fun AssetsByTypeScreenContent(
                             singleLine = true,
                             shape = RoundedCornerShape(8.dp)
                         )
-
-                        var statusExpanded by remember { mutableStateOf(false) }
-
-                        ExposedDropdownMenuBox(
-                            expanded = statusExpanded,
-                            onExpandedChange = { statusExpanded = it }) {
-                            OutlinedTextField(
-                                value = assetStatus ?: "Любой статус",
-                                onValueChange = {},
-                                readOnly = true,
-                                label = { Text("Статус") },
-                                trailingIcon = {
-                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded)
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .menuAnchor(),
-                                shape = RoundedCornerShape(8.dp)
-                            )
-                            ExposedDropdownMenu(
-                                expanded = statusExpanded,
-                                onDismissRequest = { statusExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Любой статус") },
-                                    onClick = {
-                                        onAssetStatusChange(null)
-                                        statusExpanded = false
-                                    }
-                                )
-                                if (assetStatuses.isEmpty()) {
-                                    DropdownMenuItem(
-                                        text = { Text("Загрузка...") },
-                                        onClick = {},
-                                        enabled = false
-                                    )
-                                } else {
-                                    assetStatuses.forEach { statusDto ->
-                                        DropdownMenuItem(
-                                            text = { Text(statusDto.status) },
-                                            onClick = {
-                                                onAssetStatusChange(statusDto.status)
-                                                statusExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -654,10 +547,7 @@ fun AssetsByTypeScreenContent(
             }
 
             when (uiState) {
-                is AssetViewModel.AssetUiState.Loading -> {
-                    SplashLoadingScreen()
-                }
-
+                is AssetViewModel.AssetUiState.Loading -> { SplashLoadingScreen() }
                 is AssetViewModel.AssetUiState.AssetsLoadedPaginated -> {
                     val assets = uiState.assets
                     if (assets.isEmpty() && uiState.page == 1) {
@@ -681,6 +571,12 @@ fun AssetsByTypeScreenContent(
                             }
                         }
                     } else {
+                        Text(
+                            text = "Найдено: ${assets.size} из ${uiState.total} (стр. ${uiState.page}/${uiState.totalPages})",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp)
+                        )
                         LazyColumn(
                             state = listState,
                             modifier = Modifier.fillMaxSize(),
@@ -692,15 +588,6 @@ fun AssetsByTypeScreenContent(
                             ),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            item {
-                                Text(
-                                    text = "Найдено: ${assets.size} из ${uiState.total} (стр. ${uiState.page}/${uiState.totalPages})",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                )
-                            }
-
                             items(
                                 items = assets,
                                 key = { asset ->
@@ -731,7 +618,6 @@ fun AssetsByTypeScreenContent(
                         }
                     }
                 }
-
                 is AssetViewModel.AssetUiState.Error -> ErrorStateView(
                     message = uiState.message,
                     onRetry = onRetry,
@@ -739,8 +625,7 @@ fun AssetsByTypeScreenContent(
                         .fillMaxSize()
                         .padding(16.dp)
                 )
-
-                else -> {}
+                else -> { SplashLoadingScreen() }
             }
         }
         // Оверлей с индикатором во время поиска
@@ -840,7 +725,7 @@ fun AssetCardModern(asset: AssetResponseDto, onClick: () -> Unit) {
                         )
                     }
                 }
-                if (asset.assetId == null){
+                if (asset.materialId != null){
                     SapBadge()
                 }
             }
@@ -975,7 +860,7 @@ fun AssetsByTypeScreenContentPreview_Loaded() {
                     ),
                     total = 45,
                     page = 1,
-                    pageSize = 50,
+                    pageSize = 100,
                     totalPages = 1,
                     hasNext = true,
                     hasPrevious = true
@@ -1022,7 +907,7 @@ fun AssetsByTypeScreenContentPreview_Empty() {
                     assets = emptyList(),
                     total = 0,
                     page = 1,
-                    pageSize = 50,
+                    pageSize = 100,
                     totalPages = 0,
                     hasNext = false,
                     hasPrevious = false

@@ -33,7 +33,7 @@ import javax.inject.Inject
 class MainViewModel @Inject constructor(
     private val localStorage: LocalStorage,
     private val apiService: GPSApiService,
-    private val notificationSseManager: NotificationSseManager,
+//    private val notificationSseManager: NotificationSseManager,
     private val networkMonitor: NetworkMonitor,
     private val sessionManager: SessionManager
 ) : ViewModel() {
@@ -304,7 +304,7 @@ class MainViewModel @Inject constructor(
                     currentLogin = username
 
                     _uiState.value = UiState.LoggedIn(gpsToken)
-                    startGlobalNotifications()
+//                    startGlobalNotifications()
                 } else {
 //                     Ошибка авторизации - показываем сообщение от сервера
                     _uiState.value = UiState.Error(gpsResponse.msg.ifEmpty { "Ошибка авторизации" })
@@ -356,23 +356,23 @@ class MainViewModel @Inject constructor(
         localStorage.clearToken()
         currentToken = null
         _uiState.value = UiState.SessionExpired
-        stopGlobalNotifications()
+//        stopGlobalNotifications()
         Log.e("MainViewModel", "logout: Токен очищен. Выполняется автовыход.")
     }
 
     // Вызываем этот метод при успешной авторизации
-    fun startGlobalNotifications() {
-        viewModelScope.launch {
-            // Создаем канал уведомлений
-            notificationSseManager.startListening()
-            Log.d("MainViewModel", "Глобальный SSE менеджер запущен")
-        }
-    }
-
-    // Вызываем этот метод при выходе из системы (logout)
-    fun stopGlobalNotifications() {
-        notificationSseManager.stopListening()
-    }
+//    fun startGlobalNotifications() {
+//        viewModelScope.launch {
+//            // Создаем канал уведомлений
+////            notificationSseManager.startListening()
+//            Log.d("MainViewModel", "Глобальный SSE менеджер запущен")
+//        }
+//    }
+//
+//    // Вызываем этот метод при выходе из системы (logout)
+//    fun stopGlobalNotifications() {
+////        notificationSseManager.stopListening()
+//    }
 
     fun setPendingHighlightId(id: Int?) {
         _pendingHighlightNotificationId.value = id
@@ -380,7 +380,7 @@ class MainViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
-        stopGlobalNotifications()
+//        stopGlobalNotifications()
     }
 
     fun setCameraScanEnabled(enabled: Boolean) {

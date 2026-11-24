@@ -32,8 +32,8 @@ fun SplashLoadingScreen(
 ) {
     Box(
         modifier = Modifier
-            .fillMaxSize(),
-//            .background(MaterialTheme.colorScheme.background),
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -90,8 +90,8 @@ private fun AnimatedLogo() {
 
     Box(
         modifier = Modifier
-            .size(120.dp)
-            .rotate(rotation)
+//            .size(120.dp)
+//            .rotate(rotation)
             .scale(scale),
         contentAlignment = Alignment.Center
     ) {
