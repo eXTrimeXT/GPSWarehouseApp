@@ -27,33 +27,33 @@ fun AppIconProd() {
     )
 }
 
-//@Composable
-//fun AppIconTest() {
-//    Image(
-//        painter = painterResource(id = R.mipmap.ic_background_test_full_size),
-////        painter = painterResource(id = R.drawable.cow_flex_dev),
-//        contentDescription = "Иконка приложения",
-//    )
-//}
-
-@SuppressLint("SdCardPath")
 @Composable
-fun AppIconTest(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val gif = File(context.filesDir, "cow_flex_dev_cutter.gif")
-    val mediaUri = FileProvider.getUriForFile(
-        LocalContext.current,
-        "${context.packageName}.provider",
-        gif
-    )
+fun AppIconTest() {
     Image(
-        modifier = Modifier.size(800.dp, 240.dp).padding(10.dp),
-        painter = rememberDrawablePainter(
-            drawable = createAnimatedImageDrawableFromImageDecoder(context, mediaUri)
-        ),
-        contentDescription = "animated gif"
+        painter = painterResource(id = R.mipmap.ic_background_test_full_size),
+//        painter = painterResource(id = R.drawable.cow_flex_dev),
+        contentDescription = "Иконка приложения",
     )
 }
+
+//@SuppressLint("SdCardPath")
+//@Composable
+//fun AppIconTest(modifier: Modifier = Modifier) {
+//    val context = LocalContext.current
+//    val gif = File(context.filesDir, "cow_flex_dev_cutter.gif")
+//    val mediaUri = FileProvider.getUriForFile(
+//        LocalContext.current,
+//        "${context.packageName}.provider",
+//        gif
+//    )
+//    Image(
+//        modifier = Modifier.size(800.dp, 240.dp).padding(10.dp),
+//        painter = rememberDrawablePainter(
+//            drawable = createAnimatedImageDrawableFromImageDecoder(context, mediaUri)
+//        ),
+//        contentDescription = "animated gif"
+//    )
+//}
 
 
 private fun createAnimatedImageDrawableFromImageDecoder(context: Context, uri: Uri): AnimatedImageDrawable {
