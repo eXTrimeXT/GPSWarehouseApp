@@ -27,9 +27,9 @@ android {
         applicationId = "com.gps.warehouse"
         minSdk = 30
         targetSdk = 36
-        versionCode = 23        // 23 (текущая на сервере) -> 24 // - Обновление приложения происходит по этому параметру!
-        versionName = "1.2.2"   // TEST v1.2.2 (текущая) -> v1.2.3
-//        versionName = "1.0.8"   // PROD v1.0.8 (текущая) -> v1.0.9
+        versionCode = 25        // 24 (текущая на сервере) -> 25 // - Обновление приложения происходит по этому параметру!
+//        versionName = "1.2.4"   // TEST v1.2.4 (текущая) -> v1.2.5
+        versionName = "1.1.0"   // PROD v1.0.9 (текущая) -> v1.1.0
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -81,6 +81,9 @@ dependencies {
     // Подключение локальной библиотеки для Сканера Honeywell
     implementation(files("libs/DataCollection.aar"))
 
+    // Accompanist for GIF
+    implementation(files("libs/accompanist-drawablepainter-0.16.0.aar"))
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
@@ -111,8 +114,8 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.androidx.hilt.navigation.compose)
     // Для Превью
-//    androidTestImplementation(libs.hilt.android.testing)
-//    ksp(libs.hilt.compiler)
+    // androidTestImplementation(libs.hilt.android.testing)
+    // ksp(libs.hilt.compiler)
 
     // Retrofit + OkHttp
     implementation(libs.retrofit2.retrofit)
@@ -141,4 +144,8 @@ dependencies {
 
     // Lifecycle (для HandleScanResult)
     implementation(libs.androidx.lifecycle.runtime.compose)
+
+    // GIF через Coil
+//    implementation(libs.coil.compose)
+//    implementation(libs.coil.gif)   // ← coil-gif v2.7.0 (тот же, что coil-compose)
 }
