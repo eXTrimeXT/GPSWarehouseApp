@@ -127,7 +127,7 @@ interface AssetApiService {
     suspend fun getInventorizationSessions(
         @Header("Authorization") token: String,
         @Query("skip") skip: Int = 0,
-        @Query("limit") limit: Int = 100
+        @Query("limit") limit: Int = 1000
     ): List<InventorizationSessionDto>
 
     @GET("inventorization/sessions/{session_id}/items/")
