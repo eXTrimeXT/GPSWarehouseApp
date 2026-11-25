@@ -1673,7 +1673,7 @@ fun EditableInfoSection(
         OutlinedTextField(
             value = editState.osName ?: "",
             onValueChange = { onEditStateChange(editState.copy(osName = it.take(100))) },
-            label = { Text("ОС") },
+            label = { Text("Операционная система") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
